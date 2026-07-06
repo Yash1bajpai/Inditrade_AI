@@ -121,6 +121,13 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             task_type="CAUSAL_LM"
         )
         model = get_peft_model(model, lora_config)
+        
+        # Enforce float16 across all trainable LoRA params and model config for Tesla T4 GPU
+        model.config.torch_dtype = torch.float16
+        for name, param in model.named_parameters():
+            if param.dtype == torch.bfloat16 or "bfloat16" in str(param.dtype):
+                param.data = param.data.to(torch.float16)
+                
         model.print_trainable_parameters()
         
         try:
