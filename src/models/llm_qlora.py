@@ -133,14 +133,23 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             return [self.format_prompt({"question": q, "answer": a}) for q, a in zip(batch["question"], batch["answer"])]
             
         logger.info("Starting SFTTrainer QLoRA fine-tuning loop...")
-        trainer = SFTTrainer(
-            model=model,
-            args=training_args,
-            train_dataset=dataset,
-            tokenizer=tokenizer,
-            formatting_func=format_batch,
-            max_seq_length=512
-        )
+        import inspect
+        sft_params = inspect.signature(SFTTrainer.__init__).parameters
+        sft_kwargs = {
+            "model": model,
+            "args": training_args,
+            "train_dataset": dataset,
+            "formatting_func": format_batch,
+            "max_seq_length": 512
+        }
+        if "processing_class" in sft_params:
+            sft_kwargs["processing_class"] = tokenizer
+        elif "tokenizer" in sft_params:
+            sft_kwargs["tokenizer"] = tokenizer
+        else:
+            sft_kwargs["processing_class"] = tokenizer
+            
+        trainer = SFTTrainer(**sft_kwargs)
         
         trainer.train()
         
