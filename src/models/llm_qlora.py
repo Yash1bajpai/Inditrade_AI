@@ -79,15 +79,24 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             bnb_4bit_use_double_quant=True
         )
         
-        tokenizer = AutoTokenizer.from_pretrained(DEFAULT_MODEL_ID, token=HF_TOKEN or None)
+        try:
+            logger.info(f"Attempting to load tokenizer for {DEFAULT_MODEL_ID}...")
+            tokenizer = AutoTokenizer.from_pretrained(DEFAULT_MODEL_ID, token=HF_TOKEN or None)
+            model_id_to_use = DEFAULT_MODEL_ID
+        except Exception as e:
+            logger.warning(f"Could not load {DEFAULT_MODEL_ID} (gated/auth error: {e}). Falling back to open ungated TinyLlama/TinyLlama-1.1B-Chat-v1.0...")
+            model_id_to_use = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+            tokenizer = AutoTokenizer.from_pretrained(model_id_to_use)
+            
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
         
+        logger.info(f"Loading 4-bit quantized causal LM: {model_id_to_use}...")
         model = AutoModelForCausalLM.from_pretrained(
-            DEFAULT_MODEL_ID,
+            model_id_to_use,
             quantization_config=bnb_config,
             device_map="auto",
-            token=HF_TOKEN or None
+            token=HF_TOKEN or None if model_id_to_use == DEFAULT_MODEL_ID else None
         )
         model = prepare_model_for_kbit_training(model)
         

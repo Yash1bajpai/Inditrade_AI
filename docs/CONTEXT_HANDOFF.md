@@ -243,8 +243,8 @@
 **Key components:** Shell script checking GPU status (`nvidia-smi`), installing PEFT/TRL stack, verifying QA dataset, and invoking `TradeLLMTrainer`.
 **Design decisions:** Explicitly runs for 3 epochs and automatically pushes the resulting adapter to HuggingFace Hub under the user's account (`yashbajpai/inditrade-llama-3.2-1b`).
 **Interactions:** Executed via terminal/CLI on GPU studio, calls `src/models/llm_qlora.py`.
-**Gotchas:** Requires setting `HF_TOKEN` in `.env` or environment before running so push-to-hub succeeds.
-**Changed this session:** Initial creation.
+**Gotchas:** Requires `HF_TOKEN` in `.env` if pushing to HuggingFace Hub or loading gated models like Llama-3.2.
+**Changed this session:** Initial creation; added automatic try-except fallback to ungated open-source `TinyLlama/TinyLlama-1.1B-Chat-v1.0` if gated HuggingFace token authentication fails on cloud GPU instances.
 
 ## camber_jobs/job_network.sh
 
