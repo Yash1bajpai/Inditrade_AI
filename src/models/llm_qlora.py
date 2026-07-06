@@ -101,10 +101,11 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
         
-        logger.info(f"Loading 4-bit quantized causal LM: {model_id_to_use}...")
+        logger.info(f"Loading 4-bit quantized causal LM: {model_id_to_use} (enforcing float16 for T4 GPU compatibility)...")
         model = AutoModelForCausalLM.from_pretrained(
             model_id_to_use,
             quantization_config=bnb_config,
+            torch_dtype=torch.float16,  # Required for Tesla T4 (Turing arch does not support bfloat16 grad scaling)
             device_map="auto",
             token=HF_TOKEN or None if model_id_to_use == DEFAULT_MODEL_ID else None
         )
@@ -137,6 +138,7 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             "gradient_accumulation_steps": 4,
             "learning_rate": 2e-4,
             "fp16": True,
+            "bf16": False,  # Explicitly disable bf16 for Tesla T4 GPU compatibility
             "logging_steps": 10,
             "save_strategy": "epoch",
             "optim": "paged_adamw_8bit",
