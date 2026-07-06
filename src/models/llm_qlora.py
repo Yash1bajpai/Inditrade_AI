@@ -115,34 +115,38 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
         try:
             from trl import SFTConfig
             config_class = SFTConfig
-            extra_config_args = {"max_seq_length": 512}
         except ImportError:
             config_class = TrainingArguments
-            extra_config_args = {}
             
-        training_args = config_class(
-            output_dir=str(self.output_dir),
-            num_train_epochs=num_train_epochs,
-            per_device_train_batch_size=2,
-            gradient_accumulation_steps=4,
-            learning_rate=2e-4,
-            fp16=True,
-            logging_steps=10,
-            save_strategy="epoch",
-            optim="paged_adamw_8bit",
-            push_to_hub=push_to_hub and bool(HF_TOKEN),
-            hub_model_id=self.hub_model_id if push_to_hub and bool(HF_TOKEN) else None,
-            hub_token=HF_TOKEN or None,
-            report_to="none",
-            **extra_config_args
-        )
+        import inspect
+        config_params = inspect.signature(config_class.__init__).parameters
+        config_kwargs = {
+            "output_dir": str(self.output_dir),
+            "num_train_epochs": num_train_epochs,
+            "per_device_train_batch_size": 2,
+            "gradient_accumulation_steps": 4,
+            "learning_rate": 2e-4,
+            "fp16": True,
+            "logging_steps": 10,
+            "save_strategy": "epoch",
+            "optim": "paged_adamw_8bit",
+            "push_to_hub": push_to_hub and bool(HF_TOKEN),
+            "hub_model_id": self.hub_model_id if push_to_hub and bool(HF_TOKEN) else None,
+            "hub_token": HF_TOKEN or None,
+            "report_to": "none"
+        }
+        if "max_length" in config_params:
+            config_kwargs["max_length"] = 512
+        elif "max_seq_length" in config_params:
+            config_kwargs["max_seq_length"] = 512
+            
+        training_args = config_class(**config_kwargs)
         
         # Format dataset
         def format_batch(batch):
             return [self.format_prompt({"question": q, "answer": a}) for q, a in zip(batch["question"], batch["answer"])]
             
         logger.info("Starting SFTTrainer QLoRA fine-tuning loop...")
-        import inspect
         sft_params = inspect.signature(SFTTrainer.__init__).parameters
         sft_kwargs = {
             "model": model,
@@ -151,10 +155,10 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
         }
         if "formatting_func" in sft_params:
             sft_kwargs["formatting_func"] = format_batch
-        if "max_seq_length" in sft_params and not extra_config_args:
-            sft_kwargs["max_seq_length"] = 512
-        elif "max_length" in sft_params and not extra_config_args:
+        if "max_length" in sft_params and "max_length" not in config_kwargs and "max_seq_length" not in config_kwargs:
             sft_kwargs["max_length"] = 512
+        elif "max_seq_length" in sft_params and "max_length" not in config_kwargs and "max_seq_length" not in config_kwargs:
+            sft_kwargs["max_seq_length"] = 512
             
         if "processing_class" in sft_params:
             sft_kwargs["processing_class"] = tokenizer
