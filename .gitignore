@@ -1,0 +1,38 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+venv/
+env/
+*.venv
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Raw & Processed Data (Do not commit large CSV/Parquet files to Git!)
+data/raw/*
+!data/raw/**/.gitkeep
+data/processed/*
+!data/processed/**/.gitkeep
+
+# Trained Models & Embeddings (Too large for Git, stored in HF Hub / Cloud)
+models/*.pkl
+models/*.onnx
+models/*.npy
+models/*.bin
+models/*.pt
+models/llm_output/
+!models/.gitkeep
+
+# Logs & Temporary Files
+*.log
+scratch/
+brain/
+.system_generated/
+.gemini/
+.vscode/
+*.egg-info/
+dist/
+build/

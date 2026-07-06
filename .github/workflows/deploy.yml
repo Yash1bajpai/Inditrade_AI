@@ -1,0 +1,44 @@
+name: IndiTrade AI CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  validate-codebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify Code Structure & Imports
+        run: |
+          python -c "
+          import src.features
+          import src.models
+          import src.backend.main
+          print('[✓] All core python packages and modules imported cleanly without syntax errors!')
+          "
+
+      - name: Run Synthetic Baseline Data Checks
+        run: |
+          python -c "
+          from src.features.trade_features import TradeFeatureEngineer
+          engineer = TradeFeatureEngineer()
+          df = engineer.load_or_generate_synthetic_trade_data()
+          assert len(df) > 0, 'Synthetic trade dataset generation failed!'
+          print(f'[✓] Verified baseline trade dataset generation ({len(df)} rows generated).')
+          "
