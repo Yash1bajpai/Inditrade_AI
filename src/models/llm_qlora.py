@@ -69,7 +69,12 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             raise FileNotFoundError(f"Missing {self.dataset_path}")
             
         logger.info(f"Loading QA dataset from {self.dataset_path}...")
-        dataset = load_dataset("json", data_files=str(self.dataset_path), split="train")
+        raw_dataset = load_dataset("json", data_files=str(self.dataset_path), split="train")
+        
+        def add_text_col(ex):
+            return {"text": self.format_prompt(ex)}
+            
+        dataset = raw_dataset.map(add_text_col)
         
         logger.info(f"Initializing 4-bit Quantization Config for {DEFAULT_MODEL_ID}...")
         bnb_config = BitsAndBytesConfig(
@@ -87,6 +92,8 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             logger.warning(f"Could not load {DEFAULT_MODEL_ID} (gated/auth error: {e}). Falling back to open ungated TinyLlama/TinyLlama-1.1B-Chat-v1.0...")
             model_id_to_use = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
             tokenizer = AutoTokenizer.from_pretrained(model_id_to_use)
+            if "tinyllama" in model_id_to_use.lower():
+                self.hub_model_id = "yashbajpai/inditrade-tinyllama-1.1b"
             
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
@@ -141,10 +148,6 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             config_kwargs["max_seq_length"] = 512
             
         training_args = config_class(**config_kwargs)
-        
-        # Format dataset
-        def format_batch(batch):
-            return [self.format_prompt({"question": q, "answer": a}) for q, a in zip(batch["question"], batch["answer"])]
             
         logger.info("Starting SFTTrainer QLoRA fine-tuning loop...")
         sft_params = inspect.signature(SFTTrainer.__init__).parameters
@@ -152,9 +155,8 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             "model": model,
             "args": training_args,
             "train_dataset": dataset,
+            "dataset_text_field": "text",
         }
-        if "formatting_func" in sft_params:
-            sft_kwargs["formatting_func"] = format_batch
         if "max_length" in sft_params and "max_length" not in config_kwargs and "max_seq_length" not in config_kwargs:
             sft_kwargs["max_length"] = 512
         elif "max_seq_length" in sft_params and "max_length" not in config_kwargs and "max_seq_length" not in config_kwargs:
