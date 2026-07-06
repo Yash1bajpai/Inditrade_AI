@@ -19,7 +19,7 @@ networkx>=3.2.0
 node2vec>=0.4.6
 
 # Deep Learning, LLM Fine-tuning & RAG (For Camber / Lightning GPU & Inference)
-camber>=0.1.0
+# camber>=0.1.0  # Optional CLI for Camber jobs; using Lightning Studio directly
 torch>=2.1.0
 transformers>=4.38.0
 peft>=0.9.0
