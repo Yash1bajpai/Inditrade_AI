@@ -156,17 +156,20 @@ class PIBScraper:
             except Exception as e:
                 logger.error(f"Failed fetching article {item['url']}: {e}")
 
-        # 2. Add seed press releases (Guarantees robust RAG corpus without scraper fragility)
-        logger.info("Integrating structured seed PIB press releases into corpus...")
-        for seed in SEED_PIB_RELEASES:
-            articles.append({
-                "id": seed["id"],
-                "title": seed["title"],
-                "date": seed["date"],
-                "ministry": seed["ministry"],
-                "source": "PIB Official Press Release",
-                "content": self.clean_article_text(seed["content"])
-            })
+        # 2. Add seed press releases ONLY if live web scraping failed or returned 0 articles
+        if not articles:
+            logger.warning("WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED (Live web scraping returned 0 articles)")
+            print("\n[WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED]\n")
+            logger.info("Integrating structured seed PIB press releases into corpus as fallback...")
+            for seed in SEED_PIB_RELEASES:
+                articles.append({
+                    "id": seed["id"],
+                    "title": seed["title"],
+                    "date": seed["date"],
+                    "ministry": seed["ministry"],
+                    "source": "PIB Official Press Release (Seed Fallback)",
+                    "content": self.clean_article_text(seed["content"])
+                })
 
         # Save to JSONL
         output_file = self.processed_dir / "pib_press_releases.jsonl"

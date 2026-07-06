@@ -92,7 +92,9 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             tokenizer = AutoTokenizer.from_pretrained(DEFAULT_MODEL_ID, token=HF_TOKEN or None)
             model_id_to_use = DEFAULT_MODEL_ID
         except Exception as e:
-            logger.warning(f"Could not load {DEFAULT_MODEL_ID} (gated/auth error: {e}). Falling back to open ungated TinyLlama/TinyLlama-1.1B-Chat-v1.0...")
+            msg = f"VISIBLE ERROR/WARNING: FALLING BACK TO TINYLLAMA! Could not load primary model {DEFAULT_MODEL_ID} due to gated/auth error: {e}. Training will proceed with fallback model: TinyLlama/TinyLlama-1.1B-Chat-v1.0!"
+            print(f"\n{'='*80}\n{msg}\n{'='*80}\n")
+            logger.error(msg)
             model_id_to_use = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
             tokenizer = AutoTokenizer.from_pretrained(model_id_to_use)
             if "tinyllama" in model_id_to_use.lower():

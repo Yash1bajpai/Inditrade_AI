@@ -77,7 +77,11 @@ class RBIDownloader:
                     return annual_df
             except Exception as e:
                 logger.error(f"yfinance fetch failed: {e}. Switching to empirical macro fallback.")
+        else:
+            logger.warning("yfinance not installed. Switching to empirical macro fallback.")
                 
+        logger.warning("WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED (yfinance not available or fetch failed)")
+        print("\n[WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED]\n")
         return self._generate_empirical_macro_fallback(start_year, end_year)
 
     def _generate_empirical_macro_fallback(self, start_year: int, end_year: int) -> pd.DataFrame:
@@ -85,7 +89,7 @@ class RBIDownloader:
         Generates realistic historical Indian macroeconomic indicators (2005-2024)
         based on RBI DBIE published historical benchmarks.
         """
-        logger.info("Generating empirical RBI historical benchmarks (2005-2024)...")
+        logger.warning("WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED (Generating empirical RBI benchmarks 2005-2024)...")
         years = list(range(start_year, end_year + 1))
         n = len(years)
         

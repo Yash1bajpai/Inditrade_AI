@@ -155,8 +155,10 @@ class DGFTExtractor:
                         "content": clean_txt
                     })
                     
-        # 2. If no local PDFs (or to supplement), load seed policy notifications
-        if not extracted_docs or len(extracted_docs) < 5:
+        # 2. If no local PDFs extracted, load seed policy notifications as loud fallback
+        if not extracted_docs:
+            logger.warning("WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED (No local PDF files found or extraction failed)")
+            print("\n[WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED]\n")
             logger.info("Loading seed DGFT policy notifications for RAG & Q&A corpus...")
             for notif in SAMPLE_DGFT_NOTIFICATIONS:
                 extracted_docs.append({
@@ -164,7 +166,7 @@ class DGFTExtractor:
                     "title": notif["title"],
                     "date": notif["date"],
                     "category": notif["category"],
-                    "source": "DGFT Official Gazette",
+                    "source": "DGFT Official Gazette (Seed Fallback)",
                     "content": self.clean_policy_text(notif["text_content"])
                 })
                 

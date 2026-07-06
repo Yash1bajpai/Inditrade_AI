@@ -133,20 +133,46 @@ JSON Output:"""
                 logger.error(f"Groq API generation failed: {e}")
                 
         # Mock/Fallback generation if API key is missing or call fails
-        logger.info("Using fallback extraction for Q&A pair...")
+        logger.warning("WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED (Groq API call failed or key missing)")
+        print("\n[WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED]\n")
         first_sentence = text_chunk.split(".")[0] + "."
         return [{
             "question": f"What does the policy state regarding: {first_sentence[:50]}...?",
             "answer": text_chunk
         }]
 
-    def run_pipeline(self, chunks: List[str] = SAMPLE_POLICY_CHUNKS, output_path: str = "data/processed/policy_qa_dataset.jsonl") -> str:
+    def run_pipeline(self, chunks: Optional[List[str]] = None, output_path: str = "data/processed/policy_qa_dataset.jsonl") -> str:
         """
         Processes all chunks, generates Q&A pairs, applies rate limiting, and saves to JSONL.
         """
         out_file = Path(output_path)
         out_file.parent.mkdir(parents=True, exist_ok=True)
         
+        if chunks is None:
+            # Try to load real extracted chunks from processed directory FIRST
+            dgft_file = Path("data/processed/dgft_policy_chunks.jsonl")
+            pib_file = Path("data/processed/pib_press_releases.jsonl")
+            real_chunks = []
+            if dgft_file.exists():
+                with open(dgft_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            real_chunks.append(json.loads(line).get("content", ""))
+            if pib_file.exists():
+                with open(pib_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            real_chunks.append(json.loads(line).get("content", ""))
+            
+            real_chunks = [c for c in real_chunks if c]
+            if real_chunks:
+                logger.info(f"Loaded {len(real_chunks)} real text chunks from processed data.")
+                chunks = real_chunks
+            else:
+                logger.warning("WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED (No processed policy/press release chunks found)")
+                print("\n[WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED]\n")
+                chunks = SAMPLE_POLICY_CHUNKS
+                
         all_qa_pairs = []
         logger.info(f"Starting Synthetic Q&A Generation on {len(chunks)} text chunks...")
         

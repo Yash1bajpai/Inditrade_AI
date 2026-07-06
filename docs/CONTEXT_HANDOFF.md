@@ -192,9 +192,10 @@
 **Purpose:** Trains the TradeFlow Forecast regression model (Module A) using Optuna (150 trials) and TimeSeriesSplit cross-validation, exporting to both `.pkl` and low-memory `.onnx`.
 **Key components:** `TradeXGBoostTrainer` class with methods `load_data`, `optimize_hyperparameters`, and `train_and_export`.
 **Design decisions:** Enforced `TimeSeriesSplit(n_splits=5)` in Optuna objective to prevent future data leakage into training folds. Capped `n_estimators` at 600 and integrated `skl2onnx` / `onnxmltools` conversion so the final model consumes <50MB RAM when loaded in Render's 512MB free tier API.
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Loads real UN Comtrade trade data from `data/processed/trade_features.parquet` if real Parquet exists; otherwise loudly flags `WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED` and uses synthetic Indian trade baseline).
 **Interactions:** Reads `trade_features.parquet`, outputs `models/xgboost_trade.pkl`, `models/xgboost_trade.onnx`, and `models/xgboost_best_params.json`.
 **Gotchas:** ONNX conversion for XGBoost requires registering a custom shape calculator (`calculate_xgboost_regressor_output_shapes`); handled via try-except with clean fallback to pickle.
-**Changed this session:** Initial creation.
+**Changed this session:** Initial creation; added explicit Data provenance verification logging.
 
 ## src/models/anomaly_train.py
 
@@ -202,9 +203,10 @@
 **Purpose:** Trains an unsupervised Isolation Forest ensemble (Module D) on trade features to detect top 5% most anomalous historical transactions (e.g., Russian oil import surges).
 **Key components:** `TradeAnomalyTrainer` class with `train_and_save` method.
 **Design decisions:** Bundled `StandardScaler` and `IsolationForest` together into a single dictionary artifact (`isolation_forest.pkl`) so inference API applies exact same feature scaling without re-calculating historical distributions.
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Trained on `trade_features.parquet`; verified whether underlying data originated from real Comtrade/RBI Parquet or loud synthetic fallback).
 **Interactions:** Reads `trade_features.parquet`, outputs `models/isolation_forest.pkl`.
 **Gotchas:** Isolation Forest requires scaled or standardized input features when combining large dollar values (`trade_value_usd`) with small percentages (`growth_rate`).
-**Changed this session:** Initial creation.
+**Changed this session:** Initial creation; added explicit Data provenance verification logging.
 
 ## src/models/llm_qlora.py
 
@@ -212,9 +214,10 @@
 **Purpose:** Fine-tunes Meta Llama-3.2-1B (Module B) on the Indian trade policy Q&A dataset (`policy_qa_dataset.jsonl`) using 4-bit QLoRA and pushes the adapted weights to HuggingFace Hub (`yashbajpai/inditrade-llama-3.2-1b`).
 **Key components:** `TradeLLMTrainer` class with methods `format_prompt` and `train_and_push`.
 **Design decisions:** Used 4-bit NormalFloat (`nf4`) quantization via `bitsandbytes` and targeted all 7 linear projection layers (`q_proj` through `down_proj`) with LoRA rank `r=16` and alpha `32`. This keeps VRAM footprint under 6GB, allowing fine-tuning on any standard cloud T4/A10G GPU while maintaining high domain accuracy.
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Trained on `policy_qa_dataset.jsonl` generated from real DGFT/PIB policy chunks if available; otherwise loudly flags synthetic fallback. When falling back from Meta Llama-3.2-1B to TinyLlama due to gated auth errors, explicitly throws a visible error/log to clearly indicate which model actually got trained).
 **Interactions:** Reads `data/processed/policy_qa_dataset.jsonl` and `HF_TOKEN` from `.env`, outputs local adapter to `models/llm_output/final_adapter` and pushes to HF Hub.
 **Gotchas:** Llama-3 requires explicit `<|begin_of_text|>` and `<|start_header_id|>` prompt formatting tokens; handled cleanly in `format_prompt`.
-**Changed this session:** Initial creation.
+**Changed this session:** Initial creation; added explicit Data provenance verification logging and visible fallback error alerts.
 
 ## src/models/network_embed.py
 
@@ -222,9 +225,10 @@
 **Purpose:** Precomputes graph topology metrics (PageRank, Betweenness centrality) and 64-dimensional Node2Vec random walk embeddings (Module C) for India's trade network.
 **Key components:** `TradeNetworkEmbedder` class with `build_graph_and_embed` method.
 **Design decisions:** Precomputed all heavy graph analytics statically and exported to Parquet (`graph_edges.parquet`, `graph_nodes.parquet`) and Numpy (`node2vec_embeddings.npy`) instead of calculating graph algorithms dynamically in the API. This ensures the backend `/network` endpoint responds in <100ms on Render's 512MB RAM free tier.
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Graph nodes and edges constructed from `trade_features.parquet`, verifying whether underlying data originated from real Comtrade downloads or loud synthetic fallback).
 **Interactions:** Reads `trade_features.parquet`, outputs `graph_edges.parquet`, `graph_nodes.parquet`, and `models/node2vec_embeddings.npy`.
 **Gotchas:** Node2Vec random walks can be CPU-intensive; configured `walk_length=20` and `num_walks=100` for optimal balance between topological fidelity and runtime.
-**Changed this session:** Initial creation.
+**Changed this session:** Initial creation; added explicit Data provenance verification logging.
 
 ## camber_jobs/job_xgboost.sh
 

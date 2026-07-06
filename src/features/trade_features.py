@@ -46,7 +46,9 @@ class TradeFeatureEngineer:
             logger.info(f"Loading real UN Comtrade data from {parquet_files[0]}...")
             return pd.read_parquet(parquet_files[0])
             
-        logger.warning("No raw Comtrade Parquet found. Generating realistic synthetic Indian trade baseline (2005-2024)...")
+        logger.warning("WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED (Raw Comtrade Parquet file missing in data/raw/un_comtrade)")
+        print("\n[WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED]\n")
+        logger.info("Generating realistic synthetic Indian trade baseline (2005-2024)...")
         years = list(range(2005, 2025))
         partners = ["USA", "UAE", "China", "Russia", "Saudi Arabia", "Singapore", "Germany", 
                     "UK", "Australia", "Japan", "South Korea", "France", "Netherlands", 
@@ -103,6 +105,8 @@ class TradeFeatureEngineer:
             logger.info(f"Loading RBI macro data from {parquet_files[0]}...")
             return pd.read_parquet(parquet_files[0])
             
+        logger.warning("WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED (Raw RBI Parquet file missing in data/raw/rbi)")
+        print("\n[WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED]\n")
         logger.info("Generating baseline RBI macro indicators for merge...")
         years = list(range(2005, 2025))
         n = len(years)
