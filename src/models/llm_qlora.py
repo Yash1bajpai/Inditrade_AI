@@ -72,7 +72,10 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
         raw_dataset = load_dataset("json", data_files=str(self.dataset_path), split="train")
         
         def add_text_col(ex):
-            return {"text": self.format_prompt(ex)}
+            if isinstance(ex.get("question"), list):
+                return {"text": [self.format_prompt({"question": q, "answer": a}) for q, a in zip(ex["question"], ex["answer"])]}
+            else:
+                return {"text": self.format_prompt(ex)}
             
         dataset = raw_dataset.map(add_text_col)
         
@@ -147,6 +150,9 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
         elif "max_seq_length" in config_params:
             config_kwargs["max_seq_length"] = 512
             
+        if "dataset_text_field" in config_params:
+            config_kwargs["dataset_text_field"] = "text"
+            
         training_args = config_class(**config_kwargs)
             
         logger.info("Starting SFTTrainer QLoRA fine-tuning loop...")
@@ -155,8 +161,10 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             "model": model,
             "args": training_args,
             "train_dataset": dataset,
-            "dataset_text_field": "text",
         }
+        if "dataset_text_field" in sft_params and "dataset_text_field" not in config_kwargs:
+            sft_kwargs["dataset_text_field"] = "text"
+            
         if "max_length" in sft_params and "max_length" not in config_kwargs and "max_seq_length" not in config_kwargs:
             sft_kwargs["max_length"] = 512
         elif "max_seq_length" in sft_params and "max_length" not in config_kwargs and "max_seq_length" not in config_kwargs:
