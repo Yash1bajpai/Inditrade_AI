@@ -36,6 +36,7 @@
 | docker-compose.yml | 2026-07-06 | 1 |
 | .github/workflows/deploy.yml | 2026-07-06 | 1 |
 | README.md | 2026-07-06 | 1 |
+| LICENSE | 2026-07-06 | 1 |
 
 ## docs/CONTEXT_HANDOFF.md
 
@@ -384,6 +385,17 @@
 **Interactions:** Root documentation read by recruiters and developers on GitHub.
 **Gotchas:** None.
 **Changed this session:** Initial creation completing the entire local codebase foundation!
+
+## LICENSE
+
+### 2026-07-06 — Proprietary All Rights Reserved copyright license
+**Purpose:** Enforces strict legal protection over the IndiTrade AI idea, architecture, algorithms, and source code to prevent unauthorized copying or commercial theft.
+**Key components:** Proprietary copyright notice under Yash Bajpai granting view-only permission strictly for recruiter evaluation and academic assessment.
+**Design decisions:** Replaced standard MIT open-source license with "All Rights Reserved" to safeguard the creator's intellectual property while maintaining public visibility for job applications.
+**Interactions:** Referenced by `README.md` and GitHub repository metadata.
+**Gotchas:** None.
+**Changed this session:** Initial creation.
+
 
 
 

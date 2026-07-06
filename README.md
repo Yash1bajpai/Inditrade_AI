@@ -5,7 +5,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-00a393.svg)](https://fastapi.tiangolo.com/)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-Low_RAM-orange.svg)](https://onnxruntime.ai/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Copyright: All Rights Reserved](https://img.shields.io/badge/Copyright-All_Rights_Reserved-red.svg)](file:///c:/Yash/IndiTrade_AI/LICENSE)
 
 ---
 
@@ -132,6 +132,11 @@ bash camber_jobs/job_anomaly.sh   # Isolation Forest Anomaly Detection
 
 ## 📜 Complete Context & Maintenance Log
 This codebase strictly adheres to an immediate session-handoff logging protocol. Every file creation, architectural modification, and design decision is logged in chronological order in [docs/CONTEXT_HANDOFF.md](file:///c:/Yash/IndiTrade_AI/docs/CONTEXT_HANDOFF.md).
+
+---
+## ⚖️ Copyright & Intellectual Property Notice
+**Copyright (c) 2026 [Yash Bajpai](https://github.com/Yash1bajpai). All Rights Reserved.**  
+This repository and its underlying architecture, algorithms, and models are proprietary. Viewing is permitted solely for recruiter evaluation and academic assessment. Unauthorized copying, modification, or commercial exploitation is strictly prohibited under applicable intellectual property laws. See the [LICENSE](file:///c:/Yash/IndiTrade_AI/LICENSE) file for details.
 
 ---
 **Created by [Yash Bajpai](https://github.com/Yash1bajpai) | AI/ML Engineer (NLP + Edge AI)**  
