@@ -140,9 +140,7 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             "logging_steps": 10,
             "save_strategy": "epoch",
             "optim": "paged_adamw_8bit",
-            "push_to_hub": push_to_hub and bool(HF_TOKEN),
-            "hub_model_id": self.hub_model_id if push_to_hub and bool(HF_TOKEN) else None,
-            "hub_token": HF_TOKEN or None,
+            "push_to_hub": False,  # Disabled during training to prevent 403 Forbidden crash on read-only tokens
             "report_to": "none"
         }
         if "max_length" in config_params:
@@ -186,6 +184,16 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
         trainer.model.save_pretrained(final_adapter_dir)
         tokenizer.save_pretrained(final_adapter_dir)
         logger.info(f"Saved local LoRA adapter to {final_adapter_dir}")
+        
+        # Safely attempt push to HuggingFace Hub without crashing if token is read-only
+        if push_to_hub and HF_TOKEN and self.hub_model_id:
+            try:
+                logger.info(f"Attempting to push trained LoRA adapter to HuggingFace Hub ({self.hub_model_id})...")
+                trainer.model.push_to_hub(self.hub_model_id, token=HF_TOKEN)
+                tokenizer.push_to_hub(self.hub_model_id, token=HF_TOKEN)
+                logger.info("SUCCESS: Pushed LoRA adapter to HuggingFace Hub!")
+            except Exception as e:
+                logger.warning(f"Could not push to HuggingFace Hub (token lacks write permissions / 403 Forbidden): {e}. Model is safely saved locally at {final_adapter_dir}!")
         
         if push_to_hub and HF_TOKEN:
             logger.info(f"Pushing model adapter to HuggingFace Hub ({self.hub_model_id})...")
