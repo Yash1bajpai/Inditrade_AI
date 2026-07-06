@@ -1,4 +1,6 @@
 #!/bin/bash
+# Export Lightning AI / Camber main environment to PATH
+export PATH=/opt/jupyter/envs/main/bin:$PATH
 # ==========================================
 # Camber / Lightning AI Job — Network Graph
 # ==========================================
