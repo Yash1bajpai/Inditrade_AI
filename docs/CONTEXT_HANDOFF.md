@@ -112,9 +112,10 @@
 **Purpose:** Downloads Indian trade data (2005-2024) at HS 2-digit level using the free UN Comtrade API tier and saves to Parquet.
 **Key components:** `UNComtradeDownloader` class with methods `download_year_data`, `_fetch_via_rest`, and `run_pipeline`.
 **Design decisions:** Implemented strict rate limiting (1.5s sleep) and HS 2-digit commodity chapter grouping to stay well within the post-Oct 2022 free tier limit of 500 API calls/day and 100k records/call. Supported both `comtradeapicall` library and direct REST API fallback.
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Attempts real REST API fetch first; when querying without a paid production key, UN Comtrade preview endpoint returns 0 records for India [356], triggering loud logged warning `WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED` and populating `data/raw/un_comtrade/` with realistic historical baseline).
 **Interactions:** Reads `COMTRADE_API_KEY` from `.env`, calls UN Comtrade REST endpoints, and outputs Parquet files to `data/raw/un_comtrade/`.
 **Gotchas:** Old bulk download CSV endpoints without API keys were deprecated by UN Comtrade in Oct 2022; attempting to download 50+ years of HS 6-digit data without a paid subscription triggers 403/429 errors.
-**Changed this session:** Initial creation addressing the UN Comtrade API reality check.
+**Changed this session:** Initial creation addressing the UN Comtrade API reality check; added explicit Data provenance logging.
 
 ## src/data/generate_qa_dataset.py
 
@@ -122,9 +123,10 @@
 **Purpose:** Solves the critical missing pipeline step by converting raw DGFT/PIB policy text chunks into instruction Q&A pairs (`policy_qa_dataset.jsonl`) using Groq Free API.
 **Key components:** `SyntheticQAGenerator` class with methods `generate_qa_from_chunk` and `run_pipeline`, plus built-in fallback `SAMPLE_POLICY_CHUNKS`.
 **Design decisions:** Used Groq Free API (`llama-3.3-70b-versatile` / `llama-3.1-8b-instant`) with JSON mode enforced to generate structured `(question, answer)` pairs at zero cost. Included seed policy text chunks so dataset generation works out-of-the-box even before full web scraping completes.
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Attempts to load real text chunks from `data/processed/dgft_policy_chunks.jsonl` and `pib_press_releases.jsonl` first; if missing or Groq API call fails, loudly logs `WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED` and uses seed policy chunks / mock extraction).
 **Interactions:** Reads `GROQ_API_KEY` from `.env`, calls Groq API, and writes instruction data to `data/processed/policy_qa_dataset.jsonl` for Day 10 QLoRA training.
 **Gotchas:** Groq free tier allows 30 requests/minute; added a 2.0s sleep between chunk calls to prevent 429 rate limit errors.
-**Changed this session:** Initial creation addressing the missing QA dataset generation step.
+**Changed this session:** Initial creation addressing the missing QA dataset generation step; added explicit Data provenance logging.
 
 ## src/data/rbi_downloader.py
 
@@ -132,9 +134,10 @@
 **Purpose:** Acquires historical INR/USD exchange rates (`INR=X`) and crude oil prices (`CL=F`) via `yfinance`, resampled to annual/quarterly averages for merging with trade flows.
 **Key components:** `RBIDownloader` class with methods `fetch_forex_and_commodities`, `_generate_empirical_macro_fallback`, and `run_pipeline`.
 **Design decisions:** Incorporated a realistic empirical macro generator (`_generate_empirical_macro_fallback`) simulating India's GDP growth (with 2020 COVID dip and 2021 rebound) and forex reserves so feature engineering never blocks if Yahoo Finance or RBI servers timeout.
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Attempts live `yfinance` download first; if library missing or network call fails, loudly logs `WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED` and generates empirical RBI historical benchmarks).
 **Interactions:** Outputs annual macro indicators to `data/raw/rbi/rbi_macro_indicators_2005_2024.parquet` for ingestion by feature engineering module.
 **Gotchas:** Yahoo Finance tickers can occasionally change or rate limit; fallback generator ensures 100% pipeline reliability.
-**Changed this session:** Initial creation.
+**Changed this session:** Initial creation; added explicit Data provenance logging.
 
 ## src/data/dgft_pdf_extract.py
 
@@ -142,9 +145,10 @@
 **Purpose:** Extracts clean plain text from Directorate General of Foreign Trade (DGFT) export/import policy PDFs for RAG vector DB ingestion and synthetic Q&A generation.
 **Key components:** `DGFTExtractor` class with methods `extract_text_from_pdf`, `clean_policy_text`, and `run_pipeline`, plus structured `SAMPLE_DGFT_NOTIFICATIONS`.
 **Design decisions:** Used `pdfplumber` for precise text extraction without header/footer noise. Embedded real-world seed notifications (e.g., Wheat export ban, Laptop import restriction, RoDTEP scheme) directly into the code so RAG and fine-tuning pipelines have guaranteed high-quality legal text immediately.
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Attempts to extract plain text from local PDFs in `data/raw/dgft/` first; only when 0 documents are extracted does it loudly log `WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED` and load seed policy notifications).
 **Interactions:** Outputs clean policy chunks to `data/processed/dgft_policy_chunks.jsonl`, read by `generate_qa_dataset.py` and Qdrant ingestion scripts.
 **Gotchas:** Government PDFs often contain scanned images or irregular line breaks; `clean_policy_text` strips excessive whitespace and gazette formatting artifacts.
-**Changed this session:** Initial creation.
+**Changed this session:** Initial creation; added explicit Data provenance logging.
 
 ## src/data/pib_scraper.py
 
@@ -152,9 +156,10 @@
 **Purpose:** Scrapes trade, tariff, and export policy press releases from Press Information Bureau (PIB) India (`pib.gov.in`) using BeautifulSoup4.
 **Key components:** `PIBScraper` class with methods `scrape_search_results`, `clean_article_text`, and `run_pipeline`, plus `SEED_PIB_RELEASES`.
 **Design decisions:** Added custom User-Agent headers and 1.0s delay between page requests to avoid bot blocks. Integrated seed press releases (e.g., FTP 2023 $2 Trillion target, India-EFTA TEPA agreement, PLI electronics surge) to ensure rich macroeconomic narrative context for PolicyGPT.
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Attempts live web scraping of `pib.gov.in` first; only when 0 articles are scraped does it loudly log `WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED` and integrate seed press releases).
 **Interactions:** Outputs structured JSONL to `data/processed/pib_press_releases.jsonl` for merging with DGFT chunks in vector DB.
 **Gotchas:** Government portal DOM structures frequently change; fallback seed data prevents web scraping brittleness from breaking downstream LLM workflows.
-**Changed this session:** Initial creation completing the Week 1 Data Acquisition layer.
+**Changed this session:** Initial creation completing the Week 1 Data Acquisition layer; added explicit Data provenance logging.
 
 ## src/features/__init__.py
 
@@ -172,9 +177,10 @@
 **Purpose:** Merges UN Comtrade trade flows, RBI macro indicators, and regulatory flags into a unified dataset (`trade_features.parquet`) with lag features for forecasting and anomaly detection.
 **Key components:** `TradeFeatureEngineer` class with methods `load_or_generate_synthetic_trade_data`, `load_or_generate_rbi_data`, and `build_features`.
 **Design decisions:** Implemented a realistic synthetic Indian trade baseline (2005-2024) across 10 major HS 2-digit chapters (e.g., Oil, Gold, Electronics, Pharma) and 20 partners so feature engineering and model training can execute immediately without waiting for long network API downloads. Added time-series lags (`lag_1y`, `lag_3y`, `lag_5y`), rolling means/volatility, and policy event flags (2016, 2020, 2022, 2023).
+**Data provenance:** REAL / SYNTHETIC FALLBACK (Attempts to load real downloaded parquet files from `data/raw/un_comtrade/` and `data/raw/rbi/` first; if missing, loudly logs `WARNING: USING SYNTHETIC DATA — REAL SOURCE FAILED` and generates realistic baseline data).
 **Interactions:** Reads raw Parquet from `data/raw/un_comtrade/` and `data/raw/rbi/`, outputs to `data/processed/trade_features.parquet`.
 **Gotchas:** Time series must be sorted by `(partner, commodity, flow_type, year)` before calling `.shift()` or `.rolling()`, otherwise lag features leak data across unrelated country-commodity pairs.
-**Changed this session:** Initial creation.
+**Changed this session:** Initial creation; added explicit Data provenance logging.
 
 ## src/models/__init__.py
 
