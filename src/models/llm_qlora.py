@@ -194,11 +194,6 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
                 logger.info("SUCCESS: Pushed LoRA adapter to HuggingFace Hub!")
             except Exception as e:
                 logger.warning(f"Could not push to HuggingFace Hub (token lacks write permissions / 403 Forbidden): {e}. Model is safely saved locally at {final_adapter_dir}!")
-        
-        if push_to_hub and HF_TOKEN:
-            logger.info(f"Pushing model adapter to HuggingFace Hub ({self.hub_model_id})...")
-            trainer.push_to_hub()
-            logger.info("SUCCESS: Model pushed to HuggingFace Hub!")
             
         return str(final_adapter_dir)
 
