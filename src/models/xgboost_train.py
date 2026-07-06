@@ -92,8 +92,9 @@ class TradeXGBoostTrainer:
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
                 "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
                 "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
+                "tree_method": "hist",
+                "device": "cuda",
                 "random_state": 42,
-                "n_jobs": -1
             }
             model = XGBRegressor(**params)
             tscv = TimeSeriesSplit(n_splits=5)
@@ -130,7 +131,9 @@ class TradeXGBoostTrainer:
         
         if HAS_ML:
             best_params = self.optimize_hyperparameters(X, y, n_trials=n_trials)
-            model = XGBRegressor(**best_params, random_state=42, n_jobs=-1)
+            best_params["tree_method"] = "hist"
+            best_params["device"] = "cuda"
+            model = XGBRegressor(**best_params, random_state=42)
             model.fit(X, y)
         else:
             logger.warning("ML libs missing. Using mock/default training.")
