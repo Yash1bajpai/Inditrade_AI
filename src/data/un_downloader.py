@@ -220,6 +220,6 @@ class UNComtradeDownloader:
 
 if __name__ == "__main__":
     downloader = UNComtradeDownloader()
-    output_path = downloader.run_pipeline(start_year=2015, end_year=2023)  # Sample test range
+    output_path = downloader.run_pipeline(start_year=2005, end_year=2024)  # Full 20-year range
     if output_path:
         print(f"\n[+] Pipeline completed successfully. Output: {output_path}")

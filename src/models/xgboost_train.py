@@ -83,6 +83,17 @@ class TradeXGBoostTrainer:
         logger.info(f"Starting Optuna hyperparameter study ({n_trials} trials, TimeSeriesSplit CV)...")
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         
+        # Check if CUDA GPU is available for XGBoost
+        device_to_use = "cpu"
+        try:
+            test_xgb = XGBRegressor(tree_method="hist", device="cuda", n_estimators=1)
+            test_xgb.fit(X.iloc[:5], y.iloc[:5])
+            device_to_use = "cuda"
+            logger.info("CUDA GPU detected and verified for XGBoost Optuna optimization.")
+        except Exception as e:
+            logger.info("CUDA GPU not available or fit failed. Using CPU for XGBoost Optuna optimization.")
+            device_to_use = "cpu"
+
         def objective(trial):
             params = {
                 "n_estimators": trial.suggest_int("n_estimators", 100, 600),  # Capped at 600 for Render 512MB RAM safety
@@ -93,7 +104,7 @@ class TradeXGBoostTrainer:
                 "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
                 "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
                 "tree_method": "hist",
-                "device": "cuda",
+                "device": device_to_use,
                 "random_state": 42,
             }
             model = XGBRegressor(**params)
@@ -121,7 +132,7 @@ class TradeXGBoostTrainer:
         # Save best params to json
         params_path = self.models_dir / "xgboost_best_params.json"
         with open(params_path, "w", encoding="utf-8") as f:
-            json.dumps(study.best_params, indent=2)
+            json.dump(study.best_params, f, indent=2)
             
         return study.best_params
 
@@ -132,7 +143,13 @@ class TradeXGBoostTrainer:
         if HAS_ML:
             best_params = self.optimize_hyperparameters(X, y, n_trials=n_trials)
             best_params["tree_method"] = "hist"
-            best_params["device"] = "cuda"
+            # Detect device again for final fit
+            try:
+                test_xgb = XGBRegressor(tree_method="hist", device="cuda", n_estimators=1)
+                test_xgb.fit(X.iloc[:5], y.iloc[:5])
+                best_params["device"] = "cuda"
+            except:
+                best_params["device"] = "cpu"
             model = XGBRegressor(**best_params, random_state=42)
             model.fit(X, y)
         else:
