@@ -112,7 +112,15 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
         model = get_peft_model(model, lora_config)
         model.print_trainable_parameters()
         
-        training_args = TrainingArguments(
+        try:
+            from trl import SFTConfig
+            config_class = SFTConfig
+            extra_config_args = {"max_seq_length": 512}
+        except ImportError:
+            config_class = TrainingArguments
+            extra_config_args = {}
+            
+        training_args = config_class(
             output_dir=str(self.output_dir),
             num_train_epochs=num_train_epochs,
             per_device_train_batch_size=2,
@@ -125,7 +133,8 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             push_to_hub=push_to_hub and bool(HF_TOKEN),
             hub_model_id=self.hub_model_id if push_to_hub and bool(HF_TOKEN) else None,
             hub_token=HF_TOKEN or None,
-            report_to="none"
+            report_to="none",
+            **extra_config_args
         )
         
         # Format dataset
@@ -139,9 +148,14 @@ You are PolicyGPT, an expert AI assistant on Indian foreign trade policy, DGFT r
             "model": model,
             "args": training_args,
             "train_dataset": dataset,
-            "formatting_func": format_batch,
-            "max_seq_length": 512
         }
+        if "formatting_func" in sft_params:
+            sft_kwargs["formatting_func"] = format_batch
+        if "max_seq_length" in sft_params and not extra_config_args:
+            sft_kwargs["max_seq_length"] = 512
+        elif "max_length" in sft_params and not extra_config_args:
+            sft_kwargs["max_length"] = 512
+            
         if "processing_class" in sft_params:
             sft_kwargs["processing_class"] = tokenizer
         elif "tokenizer" in sft_params:
