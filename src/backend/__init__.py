@@ -1,1 +1,0 @@
-# IndiTrade AI - Backend Package
