@@ -1,7 +1,8 @@
 ## Index
 | File | Last updated | Sessions |
 |------|-------------|----------|
-| docs/CONTEXT_HANDOFF.md | 2026-07-06 | 1 |
+| docs/CONTEXT_HANDOFF.md | 2026-07-08 | 2 |
+| memory.md | 2026-07-08 | 1 |
 | requirements.txt | 2026-07-06 | 2 |
 | .env.example | 2026-07-06 | 1 |
 | .gitignore | 2026-07-06 | 1 |
@@ -47,6 +48,20 @@
 **Interactions:** Read and updated by AI assistant after every meaningful file creation or modification.
 **Gotchas:** Must never overwrite old entries; always append new dated sub-entries under each file section.
 **Changed this session:** Initial creation of the documentation schema.
+
+### 2026-07-08 — Added memory.md tracking & session update
+**Purpose:** Tracked the newly created `memory.md` persistent memory document.
+**Changed this session:** Added entry for `memory.md` and updated index timestamps.
+
+## memory.md
+
+### 2026-07-08 — Persistent agent memory & operational context
+**Purpose:** Stores operational context, behavioral rules, disk-verified project statistics, and cloud computing sleep status across server restarts.
+**Key components:** Critical behavioral rules (Loud Fallback, Rule 4 disk verification, MIT license), current data/model stats, and cloud compute state.
+**Design decisions:** Created at root level so the agent can immediately read and recover operational context after server restarts without scanning the entire repo.
+**Interactions:** Read by Antigravity upon session start or server restart.
+**Gotchas:** Keep updated whenever cloud compute state changes or new models are verified on disk.
+**Changed this session:** Initial creation; verified and documented 2005-2024 data and real XGBoost/Isolation Forest models.
 
 ## requirements.txt
 
