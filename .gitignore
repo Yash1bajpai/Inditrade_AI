@@ -36,3 +36,7 @@ brain/
 *.egg-info/
 dist/
 build/
+
+# Internal Agent Memory & Session Handoff Logs (Personal Use Only - Do Not Push to GitHub)
+memory.md
+docs/CONTEXT_HANDOFF.md
