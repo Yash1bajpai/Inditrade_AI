@@ -162,79 +162,81 @@ def find_scanned_pdfs(all_pdf_dir: str, processed_jsonl: str) -> List[str]:
     return scanned_pdfs
 
 
-def run_ocr_pipeline(sample_size: int = 5, seed: int = 42, output_file: str = "data/processed/dgft_ocr_chunks.jsonl"):
-    print(f"=== IndiTrade AI: Option B OCR Extraction & QC Gate Pipeline ===")
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def run_ocr_pipeline(sample_size: int = 5, seed: int = 42, output_file: str = "data/processed/dgft_ocr_chunks.jsonl", threads: int = 8, process_all: bool = False):
+    print(f"=== IndiTrade AI: Option B OCR Extraction & QC Gate Pipeline (Multi-threaded: {threads} workers) ===")
     
     # 1. Identify scanned PDFs
     scanned_pdfs = find_scanned_pdfs(
         all_pdf_dir="data/raw/dgft_notifications/pdfs",
         processed_jsonl="data/processed/dgft_policy_chunks.jsonl"
     )
-    print(f"Total remaining scanned PDFs identified: {len(scanned_pdfs)}")
+    # Also exclude PDFs already in dgft_ocr_chunks.jsonl to make it resume-safe!
+    already_ocrd = set()
+    if os.path.exists(output_file):
+        with open(output_file, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        data = json.loads(line)
+                        if "pdf_path" in data:
+                            already_ocrd.add(os.path.normpath(data["pdf_path"]))
+                    except Exception:
+                        pass
+    scanned_pdfs = [p for p in scanned_pdfs if os.path.normpath(p) not in already_ocrd]
+    print(f"Total remaining scanned PDFs identified for OCR processing: {len(scanned_pdfs)}")
     
     if len(scanned_pdfs) == 0:
         print("No scanned PDFs found to process.")
         return
         
-    # 2. Select exact sample size
-    random.seed(seed)
-    selected_pdfs = random.sample(scanned_pdfs, min(sample_size, len(scanned_pdfs)))
-    print(f"Randomly selected exactly {len(selected_pdfs)} scanned PDFs for OCR processing:\n")
-    for idx, sp in enumerate(selected_pdfs, 1):
-        print(f"  [{idx}] {os.path.basename(sp)}")
-    print()
+    # 2. Select sample or all
+    if process_all or sample_size >= len(scanned_pdfs):
+        selected_pdfs = scanned_pdfs
+        print(f"Processing ALL {len(selected_pdfs)} remaining scanned PDFs across {threads} parallel worker threads...\n")
+    else:
+        random.seed(seed)
+        selected_pdfs = random.sample(scanned_pdfs, min(sample_size, len(scanned_pdfs)))
+        print(f"Randomly selected exactly {len(selected_pdfs)} scanned PDFs for OCR processing:\n")
+        for idx, sp in enumerate(selected_pdfs, 1):
+            print(f"  [{idx}] {os.path.basename(sp)}")
+        print()
     
     # Create output directory if needed
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
+    lock = threading.Lock()
     total_pages_processed = 0
     passed_qc_count = 0
     dropped_qc_count = 0
     passed_sample_chunks = []
     
-    # 3. Process selected PDFs
-    for pdf_idx, pdf_path in enumerate(selected_pdfs, 1):
+    def process_single_pdf(pdf_idx: int, pdf_path: str):
         meta = parse_metadata_from_filename(pdf_path)
-        print(f"\n[{pdf_idx}/{len(selected_pdfs)}] Processing: {os.path.basename(pdf_path)} (Notif: {meta['notification_no']})")
-        
         try:
-            # Convert PDF pages to PIL images
             images = pdf2image.convert_from_path(
                 pdf_path,
                 poppler_path=POPPLER_PATH,
                 dpi=300
             )
-            print(f"  -> Converted {len(images)} page(s) to 300 DPI images.")
-            
-            # Combine pages or process page-by-page. For high-quality RAG, we OCR page by page
-            # and consolidate into a single clean chunk if quality allows, or individual page chunks.
             full_clean_text = []
             page_qc_passed = 0
             
             for page_num, pil_img in enumerate(images, 1):
-                total_pages_processed += 1
-                # Preprocessing: Grayscale + Otsu Binarization
                 processed_img = preprocess_image_for_ocr(pil_img)
-                
-                # Tesseract OCR extraction
                 page_raw_text = pytesseract.image_to_string(processed_img, lang="eng")
-                
-                # Run QC Gate
                 passed, page_clean_text, reason, noise_ratio = run_qc_gate(page_raw_text)
                 
                 if passed:
                     page_qc_passed += 1
                     full_clean_text.append(f"[Page {page_num}]\n{page_clean_text}")
-                    print(f"     Page {page_num}: ✅ QC PASSED (Length: {len(page_clean_text)} chars, Noise: {noise_ratio:.1%})")
-                else:
-                    print(f"     Page {page_num}: ❌ QC DROPPED -> Reason: {reason}")
                     
             if page_qc_passed > 0 and len(full_clean_text) > 0:
                 consolidated_text = "\n\n".join(full_clean_text)
-                # Final check on consolidated chunk
                 passed_cons, cons_clean, cons_reason, cons_noise = run_qc_gate(consolidated_text)
                 if passed_cons:
-                    passed_qc_count += 1
                     chunk_id = f"DGFT_OCR_{meta['type'].upper()}_{meta['notification_no'].replace('/', '_')}_{pdf_idx}"
                     chunk_data = {
                         "chunk_id": chunk_id,
@@ -247,23 +249,35 @@ def run_ocr_pipeline(sample_size: int = 5, seed: int = 42, output_file: str = "d
                         "ocr_pages_passed": page_qc_passed,
                         "ocr_total_pages": len(images)
                     }
-                    
-                    # Safe Append
+                    return True, len(images), chunk_data, None
+                else:
+                    return False, len(images), None, cons_reason
+            else:
+                return False, len(images), None, "0 pages passed QC Gate"
+        except Exception as e:
+            return False, 0, None, f"ERROR: {str(e)}"
+
+    # 3. Process with ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        future_to_pdf = {
+            executor.submit(process_single_pdf, idx, path): (idx, path)
+            for idx, path in enumerate(selected_pdfs, 1)
+        }
+        for future in as_completed(future_to_pdf):
+            idx, path = future_to_pdf[future]
+            passed, pages_cnt, chunk_data, drop_reason = future.result()
+            with lock:
+                total_pages_processed += pages_cnt
+                if passed:
+                    passed_qc_count += 1
                     with open(output_file, "a", encoding="utf-8") as out_f:
                         out_f.write(json.dumps(chunk_data, ensure_ascii=False) + "\n")
-                        
                     if len(passed_sample_chunks) < 2:
                         passed_sample_chunks.append(chunk_data)
+                    print(f"[{idx}/{len(selected_pdfs)}] ✅ PASSED: {os.path.basename(path)} ({pages_cnt} pages)")
                 else:
                     dropped_qc_count += 1
-                    print(f"  -> Consolidated chunk dropped: {cons_reason}")
-            else:
-                dropped_qc_count += 1
-                print(f"  -> Entire PDF dropped (0 pages passed QC Gate).")
-                
-        except Exception as e:
-            dropped_qc_count += 1
-            print(f"  -> ERROR processing PDF: {str(e)}")
+                    print(f"[{idx}/{len(selected_pdfs)}] ❌ DROPPED: {os.path.basename(path)} -> {drop_reason}")
             
     # 4. Print Execution Summary Logs
     print("\n" + "="*60)
@@ -298,6 +312,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run OCR Extraction with QC Gate on Scanned DGFT PDFs")
     parser.add_argument("--sample", type=int, default=5, help="Number of randomly selected PDFs to process (Default: 5)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for sample selection (Default: 42)")
+    parser.add_argument("--threads", type=int, default=8, help="Number of parallel worker threads (Default: 8)")
+    parser.add_argument("--all", action="store_true", help="Process all remaining scanned PDFs")
     args = parser.parse_args()
     
-    run_ocr_pipeline(sample_size=args.sample, seed=args.seed)
+    run_ocr_pipeline(sample_size=args.sample, seed=args.seed, threads=args.threads, process_all=args.all)
+
