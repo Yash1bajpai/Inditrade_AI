@@ -1,0 +1,56 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables & secrets
+.env
+*.env
+.env.local
+.env.*.local
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Log files
+*.log
+logs/*
+!logs/.gitkeep
+
+# Data & cache directories (preserve structure only)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/cache/*
+!data/cache/.gitkeep
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.mypy_cache/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# IDEs & OS artifacts
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Build & Distribution
+dist/
+build/
+*.egg-info/
+
+# Context & Handoff
+CONTEXT_HANDOFF.md
+context_handoff.md
+
