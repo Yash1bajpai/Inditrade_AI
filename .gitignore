@@ -54,3 +54,8 @@ build/
 CONTEXT_HANDOFF.md
 context_handoff.md
 
+# Graph Memory & Local Agent Storage
+.agents/
+*.sqlite
+*.html
+
