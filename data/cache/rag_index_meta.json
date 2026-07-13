@@ -1,0 +1,21 @@
+{
+  "index_timestamp": "2026-07-13T22:49:38.657717",
+  "total_documents": 564,
+  "doc_types_breakdown": {
+    "DGFT_Policy": 117,
+    "DGFT_OCR": 382,
+    "PIB_Press_Release": 65
+  },
+  "dense_index": {
+    "engine": "Qdrant Persistent Disk Storage",
+    "path": "data/cache/qdrant_index",
+    "collection_name": "trade_policy_compliance",
+    "embedding_model": "BAAI/bge-small-en-v1.5",
+    "vector_dimension": 384,
+    "points_count": 564
+  },
+  "sparse_index": {
+    "engine": "BM25Okapi",
+    "path": "data/cache/bm25_index.pkl"
+  }
+}

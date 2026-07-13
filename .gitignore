@@ -28,6 +28,7 @@ data/processed/*
 !data/processed/.gitkeep
 data/cache/*
 !data/cache/.gitkeep
+!data/cache/*_meta.json
 
 # Models directory (preserve structure and metadata json only)
 models/*.pkl
