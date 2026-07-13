@@ -29,6 +29,13 @@ data/processed/*
 data/cache/*
 !data/cache/.gitkeep
 
+# Models directory (preserve structure and metadata json only)
+models/*.pkl
+models/*.onnx
+models/*.bin
+!models/*_meta.json
+!models/.gitkeep
+
 # Testing & Coverage
 .pytest_cache/
 .coverage
