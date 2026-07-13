@@ -1,6 +1,6 @@
 {
   "model_name": "XGBoost Bilateral Trade Flow Forecast (Module A)",
-  "timestamp": "2026-07-13T08:51:03.112438Z",
+  "timestamp": "2026-07-13T11:35:46.329658Z",
   "n_samples": 32072,
   "n_features": 43,
   "feature_names": [
@@ -49,21 +49,23 @@
     "netWgt_rolling_3y_mean"
   ],
   "best_params": {
-    "n_estimators": 168,
-    "max_depth": 5,
-    "learning_rate": 0.0288205913270209,
-    "subsample": 0.9050319893492997,
-    "colsample_bytree": 0.9306198340733112,
-    "reg_alpha": 0.006425588173734639,
-    "reg_lambda": 4.711348482222072,
+    "n_estimators": 266,
+    "max_depth": 7,
+    "learning_rate": 0.047046094343958615,
+    "subsample": 0.609860443810968,
+    "colsample_bytree": 0.8051424378780336,
+    "reg_alpha": 1.6692616677782973e-06,
+    "reg_lambda": 0.8315893795951735,
     "random_state": 42,
-    "n_jobs": -1
+    "n_jobs": -1,
+    "tree_method": "hist",
+    "device": "cuda"
   },
   "metrics": {
-    "best_cv_log_rmse": 0.3145,
-    "log_scale_r2": 0.8124,
-    "dollar_scale_rmse": 50021.69,
-    "dollar_scale_mae": 8421.15
+    "best_cv_log_rmse": 0.3590613641047299,
+    "log_scale_r2": 0.9988652162787351,
+    "dollar_scale_rmse": 726257140.3296406,
+    "dollar_scale_mae": 30382235.95266367
   },
   "target_statistics": {
     "target_column": "primaryValue",
