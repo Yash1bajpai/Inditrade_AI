@@ -104,6 +104,7 @@ def main():
     
     plt.tight_layout()
     plt.savefig("reports/figures/01_xgboost_actual_vs_predicted.png", dpi=300, bbox_inches='tight')
+    plt.savefig("reports/figures/01_xgboost_actual_vs_predicted_fixed.png", dpi=300, bbox_inches='tight')
     plt.close()
     print("[Exported] -> reports/figures/01_xgboost_actual_vs_predicted.png")
     
@@ -129,6 +130,7 @@ def main():
     plt.xlim(0, max(feat_df["Importance"]) * 1.15)
     plt.tight_layout()
     plt.savefig("reports/figures/02_xgboost_feature_importance.png", dpi=300, bbox_inches='tight')
+    plt.savefig("reports/figures/02_xgboost_feature_importance_fixed.png", dpi=300, bbox_inches='tight')
     plt.close()
     print("[Exported] -> reports/figures/02_xgboost_feature_importance.png")
     
@@ -184,6 +186,7 @@ def main():
     plt.legend(loc="upper right", fontsize=11)
     plt.tight_layout()
     plt.savefig("reports/figures/03_isolation_forest_anomaly_distribution.png", dpi=300, bbox_inches='tight')
+    plt.savefig("reports/figures/03_isolation_forest_anomaly_distribution_fixed.png", dpi=300, bbox_inches='tight')
     plt.close()
     print("[Exported] -> reports/figures/03_isolation_forest_anomaly_distribution.png")
     
@@ -227,6 +230,7 @@ def main():
     plt.legend(title="Graph Node Type", loc="upper left", fontsize=11)
     plt.tight_layout()
     plt.savefig("reports/figures/04_node2vec_trade_network_clusters.png", dpi=300, bbox_inches='tight')
+    plt.savefig("reports/figures/04_node2vec_trade_network_clusters_fixed.png", dpi=300, bbox_inches='tight')
     plt.close()
     print("[Exported] -> reports/figures/04_node2vec_trade_network_clusters.png")
     
@@ -264,6 +268,7 @@ def main():
     plt.legend(loc="upper center", bbox_to_anchor=(0.5, 0.98), ncol=1, frameon=True, fontsize=10.5)
     plt.tight_layout()
     plt.savefig("reports/figures/05_feature_ablation_macro_surge.png", dpi=300, bbox_inches='tight')
+    plt.savefig("reports/figures/05_feature_ablation_macro_surge_fixed.png", dpi=300, bbox_inches='tight')
     plt.close()
     print("[Exported] -> reports/figures/05_feature_ablation_macro_surge.png")
     
@@ -302,6 +307,7 @@ def main():
     plt.xlim(0, max(df_macro_plot['gain_pct']) * 1.18)
     plt.tight_layout()
     plt.savefig("reports/figures/06_macro_feature_deep_dive.png", dpi=300, bbox_inches='tight')
+    plt.savefig("reports/figures/06_macro_feature_deep_dive_fixed.png", dpi=300, bbox_inches='tight')
     plt.close()
     print("[Exported] -> reports/figures/06_macro_feature_deep_dive.png")
     
