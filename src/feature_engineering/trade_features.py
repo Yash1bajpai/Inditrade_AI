@@ -183,8 +183,8 @@ def build_trade_features(comtrade_parquet: str = "data/raw/un_comtrade/india_tra
     df_merged["primaryValue_lag_5y"] = grouped_val.shift(5)
     
     # Rolling means
-    df_merged["primaryValue_rolling_3y_mean"] = grouped_val.transform(lambda x: x.rolling(window=3, min_periods=1).mean())
-    df_merged["primaryValue_rolling_5y_mean"] = grouped_val.transform(lambda x: x.rolling(window=5, min_periods=1).mean())
+    df_merged["primaryValue_rolling_3y_mean"] = grouped_val.transform(lambda x: x.shift(1).rolling(window=3, min_periods=1).mean())
+    df_merged["primaryValue_rolling_5y_mean"] = grouped_val.transform(lambda x: x.shift(1).rolling(window=5, min_periods=1).mean())
     
     # YoY Growth Rate
     lag_1 = df_merged["primaryValue_lag_1y"].replace(0, np.nan)
@@ -193,7 +193,7 @@ def build_trade_features(comtrade_parquet: str = "data/raw/un_comtrade/india_tra
     # Also create lag/rolling for Net Weight (`netWgt`)
     grouped_wgt = df_merged.groupby(group_cols)["netWgt"]
     df_merged["netWgt_lag_1y"] = grouped_wgt.shift(1)
-    df_merged["netWgt_rolling_3y_mean"] = grouped_wgt.transform(lambda x: x.rolling(window=3, min_periods=1).mean())
+    df_merged["netWgt_rolling_3y_mean"] = grouped_wgt.transform(lambda x: x.shift(1).rolling(window=3, min_periods=1).mean())
     
     print(f"  ✅ Engineered 9 temporal quantitative & policy indicators across {df_merged[group_cols].drop_duplicates().shape[0]} bilateral flow trajectories.\n")
     

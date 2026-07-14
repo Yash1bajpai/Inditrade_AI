@@ -46,18 +46,23 @@ def main():
     xgb_data = joblib.load("models/xgboost_trade_forecast.pkl")
     xgb_model = xgb_data["model"]
     feature_cols = xgb_data["features"]
+    holdout_year = xgb_data.get("holdout_split_year", 2022)
+    
+    # Filter df to ONLY the genuine out-of-sample holdout test set (period >= holdout_year)
+    df_test = df[df['period'] >= holdout_year].copy()
+    print(f"[*] Evaluating exclusively on Out-of-Sample Test Set (periods >= {holdout_year}: {len(df_test)} rows)...")
     
     # Prepare X and y with exact float32 numerical casting
-    X = df[feature_cols].copy()
+    X = df_test[feature_cols].copy()
     for col in X.columns:
         X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0).astype(np.float32)
     X = X.replace([np.inf, -np.inf], 0).fillna(0)
     
-    y_raw = df["primaryValue"].values
+    y_raw = df_test["primaryValue"].values
     y_log_true = np.log1p(np.maximum(y_raw, 0))
     
-    # Predict
-    print("[*] Generating XGBoost trade flow predictions across dataset...")
+    # Predict on holdout test set
+    print("[*] Generating XGBoost trade flow predictions across holdout test set...")
     y_log_pred = xgb_model.predict(X)
     y_raw_pred = np.expm1(np.maximum(y_log_pred, 0))
     
@@ -230,82 +235,7 @@ def main():
     plt.close()
     print("[Exported] -> reports/figures/04_node2vec_trade_network_clusters.png")
     
-    # -------------------------------------------------------------------------
-    # Plot 5: Feature Ablation Study - Macro/Forex Importance Surge (Grouped Bar)
-    # -------------------------------------------------------------------------
-    print("[*] Generating Plot 5: Feature Ablation Study - Macro/Forex Importance Surge...")
-    ablation_sets = [
-        "Set 1: Full Baseline\n(43 Features)",
-        "Set 2: Without Top 3 Lags\n(Drop rolling 3y/5y, lag 1y)",
-        "Set 3: Without ALL Lags\n(Drop all autoregressive)"
-    ]
-    lag_pcts = [98.77, 39.81, 3.53]
-    struct_pcts = [0.38, 18.02, 70.38]
-    macro_pcts = [1.27, 44.11, 26.09]
-    
-    x = np.arange(len(ablation_sets))
-    width = 0.26
-    
-    plt.figure(figsize=(11, 6.5))
-    plt.bar(x - width, lag_pcts, width, label='Lag / Rolling Indicators (Autoregressive)', color='#EF5350', alpha=0.9, edgecolor='#B71C1C')
-    plt.bar(x, struct_pcts, width, label='Structural / Identifiers (cmdCode, partnerCode)', color='#42A5F5', alpha=0.9, edgecolor='#0D47A1')
-    plt.bar(x + width, macro_pcts, width, label='Macro / Forex / Policy Shocks (USD, GBP, Oil, Gold)', color='#26A69A', alpha=0.95, edgecolor='#004D40', hatch='//')
-    
-    for i in range(len(ablation_sets)):
-        plt.text(x[i] - width, lag_pcts[i] + 1.5, f"{lag_pcts[i]:.1f}%", ha='center', va='bottom', color='#FFCDD2', fontsize=9.5, fontweight='bold')
-        plt.text(x[i], struct_pcts[i] + 1.5, f"{struct_pcts[i]:.1f}%", ha='center', va='bottom', color='#BBDEFB', fontsize=9.5, fontweight='bold')
-        plt.text(x[i] + width, macro_pcts[i] + 1.5, f"{macro_pcts[i]:.1f}%", ha='center', va='bottom', color='#A7FFEB', fontsize=10.5, fontweight='bold')
-        
-    plt.title("Empirical Feature Ablation: Co-linearity Shadowing & Macro Feature Surge", fontsize=14, fontweight='bold', pad=18)
-    plt.xlabel("Experimental Feature Set Configuration (5-Fold TimeSeriesSplit across 32,072 rows)", fontsize=12, labelpad=10)
-    plt.ylabel("Relative XGBoost Split Gain Share (%)", fontsize=12)
-    plt.xticks(x, ablation_sets, fontsize=11, fontweight='bold')
-    plt.ylim(0, 115)
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 0.98), ncol=1, frameon=True, fontsize=10.5)
-    plt.tight_layout()
-    plt.savefig("reports/figures/05_feature_ablation_macro_surge_fixed.png", dpi=300, bbox_inches='tight')
-    plt.close()
-    print("[Exported] -> reports/figures/05_feature_ablation_macro_surge.png")
-    
-    # -------------------------------------------------------------------------
-    # Plot 6: Macro & Forex Feature Explanatory Power Deep Dive (Unshadowed)
-    # -------------------------------------------------------------------------
-    print("[*] Generating Plot 6: Macro & Forex Feature Deep Dive (Unshadowed Explanatory Power)...")
-    macro_features = [
-        'gbpinr_year_end\n(GBP/INR Exchange Rate)',
-        'jpyinr_year_end\n(JPY/INR Exchange Rate)',
-        'eurinr_mean\n(EUR/INR Average Rate)',
-        'brent_crude_mean\n(Global Oil Shocks)',
-        'nifty_50_mean\n(Indian Stock Benchmark)',
-        'usdinr_vol_std\n(USD/INR Volatility)',
-        'gold_futures_yoy_pct\n(Precious Metal Cycles)',
-        'policy_event_flag\n(DGFT/PIB Interventions)'
-    ]
-    # Gain % values when unshadowed (Set 2 & Set 3 maximum active gain)
-    macro_gains = [16.97, 6.96, 6.95, 6.52, 3.36, 3.40, 2.94, 0.22]
-    
-    df_macro_plot = pd.DataFrame({'feature': macro_features, 'gain_pct': macro_gains}).sort_values(by='gain_pct', ascending=True)
-    
-    plt.figure(figsize=(11, 6))
-    colors_macro = ['#80CBC4' if g < 5.0 else '#26A69A' if g < 10.0 else '#00897B' for g in df_macro_plot['gain_pct']]
-    bars = sns.barplot(x="gain_pct", y="feature", data=df_macro_plot, palette=colors_macro, hue="feature", legend=False)
-    
-    for p in bars.patches:
-        width_val = p.get_width()
-        if width_val > 0:
-            plt.text(width_val + 0.3, p.get_y() + p.get_height() / 2, f"{width_val:.2f}%", 
-                     va='center', color='#E0F2F1', fontweight='bold', fontsize=10.5)
-            
-    plt.title("Top Macroeconomic & Forex Indicators When Unshadowed by Lags (Gain %)", fontsize=14, fontweight='bold', pad=15)
-    plt.xlabel("Relative XGBoost Explanatory Share (% of Total Split Gain in Ablation Sets)", fontsize=12)
-    plt.ylabel("Macro / Forex Indicator & Economic Interpretation", fontsize=12)
-    plt.xlim(0, max(df_macro_plot['gain_pct']) * 1.18)
-    plt.tight_layout()
-    plt.savefig("reports/figures/06_macro_feature_deep_dive_fixed.png", dpi=300, bbox_inches='tight')
-    plt.close()
-    print("[Exported] -> reports/figures/06_macro_feature_deep_dive.png")
-    
-    print("\n[SUCCESS] All 6 publication-grade evaluation plots successfully generated in reports/figures/!")
+    print("\n[SUCCESS] All 4 publication-grade evaluation plots successfully generated in reports/figures/!")
 
 if __name__ == "__main__":
     main()

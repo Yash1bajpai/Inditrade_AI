@@ -129,9 +129,18 @@ def main():
     
     X, y_log, y_raw, feature_cols, df_raw = load_and_preprocess_data(args.data_path, args.sample)
     
-    print(f"\n[*] Launching Optuna Bayesian Optimization across {args.trials} trials with TimeSeriesSplit(5)...")
+    # Chronological Holdout Split: Train (<= 2021), Test (>= 2022)
+    train_mask = df_raw['period'] <= 2021
+    test_mask = df_raw['period'] >= 2022
+    
+    X_train, y_log_train, y_raw_train = X[train_mask], y_log[train_mask], y_raw[train_mask]
+    X_test, y_log_test, y_raw_test = X[test_mask], y_log[test_mask], y_raw[test_mask]
+    
+    print(f"\n[*] Chronological Holdout Split -> Train rows (<=2021): {len(X_train)} | Test rows (>=2022): {len(X_test)}")
+    
+    print(f"\n[*] Launching Optuna Bayesian Optimization across {args.trials} trials with TimeSeriesSplit(5) on Train set...")
     study = optuna.create_study(direction="minimize")
-    study.optimize(lambda trial: objective(trial, X, y_log), n_trials=args.trials, show_progress_bar=True)
+    study.optimize(lambda trial: objective(trial, X_train, y_log_train), n_trials=args.trials, show_progress_bar=True)
     
     best_params = study.best_params
     best_params['random_state'] = 42
@@ -143,23 +152,23 @@ def main():
     print(f"[BEST CV LOG-RMSE] : {study.best_value:.4f}")
     print(f"[BEST HYPERPARAMS] : {best_params}")
     
-    # Train final production model on full chronological sequence
-    print("\n[*] Training final production XGBRegressor on full dataset using best hyperparameters...")
+    # Train final production model on chronological Train set (<=2021)
+    print("\n[*] Training final production XGBRegressor on chronological Train set (<=2021)...")
     final_model = xgb.XGBRegressor(**best_params)
-    final_model.fit(X, y_log)
+    final_model.fit(X_train, y_log_train, eval_set=[(X_test, y_log_test)], verbose=False)
     
-    # Evaluate full chronological fit (in dollar terms and log terms)
-    preds_log = final_model.predict(X)
-    preds_dollar = np.expm1(preds_log)
+    # Evaluate ONLY on the held-out test set (2022-2024)
+    preds_log_test = final_model.predict(X_test)
+    preds_dollar_test = np.expm1(np.maximum(preds_log_test, 0))
     
-    r2_val = r2_score(y_log, preds_log)
-    mae_dollar = mean_absolute_error(y_raw, preds_dollar)
-    rmse_dollar = np.sqrt(mean_squared_error(y_raw, preds_dollar))
+    r2_val = r2_score(y_log_test, preds_log_test)
+    mae_dollar = mean_absolute_error(y_raw_test, preds_dollar_test)
+    rmse_dollar = np.sqrt(mean_squared_error(y_raw_test, preds_dollar_test))
     
-    print("\n=== FINAL PRODUCTION MODEL PERFORMANCE SUMMARY ===")
-    print(f"  * Log-Scale R² Score : {r2_val:.4f}")
-    print(f"  * Dollar-Scale MAE   : ${mae_dollar:,.2f}")
-    print(f"  * Dollar-Scale RMSE  : ${rmse_dollar:,.2f}")
+    print("\n=== OUT-OF-SAMPLE TEST PERFORMANCE (Periods >= 2022) ===")
+    print(f"  * Test Log-Scale R² Score : {r2_val:.4f}")
+    print(f"  * Test Dollar-Scale MAE   : ${mae_dollar:,.2f}")
+    print(f"  * Test Dollar-Scale RMSE  : ${rmse_dollar:,.2f}")
     
     # Top 10 Feature Importances
     importances = final_model.feature_importances_
@@ -170,7 +179,7 @@ def main():
         
     # Export to joblib (.pkl)
     pkl_path = os.path.join(args.output_dir, "xgboost_trade_forecast.pkl")
-    joblib.dump({"model": final_model, "features": feature_cols, "params": best_params}, pkl_path)
+    joblib.dump({"model": final_model, "features": feature_cols, "params": best_params, "holdout_split_year": 2022}, pkl_path)
     print(f"\n[Exported] trained model checkpoint -> {pkl_path}")
     
     # Export to ONNX (.onnx)
@@ -193,15 +202,18 @@ def main():
     meta_data = {
         "model_name": "XGBoost Bilateral Trade Flow Forecast (Module A)",
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "n_samples": int(len(X)),
+        "holdout_split_year": 2022,
+        "n_samples_total": int(len(X)),
+        "n_samples_train_le2021": int(len(X_train)),
+        "n_samples_test_ge2022": int(len(X_test)),
         "n_features": int(len(feature_cols)),
         "feature_names": list(feature_cols),
         "best_params": {k: (float(v) if isinstance(v, (np.floating, float)) else int(v) if isinstance(v, (np.integer, int)) else v) for k, v in best_params.items()},
         "metrics": {
-            "best_cv_log_rmse": float(study.best_value),
-            "log_scale_r2": float(r2_val),
-            "dollar_scale_rmse": float(rmse_dollar),
-            "dollar_scale_mae": float(mae_dollar)
+            "best_cv_log_rmse_train": float(study.best_value),
+            "test_log_scale_r2": float(r2_val),
+            "test_dollar_scale_rmse": float(rmse_dollar),
+            "test_dollar_scale_mae": float(mae_dollar)
         },
         "target_statistics": {
             "target_column": "primaryValue",
