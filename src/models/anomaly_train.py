@@ -110,10 +110,19 @@ def main():
         print(f"    * Trade Value: ${val:,.2f}")
         print(f"    * YoY Growth : {yoy:+.2f}%")
         
-    # Export model
+    # Export model and flagged anomalies CSVs
     pkl_path = os.path.join(args.output_dir, "isolation_forest_anomalies.pkl")
     joblib.dump({"model": iso_forest, "features": feat_cols, "contamination": args.contamination}, pkl_path)
     print(f"\n[Exported] trained anomaly detector -> {pkl_path}")
+    
+    os.makedirs("data/processed", exist_ok=True)
+    os.makedirs("reports", exist_ok=True)
+    csv_data_path = "data/processed/flagged_trade_anomalies.csv"
+    csv_report_path = "reports/flagged_trade_anomalies.csv"
+    anomalies.to_csv(csv_data_path, index=False)
+    anomalies.to_csv(csv_report_path, index=False)
+    print(f"[Exported] flagged anomalies CSV ({len(anomalies)} rows) -> {csv_data_path}")
+    print(f"[Exported] flagged anomalies CSV ({len(anomalies)} rows) -> {csv_report_path}")
     print("🎯 Module D (Isolation Forest Trade Anomaly Detector) complete!")
 
 if __name__ == "__main__":

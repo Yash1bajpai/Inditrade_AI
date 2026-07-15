@@ -1,11 +1,11 @@
 {
   "model_name": "XGBoost Bilateral Trade Flow Forecast (Module A)",
-  "timestamp": "2026-07-14T17:16:17.680592Z",
+  "timestamp": "2026-07-15T08:26:19.134734Z",
   "holdout_split_year": 2022,
   "n_samples_total": 32072,
   "n_samples_train_le2021": 22458,
   "n_samples_test_ge2022": 9614,
-  "n_features": 43,
+  "n_features": 42,
   "feature_names": [
     "partnerCode",
     "cmdCode",
@@ -15,7 +15,6 @@
     "grossWgt",
     "qty",
     "altQty",
-    "refYear",
     "refMonth",
     "reporterCode",
     "reporterISO",
@@ -52,23 +51,23 @@
     "netWgt_rolling_3y_mean"
   ],
   "best_params": {
-    "n_estimators": 239,
-    "max_depth": 7,
-    "learning_rate": 0.0317382762165806,
-    "subsample": 0.9396261721179522,
-    "colsample_bytree": 0.9572126589453135,
-    "reg_alpha": 0.0010769686405503267,
-    "reg_lambda": 0.7664632139799765,
+    "n_estimators": 185,
+    "max_depth": 8,
+    "learning_rate": 0.05374789769815767,
+    "subsample": 0.8804816684166745,
+    "colsample_bytree": 0.99475276342115,
+    "reg_alpha": 1.1423623189758531e-05,
+    "reg_lambda": 7.554948876173544,
     "random_state": 42,
     "n_jobs": -1,
     "tree_method": "hist",
     "device": "cuda"
   },
   "metrics": {
-    "best_cv_log_rmse_train": 0.5201718349278179,
-    "test_log_scale_r2": 0.9921901727979158,
-    "test_dollar_scale_rmse": 2242190336.8363433,
-    "test_dollar_scale_mae": 134273191.41844824
+    "best_cv_log_rmse_train": 0.5307419099226689,
+    "test_log_scale_r2": 0.9920411296139235,
+    "test_dollar_scale_rmse": 2278235327.5776014,
+    "test_dollar_scale_mae": 138526291.22288153
   },
   "target_statistics": {
     "target_column": "primaryValue",

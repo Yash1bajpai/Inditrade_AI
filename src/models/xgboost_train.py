@@ -68,8 +68,8 @@ def load_and_preprocess_data(data_path, sample_size=None):
     # Log-transform target for numerical stability across multi-scale commodities ($1k to $50B)
     y_log = np.log1p(np.maximum(y_raw, 0))
     
-    # Prepare feature set: drop target and descriptive string metadata (keep numeric identifiers and all features)
-    ignore_cols = ['primaryValue', 'partnerDesc', 'cmdDesc', 'flowDesc', 'partnerISO']
+    # Prepare feature set: drop target, descriptive string metadata, and duplicate 'refYear' (identical to 'period')
+    ignore_cols = ['primaryValue', 'partnerDesc', 'cmdDesc', 'flowDesc', 'partnerISO', 'refYear']
     feature_cols = [c for c in df_clean.columns if c not in ignore_cols]
     
     X = df_clean[feature_cols].copy()
