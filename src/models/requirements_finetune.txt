@@ -1,0 +1,23 @@
+# IndiTrade AI - Phase 5 Fine-Tuning Dependencies (Lightning AI Studio / Google Colab / Kaggle)
+# Install via: pip install -r src/models/requirements_finetune.txt
+
+# Unsloth (2x-5x faster QLoRA, 70% less memory)
+unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git
+packaging
+ninja
+wheel
+
+# PyTorch & Core Transformers Ecosystem
+torch>=2.1.0
+transformers>=4.40.0
+datasets>=2.18.0
+peft>=0.10.0
+trl>=0.8.1
+bitsandbytes>=0.43.0
+accelerate>=0.28.0
+
+# Hugging Face Hub & Exporting (Required for Method 1: Free Serverless Inference API)
+huggingface_hub>=0.22.0
+safetensors>=0.4.2
+scipy
+tqdm
