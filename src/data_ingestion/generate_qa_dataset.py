@@ -188,9 +188,9 @@ def main():
     parser.add_argument("--sleep", type=float, default=1.2, help="Sleep seconds between Groq API calls to avoid rate limiting")
     args = parser.parse_args()
     
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY2") or os.getenv("GROQ_API_KEY") or os.getenv("GROQ_API_KEY1")
     if not api_key:
-        logger.error("CRITICAL: GROQ_API_KEY environment variable is not set! Please set it in your .env file or environment.")
+        logger.error("CRITICAL: Neither GROQ_API_KEY2 nor GROQ_API_KEY is set in .env! Please check environment configuration.")
         return
         
     os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
