@@ -1,0 +1,22 @@
+{
+  "base_model": "meta-llama/Llama-3.2-1B",
+  "timestamp": "2026-07-20T07:04:11.032356Z",
+  "n_train_samples": 1292,
+  "n_val_samples": 68,
+  "epochs": 3.0,
+  "lora_r": 16,
+  "lora_alpha": 32,
+  "learning_rate": 0.0002,
+  "max_seq_len": 768,
+  "used_bf16": true,
+  "final_train_loss": 0.5829308160538536,
+  "final_eval_loss": 0.6402998566627502,
+  "final_perplexity": 1.8970496654510498,
+  "dry_run": false,
+  "hf_hub_url": null,
+  "sample_generation": {
+    "question": "What is the primary subject and policy mandate notified under DGFT Trade Policy Document 09/2024-25?",
+    "ground_truth_answer": "According to DGFT Trade Policy Document 09/2024-25 (dated 23/07/2024), the primary subject is: Verification of authenticity of Licences, Authorisations, Scrips. Specifically, the document mandates: Dated: 23rd July 2024 Trade Notice No. All Customs Commissionerates 2.",
+    "model_generated_answer": "According to DGFT Trade Policy Document 09/2024-25 (dated 23/07/2024), the primary subject is: Verification of authenticity of Licences, Authorisations, Scrips, Certificates, Instruments etc. issued by DGFT using the UDIN. Specifically, the document mandates: Dated: 23rd July 2024 Trade Notice No. All Regional Authorities 3. All Members of Trade & Industry Subject: Verification of authenticity of Licences, Authorisations, Scrips, Certificates, Instruments etc. issued by DGFT using the UDIN \u2013reg Reference is drawn to the requests received from time-to-time for verification of authorisation of Licences, Authorisations, Scrips, Certificates, Instruments"
+  }
+}
