@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+requests
+joblib
+pandas
+qdrant-client
+supabase
+groq
