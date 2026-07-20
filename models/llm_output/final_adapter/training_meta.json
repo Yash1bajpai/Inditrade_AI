@@ -13,7 +13,7 @@
   "final_eval_loss": 0.6402998566627502,
   "final_perplexity": 1.8970496654510498,
   "dry_run": false,
-  "hf_hub_url": null,
+  "hf_hub_url": "https://huggingface.co/Yash1bajpai/Inditrade-Llama-3.2-1B-Policy-LoRA",
   "sample_generation": {
     "question": "What is the primary subject and policy mandate notified under DGFT Trade Policy Document 09/2024-25?",
     "ground_truth_answer": "According to DGFT Trade Policy Document 09/2024-25 (dated 23/07/2024), the primary subject is: Verification of authenticity of Licences, Authorisations, Scrips. Specifically, the document mandates: Dated: 23rd July 2024 Trade Notice No. All Customs Commissionerates 2.",
