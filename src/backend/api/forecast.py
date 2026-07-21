@@ -35,23 +35,35 @@ async def get_forecast(req: ForecastRequest):
     try:
         import pandas as pd
         # Construct input DataFrame matching training features
-        # Note: In a real scenario, you'd calculate lags/rolling means based on historical data.
-        # Here we do a simplified inference for the demo.
-        df = pd.DataFrame([{
-            "INR=X": req.usd_inr,
-            "CL=F": req.crude_price,
-            "year": req.year,
-            # Fill other features with median/zeros for demo stability
-            "lag_1y_export": 0,
-            "lag_1y_import": 0,
-            "rolling_3y_mean_export": 0,
-            "policy_event_flag": 0
-        }])
+        # Initialize all features to 0
+        expected_features = xgboost_model['features']
+        input_data = {feat: 0.0 for feat in expected_features}
+        
+        # Override with user inputs where applicable
+        if "usdinr_mean" in input_data:
+            input_data["usdinr_mean"] = float(req.usd_inr)
+        if "brent_crude_mean" in input_data:
+            input_data["brent_crude_mean"] = float(req.crude_price)
+        if "period" in input_data:
+            input_data["period"] = float(req.year)
+            
+        df = pd.DataFrame([input_data])
         
         prediction = xgboost_model['model'].predict(df)[0]
+        
+        # Extract feature importances
+        try:
+            importances = xgboost_model['model'].feature_importances_
+            # Zip and sort top 5
+            feat_imp = sorted(zip(expected_features, importances), key=lambda x: x[1], reverse=True)[:5]
+            feature_importance = [{"feature": f, "importance": float(i)} for f, i in feat_imp]
+        except:
+            feature_importance = []
+            
         return {
             "year": req.year,
             "forecasted_trade_value_usd": float(prediction),
+            "feature_importance": feature_importance,
             "status": "success"
         }
     except Exception as e:

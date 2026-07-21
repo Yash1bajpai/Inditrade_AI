@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Roboto+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Night Slate & Minted Brass Palette */
+  --background: #1A1C21;
+  --foreground: #EFECE6;
+  --card: #23262D;
+  --card-foreground: #EFECE6;
+  
+  --primary: #C8A97E; /* Minted Brass */
+  --primary-foreground: #1A1C21;
+  
+  --secondary: #2C303A;
+  --secondary-foreground: #EFECE6;
+  
+  --muted: #2C303A;
+  --muted-foreground: #8B949E;
+  
+  --destructive: #9E3E3E; /* Crimson Wax */
+  --destructive-foreground: #EFECE6;
+  
+  --border: #3A3F4C;
+  --input: #23262D;
+  --ring: #C8A97E;
+  
+  --radius: 0px; /* Formal dossier, no rounded corners */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Subtle paper grain texture */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
+}
+
+/* Formal structural panel */
+.glass-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--primary); /* Hairline brass divider */
+}
+
+.subtle-ring {
+  border: 1px solid var(--border);
+}
+
+/* Premium serif title */
+.gradient-text {
+  font-family: 'Playfair Display', serif;
+  color: var(--foreground);
+}
+
+/* Base interactive elements */
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}

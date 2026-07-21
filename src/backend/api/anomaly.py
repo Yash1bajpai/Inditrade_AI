@@ -51,3 +51,47 @@ async def detect_anomaly(req: AnomalyRequest):
     except Exception as e:
         logger.error(f"Anomaly detection error: {e}")
         return {"error": str(e)}
+
+@router.get("/historical")
+async def get_historical_anomalies():
+    try:
+        import pandas as pd
+        import os
+        filepath = "data/processed/flagged_trade_anomalies.csv"
+        if not os.path.exists(filepath):
+            return {"data": []}
+            
+        df = pd.read_csv(filepath)
+        # Select top 50 anomalies for plotting to avoid overwhelming the UI
+        df = df.head(50)
+        # Sort by period so the X-axis is chronological
+        if "period" in df.columns:
+            df = df.sort_values(by="period")
+        
+        import math
+        data = []
+        for _, row in df.iterrows():
+            val = float(row.get("primaryValue", 0))
+            mean_val = float(row.get("primaryValue_rolling_3y_mean", 1))
+            
+            # Fix Zero-Division and NaN Bug
+            if pd.isna(mean_val) or math.isnan(mean_val) or mean_val == 0:
+                mean_val = 1e-9
+                
+            deviation_pct = ((val - mean_val) / mean_val) * 100
+            
+            cmd_desc = row.get("cmdDesc", "Unknown")
+            if pd.isna(cmd_desc) or str(cmd_desc).lower() == "nan":
+                cmd_desc = "Unknown"
+                
+            data.append({
+                "date": str(row.get("period", "Unknown")),
+                "value": val,
+                "partner": str(row.get("partnerDesc", "Unknown")),
+                "commodity": str(cmd_desc),
+                "reason": f"Value deviated {deviation_pct:.1f}% from 3yr mean"
+            })
+        return {"data": data}
+    except Exception as e:
+        logger.error(f"Error fetching historical anomalies: {e}")
+        return {"error": str(e)}

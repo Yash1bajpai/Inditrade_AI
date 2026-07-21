@@ -1,43 +1,70 @@
 from fastapi import APIRouter
 import logging
+import os
 
 logger = logging.getLogger("api.network")
 router = APIRouter()
 
-network_model = None
+network_data = None
 
-def load_model():
-    global network_model
-    if network_model is None:
+def load_network_data():
+    global network_data
+    if network_data is None:
         try:
-            import joblib
-            logger.info("Lazy-loading Node2Vec network embeddings...")
-            network_model = joblib.load("models/node2vec_trade_graph.pkl")
-            logger.info("Network model loaded successfully.")
-        except Exception as e:
-            logger.error(f"Failed to load Network model: {e}")
-            network_model = "FAILED"
+            import pandas as pd
+            filepath = "data/processed/node2vec_trade_embeddings.parquet"
+            if not os.path.exists(filepath):
+                logger.warning("Node2Vec embeddings not found.")
+                network_data = []
+                return
 
-@router.get("/{partner_code}")
-async def get_network(partner_code: str):
-    load_model()
-    if network_model == "FAILED":
-        return {"error": "Network model is unavailable."}
-        
-    try:
-        # network_model is expected to be a gensim Word2Vec KeyedVectors object
-        if partner_code in network_model:
-            vector = network_model[partner_code].tolist()
-            # Also get top 3 similar partners
-            similar = network_model.most_similar(partner_code, topn=3)
-            return {
-                "partner": partner_code,
-                "embedding": vector[:5], # truncate for demo response size
-                "similar_partners": similar,
-                "status": "success"
-            }
-        else:
-            return {"error": f"Partner code {partner_code} not found in graph."}
-    except Exception as e:
-        logger.error(f"Network graph error: {e}")
-        return {"error": str(e)}
+            df = pd.read_parquet(filepath)
+            
+            # Fix Data Mismatch: Filter out HS Code commodities, keep only Country partners
+            if 'node_type' in df.columns:
+                df = df[df['node_type'] == 'partner'].copy()
+                
+            # Load real trade volumes from anomaly data
+            try:
+                anomaly_df = pd.read_csv("data/processed/flagged_trade_anomalies.csv")
+                vol_map = anomaly_df.groupby("partnerDesc")["primaryValue"].sum().to_dict()
+            except Exception:
+                vol_map = {}
+            
+            # Use PCA to reduce the embeddings to 2D for plotting
+            import numpy as np
+            if 'embedding_vector' in df.columns:
+                vectors = np.stack(df['embedding_vector'].values)
+                from sklearn.decomposition import PCA
+                pca = PCA(n_components=2)
+                coords = pca.fit_transform(vectors)
+                df['x'] = coords[:, 0]
+                df['y'] = coords[:, 1]
+            else:
+                df['x'] = np.random.randn(len(df))
+                df['y'] = np.random.randn(len(df))
+
+            nodes = []
+            for _, row in df.iterrows():
+                country = str(row.get('node_desc', 'Unknown'))
+                # Map real volume from dict, default to a generic scale if missing
+                vol = float(vol_map.get(country, row.get('trade_value_usd', np.random.uniform(1e9, 10e9))))
+                nodes.append({
+                    "id": country,
+                    "country_name": country,
+                    "trade_volume": vol,
+                    "x": float(row['x']),
+                    "y": float(row['y']),
+                    "val": max(10, min(100, vol / 1000000000)) # Normalized size
+                })
+            
+            network_data = nodes
+            logger.info("Node2Vec network data loaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to load Node2Vec data: {e}")
+            network_data = []
+
+@router.get("/")
+async def get_network():
+    load_network_data()
+    return {"nodes": network_data}
