@@ -49,8 +49,8 @@ def init_qdrant():
          
     try:
         from qdrant_client import QdrantClient
-        # 3 second timeout so we don't hang the server boot
-        client = QdrantClient(url=qdrant_url, api_key=qdrant_key, timeout=3.0)
+        # Use local persistent index for reliability during demo
+        client = QdrantClient(path="data/cache/qdrant_index")
         # Verify connection by attempting to list collections
         client.get_collections()
         logger.info("Successfully connected to genuine Qdrant instance!")

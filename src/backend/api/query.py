@@ -17,10 +17,19 @@ async def query_policy(req: QueryRequest):
     context = ""
     try:
         if qdrant and hasattr(qdrant, 'search'):
-            # Fetch context from Qdrant if available
+            # Use real embedding via Hugging Face API instead of mock vector
+            hf_token = os.getenv("HF_TOKEN")
+            emb_response = requests.post(
+                "https://api-inference.huggingface.co/pipeline/feature-extraction/BAAI/bge-small-en-v1.5",
+                headers={"Authorization": f"Bearer {hf_token}"},
+                json={"inputs": req.question},
+                timeout=5
+            )
+            query_vector = emb_response.json() if emb_response.status_code == 200 else [0.0]*384
+            
             results = qdrant.search(
-                collection_name="dgft_policy",
-                query_vector=[0.0]*768, # Mock vector for demo since embeddings aren't fully integrated here
+                collection_name="trade_policy_compliance",
+                query_vector=query_vector,
                 limit=3
             )
             context = "\n".join([r.payload.get("text", "") for r in results])
