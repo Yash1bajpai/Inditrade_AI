@@ -31,7 +31,6 @@ from datetime import datetime
 import torch
 from datasets import Dataset
 
-# Attempt to import Unsloth (Ultra-fast 4-bit LoRA training)
 UNSLOTH_AVAILABLE = False
 try:
     from unsloth import FastLanguageModel, is_bfloat16_supported
@@ -47,7 +46,6 @@ DEFAULT_BASE_MODEL = "unsloth/llama-3-8b-Instruct-bnb-4bit" if UNSLOTH_AVAILABLE
 DEFAULT_DATASET_PATH = "data/processed/policy_qa_dataset.jsonl"
 DEFAULT_OUTPUT_DIR = "models/checkpoints/inditrade-llama3-8b-policy-lora"
 
-# Alpaca / Llama-3 instruction prompt template
 PROMPT_TEMPLATE = """### Instruction:
 You are an expert Indian Foreign Trade Policy and DGFT regulatory assistant for IndiTrade AI. Answer the following policy question strictly based on the provided trade context, citing relevant HS codes, notification numbers, and regulatory conditions accurately.
 
@@ -59,7 +57,6 @@ You are an expert Indian Foreign Trade Policy and DGFT regulatory assistant for 
 
 ### Answer:
 {answer}"""
-
 
 def load_qa_dataset(dataset_path: str):
     """Loads and verifies the 1,360-pair policy Q&A dataset."""
@@ -85,7 +82,6 @@ def load_qa_dataset(dataset_path: str):
     print(f"[OK] Successfully loaded {len(rows)} verified Q&A pairs from {dataset_path}")
     return Dataset.from_list(rows)
 
-
 def format_dataset_for_training(dataset: Dataset, tokenizer):
     """Formats raw (question, context, answer) rows into prompt text."""
     def _apply_template(examples):
@@ -99,7 +95,6 @@ def format_dataset_for_training(dataset: Dataset, tokenizer):
 
     return dataset.map(_apply_template, batched=True, desc="Formatting Q&A pairs into instruction prompt strings")
 
-
 def train_with_unsloth(args):
     """Executes high-speed training using Unsloth (Recommended for Lightning AI / Colab)."""
     print(f"=== Initializing Unsloth FastLanguageModel ({args.model_name}) ===")
@@ -108,16 +103,15 @@ def train_with_unsloth(args):
         model_name=args.model_name,
         max_seq_length=max_seq_len,
         load_in_4bit=True,
-        dtype=None,  # Auto-detects fp16 vs bf16
+        dtype=None,
     )
 
-    # Attach LoRA adapters
     model = FastLanguageModel.get_peft_model(
         model,
         r=args.lora_r,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
         lora_alpha=args.lora_alpha,
-        lora_dropout=0, # 0 is optimized inside Unsloth
+        lora_dropout=0,
         bias="none",
         use_gradient_checkpointing="unsloth",
         random_state=3407,
@@ -163,20 +157,17 @@ def train_with_unsloth(args):
     trainer_stats = trainer.train()
     print(f"\n[OK] Training completed in {trainer_stats.metrics['train_runtime']:.2f} seconds.")
 
-    # Save local LoRA adapter
     os.makedirs(args.output_dir, exist_ok=True)
     model.save_pretrained(args.output_dir)
     tokenizer.save_pretrained(args.output_dir)
     print(f"[OK] Saved local LoRA adapter weights to: {args.output_dir}")
 
-    # Push to Hugging Face Hub (For Method 1: Free Serverless Inference API)
     if args.push_to_hub and args.hub_model_id:
         print(f"\n=== Pushing Fine-Tuned Model to Hugging Face Hub ({args.hub_model_id}) ===")
         if args.hf_token:
             from huggingface_hub import login
             login(token=args.hf_token)
 
-        # Push LoRA adapter
         model.push_to_hub_merged(
             args.hub_model_id,
             tokenizer,
@@ -196,7 +187,6 @@ def train_with_unsloth(args):
             )
             print(f"[SUCCESS] Pushed 16-bit merged model to https://huggingface.co/{merged_id}")
             print(f"--> Your Free Serverless Inference API endpoint is now: https://api-inference.huggingface.co/models/{merged_id}")
-
 
 def train_with_standard_transformers(args):
     """Fallback training logic using standard Transformers + PEFT if Unsloth is not installed."""
@@ -278,7 +268,6 @@ def train_with_standard_transformers(args):
         tokenizer.push_to_hub(args.hub_model_id, token=args.hf_token)
         print(f"[SUCCESS] Pushed LoRA adapter to https://huggingface.co/{args.hub_model_id}")
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description="IndiTrade AI Phase 5 Fine-Tuning Suite")
     parser.add_argument("--model-name", type=str, default=DEFAULT_BASE_MODEL, help="Base HuggingFace/Unsloth model name")
@@ -298,7 +287,6 @@ def parse_args():
     parser.add_argument("--push-merged-16bit", action="store_true", help="Merge LoRA and push 16-bit standalone model to HF Hub")
     return parser.parse_args()
 
-
 if __name__ == "__main__":
     args = parse_args()
     print("=" * 65)
@@ -313,3 +301,4 @@ if __name__ == "__main__":
         train_with_unsloth(args)
     else:
         train_with_standard_transformers(args)
+

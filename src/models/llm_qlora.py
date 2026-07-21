@@ -53,7 +53,6 @@ regulations using only the context below.
 ### Answer:
 """
 
-
 def load_qa_dataset(path, max_samples=None):
     """Loads policy_qa_dataset.jsonl and returns train/val splits."""
     records = []
@@ -68,13 +67,11 @@ def load_qa_dataset(path, max_samples=None):
         records = records[:max_samples]
         print(f"[*] DRY RUN: limited to first {max_samples} samples")
 
-    # Genuine held-out split, not self-evaluation (same discipline as Module A)
     split_idx = int(len(records) * 0.95)
     train_records = records[:split_idx]
     val_records = records[split_idx:]
     print(f"[*] Train: {len(train_records)} | Val (held-out): {len(val_records)}")
     return train_records, val_records
-
 
 def format_example(record, tokenizer):
     """Builds prompt+answer, tokenizes, and masks prompt tokens from the loss
@@ -99,7 +96,6 @@ def format_example(record, tokenizer):
         "labels": labels,
         "attention_mask": [1] * len(input_ids),
     }
-
 
 def main():
     parser = argparse.ArgumentParser(description="IndiTrade AI - Llama-3.2-1B QLoRA Fine-Tune")
@@ -211,7 +207,6 @@ def main():
     trainer.save_model(args.output_dir)
     tokenizer.save_pretrained(args.output_dir)
 
-    # Proof-of-life: one real generation on a held-out question, per plan's proof requirement
     sample_output = None
     if len(val_records) > 0:
         sample_rec = val_records[0]
@@ -267,6 +262,6 @@ def main():
     print(f"[Exported] training metadata -> {meta_path}")
     print("\n[COMPLETE] QLoRA fine-tune pipeline finished!")
 
-
 if __name__ == "__main__":
     main()
+

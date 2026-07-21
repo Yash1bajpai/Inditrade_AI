@@ -47,10 +47,9 @@ def call_groq_api(chunk_text: str, doc_metadata: Dict[str, Any], api_key: str, m
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
-    
-    # Truncate to maximum 3000 characters (~750 tokens) to guarantee staying well below Groq's TPM limits
+
     truncated_text = chunk_text[:3000] + ("..." if len(chunk_text) > 3000 else "")
-    
+
     user_content = f"""Document Metadata:
 - Source Type: {doc_metadata.get('doc_type', 'DGFT/PIB Document')}
 - Document Reference: {doc_metadata.get('ref_id', 'N/A')}
@@ -72,9 +71,9 @@ Generate 2 to 3 factual Q&A pairs in exact JSON array format:"""
         "max_tokens": 1024,
         "response_format": {"type": "json_object"} if "70b" in model or "8b" in model else None
     }
-    # For models that require top-level json_object or json array, handle clean parsing
+
     if payload["response_format"] is not None:
-        # If response_format json_object is requested, prompt explicitly to wrap in {"qa_pairs": [...]}
+
         payload["messages"][0]["content"] += '\nWrap your JSON array in an object like: {"qa_pairs": [{"question": "...", "answer": "..."}]}'
 
     for attempt in range(max_retries):
@@ -85,20 +84,19 @@ Generate 2 to 3 factual Q&A pairs in exact JSON array format:"""
                 logger.warning(f"Groq API Rate Limit (429). Retrying in {wait_sec}s...")
                 time.sleep(wait_sec)
                 continue
-                
+
             if resp.status_code != 200:
-                # If 70b versatile fails or throws format error, fallback once to 8b
+
                 if attempt == max_retries - 1 and model != "llama-3.1-8b-instant":
                     logger.warning(f"Groq API returned {resp.status_code}: {resp.text}. Falling back to llama-3.1-8b-instant...")
                     return call_groq_api(chunk_text, doc_metadata, api_key, model="llama-3.1-8b-instant", max_retries=2)
                 logger.error(f"Groq API HTTP {resp.status_code}: {resp.text}")
                 time.sleep(2)
                 continue
-                
+
             data = resp.json()
             raw_content = data["choices"][0]["message"]["content"].strip()
-            
-            # Clean possible markdown formatting
+
             if raw_content.startswith("```json"):
                 raw_content = raw_content[7:]
             if raw_content.startswith("```"):
@@ -106,32 +104,32 @@ Generate 2 to 3 factual Q&A pairs in exact JSON array format:"""
             if raw_content.endswith("```"):
                 raw_content = raw_content[:-3]
             raw_content = raw_content.strip()
-            
+
             parsed = json.loads(raw_content)
             if isinstance(parsed, dict) and "qa_pairs" in parsed:
                 return parsed["qa_pairs"]
             elif isinstance(parsed, list):
                 return parsed
             elif isinstance(parsed, dict):
-                # Look for first list value inside dict
+
                 for k, v in parsed.items():
                     if isinstance(v, list):
                         return v
             return []
-            
+
         except json.JSONDecodeError as je:
             logger.debug(f"JSON Parse Error on attempt {attempt+1}: {je}")
             time.sleep(1)
         except Exception as e:
             logger.error(f"Error calling Groq API on attempt {attempt+1}: {e}")
             time.sleep(2)
-            
+
     return []
 
 def load_input_chunks(dgft_path: str, pib_path: str) -> List[Dict[str, Any]]:
     """Loads and standardizes chunks from both DGFT and PIB JSONL files."""
     chunks = []
-    
+
     if os.path.exists(dgft_path):
         with open(dgft_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -152,7 +150,7 @@ def load_input_chunks(dgft_path: str, pib_path: str) -> List[Dict[str, Any]]:
         logger.info(f"Loaded {len(chunks)} valid policy chunks from {dgft_path}")
     else:
         logger.warning(f"DGFT policy file not found: {dgft_path}")
-        
+
     pib_count = 0
     if os.path.exists(pib_path):
         with open(pib_path, "r", encoding="utf-8") as f:
@@ -175,7 +173,7 @@ def load_input_chunks(dgft_path: str, pib_path: str) -> List[Dict[str, Any]]:
         logger.info(f"Loaded {pib_count} valid press releases from {pib_path}")
     else:
         logger.warning(f"PIB releases file not found: {pib_path}")
-        
+
     return chunks
 
 def main():
@@ -187,29 +185,28 @@ def main():
     parser.add_argument("--max-chunks", type=int, default=0, help="Maximum chunks to process (0 = all)")
     parser.add_argument("--sleep", type=float, default=1.2, help="Sleep seconds between Groq API calls to avoid rate limiting")
     args = parser.parse_args()
-    
+
     api_key = os.getenv("GROQ_API_KEY2") or os.getenv("GROQ_API_KEY") or os.getenv("GROQ_API_KEY1")
     if not api_key:
         logger.error("CRITICAL: Neither GROQ_API_KEY2 nor GROQ_API_KEY is set in .env! Please check environment configuration.")
         return
-        
+
     os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
-    
+
     chunks = load_input_chunks(args.dgft_path, args.pib_path)
     if not chunks:
         logger.error("No valid input chunks found! Exiting.")
         return
-        
+
     if args.max_chunks > 0:
         chunks = chunks[:args.max_chunks]
         logger.info(f"Limiting Q&A generation to first {args.max_chunks} chunks.")
-        
+
     logger.info(f"Starting Q&A generation across {len(chunks)} chunks using Groq ({args.model})...")
-    
+
     total_qa_generated = 0
     start_time = time.time()
-    
-    # Track existing processed IDs if resuming or appending
+
     existing_qa_count = 0
     processed_ref_ids = set()
     if os.path.exists(args.output_path):
@@ -225,23 +222,23 @@ def main():
                         pass
         if existing_qa_count > 0:
             logger.info(f"Output file {args.output_path} already has {existing_qa_count} Q&A pairs across {len(processed_ref_ids)} unique documents. Resuming clean generation...")
-            
+
     with open(args.output_path, "a", encoding="utf-8") as out_file:
         for idx, chunk in enumerate(chunks, 1):
             if str(chunk["ref_id"]) in processed_ref_ids:
                 continue
-                
+
             logger.info(f"[{idx}/{len(chunks)}] Processing {chunk['doc_type']} | Ref: {chunk['ref_id'][:30]}...")
-            
+
             qa_pairs = call_groq_api(chunk["chunk_text"], chunk, api_key, model=args.model)
             if qa_pairs:
                 processed_ref_ids.add(str(chunk["ref_id"]))
-            
+
             if qa_pairs:
                 for qa in qa_pairs:
                     if not isinstance(qa, dict) or not qa.get("question") or not qa.get("answer"):
                         continue
-                        
+
                     entry = {
                         "qa_id": f"qa_{chunk['doc_type'].lower()}_{chunk['ref_id']}_{total_qa_generated+1}",
                         "doc_type": chunk["doc_type"],
@@ -257,10 +254,10 @@ def main():
                     out_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
                     out_file.flush()
                     total_qa_generated += 1
-                    
+
             if idx < len(chunks):
                 time.sleep(args.sleep)
-                
+
     elapsed = time.time() - start_time
     logger.info("=== Q&A DATASET GENERATION COMPLETE ===")
     logger.info(f"Total Chunks Processed : {len(chunks)}")
@@ -271,3 +268,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

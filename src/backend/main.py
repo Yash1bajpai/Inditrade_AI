@@ -13,7 +13,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware for frontend communication
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,7 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Routers
 app.include_router(forecast.router, prefix="/api/forecast", tags=["Forecast"])
 app.include_router(query.router, prefix="/api/query", tags=["Query (LLM)"])
 app.include_router(anomaly.router, prefix="/api/anomaly", tags=["Anomaly"])
@@ -37,3 +35,4 @@ if __name__ == "__main__":
     import uvicorn
     logger.info("Starting IndiTrade AI Backend...")
     uvicorn.run("src.backend.main:app", host="0.0.0.0", port=8000, reload=True)
+

@@ -16,7 +16,6 @@ import pandas as pd
 from dotenv import load_dotenv
 import comtradeapicall
 
-# Load credentials from .env
 load_dotenv()
 
 def get_api_keys():
@@ -24,19 +23,18 @@ def get_api_keys():
     k1 = os.getenv("COMTRADE_API_KEY1")
     k2 = os.getenv("COMTRADE_API_KEY2")
     k_single = os.getenv("COMTRADE_API_KEY")
-    
+
     if k1 and k1 != "your_comtrade_api_key_here":
         keys.append(k1.strip())
     if k2 and k2 != "your_comtrade_api_key_here" and k2.strip() not in keys:
         keys.append(k2.strip())
     if k_single and k_single != "your_comtrade_api_key_here" and k_single.strip() not in keys:
         keys.append(k_single.strip())
-        
+
     if not keys:
         raise ValueError("[ERROR] No valid UN Comtrade API keys found in .env file.")
     return keys
 
-# UN M49 Numeric Codes for India (Reporter) and Top 20 Trade Partners
 REPORTER_INDIA = "699"
 
 TOP_20_PARTNERS = {
@@ -80,14 +78,13 @@ class ComtradeFetcher:
         old_idx = self.current_key_idx
         self.exhausted_keys.add(old_idx)
         print(f"\n[KEY ROTATION] Key #{old_idx+1} hit issue ({reason}). Rotating to next key...")
-        
-        # Find next unexhausted key
+
         for idx in range(len(self.keys)):
             if idx not in self.exhausted_keys:
                 self.current_key_idx = idx
                 print(f"[KEY ROTATION] Switched to Key #{self.current_key_idx+1}.")
                 return self.keys[self.current_key_idx]
-                
+
         print("\n[CRITICAL ERROR / STOPPING] All available UN Comtrade API keys are exhausted or rate limited (403/429)!")
         return None
 
@@ -100,7 +97,7 @@ class ComtradeFetcher:
             return None, "ALL_KEYS_EXHAUSTED"
 
         try:
-            # Call UN Comtrade API getFinalData passing None for partner2Code, customsCode, motCode
+
             df = comtradeapicall.getFinalData(
                 subscription_key=key,
                 typeCode="C",
@@ -115,8 +112,7 @@ class ComtradeFetcher:
                 customsCode=None,
                 motCode=None
             )
-            
-            # comtradeapicall returns either pandas DataFrame or None/Exception if failure
+
             if isinstance(df, pd.DataFrame):
                 return df, "SUCCESS"
             else:
@@ -128,7 +124,7 @@ class ComtradeFetcher:
                 print(f"\n[API LIMIT DETECTED] Error: {err_str}")
                 new_key = self.rotate_key(reason=err_str)
                 if new_key:
-                    # Retry with the rotated key immediately once
+
                     return self.fetch_slice(partner_code, year, flow_code)
                 else:
                     return None, f"403/429_EXHAUSTED: {err_str}"
@@ -144,17 +140,17 @@ def run_test_fetch(partner_code="842", year="2023", flow_code="M"):
     print(f"\n=== UN COMTRADE TEST FETCH (Strictly 1 Partner, 1 Year) ===")
     partner_name = TOP_20_PARTNERS.get(str(partner_code), "Unknown")
     print(f"Target: India (699) <-> {partner_name} (M49: {partner_code}) | Year: {year} | Flow: {flow_code} | HS 2-Digit")
-    
+
     fetcher = ComtradeFetcher()
     df, status = fetcher.fetch_slice(partner_code=partner_code, year=year, flow_code=flow_code)
-    
+
     if df is None:
         print(f"\n[STOPPED ON ERROR] Test fetch stopped due to API exhaustion/error: {status}")
         return None
-        
+
     print(f"\n[TEST FETCH RESULT] Status: {status}")
     print(f"[df.shape] EXACT SHAPE: {df.shape} (Rows: {df.shape[0]}, Columns: {df.shape[1]})")
-    
+
     if not df.empty:
         print("\n--- SAMPLE DATA (First 5 Rows, Key Columns) ---")
         display_cols = [c for c in ["period", "reporterCode", "reporterDesc", "partnerCode", "partnerDesc", "flowCode", "flowDesc", "cmdCode", "cmdDesc", "primaryValue"] if c in df.columns]
@@ -164,7 +160,7 @@ def run_test_fetch(partner_code="842", year="2023", flow_code="M"):
             print(df.head(5).to_string(index=False))
     else:
         print("[NOTICE] Returned dataframe is empty.")
-        
+
     return df
 
 def run_full_loop():
@@ -176,14 +172,14 @@ def run_full_loop():
     """
     print("\n=== STARTING FULL 400-ITERATION UN COMTRADE FETCH LOOP ===")
     fetcher = ComtradeFetcher()
-    
+
     all_dfs = []
     iteration = 0
     total_iterations = len(TOP_20_PARTNERS) * 10 * 2
     stopped_early = False
-    
+
     os.makedirs(os.path.dirname(OUTPUT_PARQUET), exist_ok=True)
-    
+
     for partner_code, partner_name in TOP_20_PARTNERS.items():
         if stopped_early:
             break
@@ -194,24 +190,23 @@ def run_full_loop():
                 iteration += 1
                 flow_label = "Import (M)" if flow == "M" else "Export (X)"
                 print(f"[{iteration:03d}/{total_iterations}] Fetching India <-> {partner_name:<20} ({partner_code}) | {year} | {flow_label}...", end=" ", flush=True)
-                
+
                 df, status = fetcher.fetch_slice(partner_code=partner_code, year=year, flow_code=flow)
-                
+
                 if df is None:
-                    # Critical stop on 403/429
+
                     print(f"\n[CRITICAL STOP] API Rate/Quota Exceeded ({status}). Stopping full loop cleanly.")
                     stopped_early = True
                     break
-                    
+
                 row_count = len(df)
                 print(f"Rows: {row_count:<4} | Status: {status}")
-                
+
                 if not df.empty:
                     all_dfs.append(df)
-                    
-                # 1.5 second sleep between calls
+
                 time.sleep(1.5)
-                
+
     if all_dfs:
         final_df = pd.concat(all_dfs, ignore_index=True)
         final_df.to_parquet(OUTPUT_PARQUET, index=False)
@@ -222,5 +217,6 @@ def run_full_loop():
         print("\n[WARNING] No data was fetched across the iterations.")
 
 if __name__ == "__main__":
-    # By default, run strictly the TEST FETCH (1 partner, 1 year) as instructed by user
+
     run_test_fetch(partner_code="842", year="2023", flow_code="M")
+

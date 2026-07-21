@@ -19,19 +19,16 @@ def load_network_data():
                 return
 
             df = pd.read_parquet(filepath)
-            
-            # Fix Data Mismatch: Filter out HS Code commodities, keep only Country partners
+
             if 'node_type' in df.columns:
                 df = df[df['node_type'] == 'partner'].copy()
-                
-            # Load real trade volumes from anomaly data
+
             try:
                 anomaly_df = pd.read_csv("data/processed/flagged_trade_anomalies.csv")
                 vol_map = anomaly_df.groupby("partnerDesc")["primaryValue"].sum().to_dict()
             except Exception:
                 vol_map = {}
-            
-            # Use PCA to reduce the embeddings to 2D for plotting
+
             import numpy as np
             if 'embedding_vector' in df.columns:
                 vectors = np.stack(df['embedding_vector'].values)
@@ -44,7 +41,6 @@ def load_network_data():
                 df['x'] = np.random.randn(len(df))
                 df['y'] = np.random.randn(len(df))
 
-            # Mapping for TopoJSON compatibility
             topo_map = {
                 "USA": "United States of America",
                 "Russian Federation": "Russia",
@@ -56,10 +52,9 @@ def load_network_data():
             nodes = []
             for _, row in df.iterrows():
                 country = str(row.get('node_desc', 'Unknown'))
-                # Apply TopoJSON mapping
+
                 mapped_country = topo_map.get(country, country)
-                
-                # Map real volume from dict, default to a generic scale if missing
+
                 vol = float(vol_map.get(country, row.get('trade_value_usd', np.random.uniform(1e9, 10e9))))
                 nodes.append({
                     "id": str(row.get('node_id', country)),
@@ -68,9 +63,9 @@ def load_network_data():
                     "trade_volume": vol,
                     "x": float(row['x']),
                     "y": float(row['y']),
-                    "val": max(10, min(100, vol / 1000000000)) # Normalized size
+                    "val": max(10, min(100, vol / 1000000000))
                 })
-            
+
             network_data = nodes
             logger.info("Node2Vec network data loaded successfully.")
         except Exception as e:
@@ -85,30 +80,30 @@ async def get_network():
 @router.get("/history/{country}")
 async def get_country_history(country: str):
     """
-    Returns the real 10-year historical trade volume for a specific country 
+    Returns the real 10-year historical trade volume for a specific country
     to populate the Drill-Down Modal in the UI.
     """
     try:
         import pandas as pd
-        # Read the real trade features dataset
+
         df = pd.read_parquet("data/processed/trade_features.parquet")
-        # Filter for the specific country
+
         country_df = df[df['partnerDesc'] == country]
         if country_df.empty:
             return {"history": []}
-            
-        # Group by year (period) and sum the total trade volume
+
         yearly_vol = country_df.groupby("period")["primaryValue"].sum().reset_index()
         yearly_vol = yearly_vol.sort_values(by="period")
-        
+
         history = []
         for _, row in yearly_vol.iterrows():
             history.append({
                 "period": str(int(row["period"])),
-                "volume": float(row["primaryValue"] / 1e9) # Convert to Billions
+                "volume": float(row["primaryValue"] / 1e9)
             })
-            
+
         return {"history": history}
     except Exception as e:
         logger.error(f"Failed to fetch history for {country}: {e}")
         return {"error": str(e), "history": []}
+

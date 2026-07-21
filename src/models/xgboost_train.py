@@ -21,11 +21,9 @@ import optuna
 import onnxmltools
 from onnxconverter_common.data_types import FloatTensorType
 
-# Configure safe stdout encoding for Windows/remote terminals
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-# Disable optuna chatty logging
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 METADATA_COLS_TO_DROP = [
@@ -43,44 +41,37 @@ def load_and_preprocess_data(data_path, sample_size=None):
     """
     print(f"[*] Loading dataset from: {data_path}")
     df = pd.read_parquet(data_path)
-    
-    # Sort chronologically and by trade flow identifiers for TimeSeriesSplit
+
     sort_cols = [c for c in ['period', 'partnerCode', 'cmdCode', 'flowCode'] if c in df.columns]
     if sort_cols:
         df = df.sort_values(sort_cols).reset_index(drop=True)
-        
+
     if sample_size and len(df) > sample_size:
         print(f"[*] Subsampling dataset to {sample_size} chronological rows for rapid end-to-end verification...")
         df = df.tail(sample_size).reset_index(drop=True)
-        
-    # Drop raw metadata columns if present
+
     drop_cols = [c for c in METADATA_COLS_TO_DROP if c in df.columns]
-    
-    # Also drop exact target leak columns that represent alternative valuations not known at forecast time
+
     leak_cols = [c for c in ['cifvalue', 'fobvalue'] if c in df.columns]
     df_clean = df.drop(columns=drop_cols + leak_cols)
-    
-    # Ensure target primaryValue exists
+
     if 'primaryValue' not in df_clean.columns:
         raise ValueError("CRITICAL: Target column 'primaryValue' not found in dataset!")
-        
+
     y_raw = df_clean['primaryValue'].astype(float).fillna(0)
-    # Log-transform target for numerical stability across multi-scale commodities ($1k to $50B)
+
     y_log = np.log1p(np.maximum(y_raw, 0))
-    
-    # Prepare feature set: drop target, descriptive string metadata, and duplicate 'refYear' (identical to 'period')
+
     ignore_cols = ['primaryValue', 'partnerDesc', 'cmdDesc', 'flowDesc', 'partnerISO', 'refYear']
     feature_cols = [c for c in df_clean.columns if c not in ignore_cols]
-    
+
     X = df_clean[feature_cols].copy()
-    
-    # Convert all columns to numerical float32 for clean ONNX export
+
     for col in X.columns:
         X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0).astype(np.float32)
-        
-    # Replace any inf values
+
     X = X.replace([np.inf, -np.inf], 0).fillna(0)
-    
+
     print(f"[OK] Preprocessed feature matrix shape: {X.shape} | Target shape: {y_log.shape}")
     print(f"[OK] Features included ({len(feature_cols)} total): {feature_cols[:8]} ... plus {len(feature_cols)-8} more")
     return X, y_log, y_raw, feature_cols, df_clean
@@ -88,7 +79,7 @@ def load_and_preprocess_data(data_path, sample_size=None):
 def objective(trial, X, y):
     """Optuna objective function using TimeSeriesSplit(5)."""
     tscv = TimeSeriesSplit(n_splits=5)
-    
+
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 50, 300),
         'max_depth': trial.suggest_int('max_depth', 3, 10),
@@ -102,18 +93,18 @@ def objective(trial, X, y):
         'tree_method': 'hist',
         'device': 'cuda'
     }
-    
+
     scores = []
     for train_idx, val_idx in tscv.split(X):
         X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
-        
+
         model = xgb.XGBRegressor(**params)
         model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
         preds = model.predict(X_val)
         rmse = np.sqrt(mean_squared_error(y_val, preds))
         scores.append(rmse)
-        
+
     return np.mean(scores)
 
 def main():
@@ -123,69 +114,63 @@ def main():
     parser.add_argument("--sample", type=int, default=None, help="Optional sample size for quick verification (e.g. 2000)")
     parser.add_argument("--output-dir", type=str, default="models", help="Directory to save exported .pkl and .onnx models")
     args = parser.parse_args()
-    
+
     os.makedirs(args.output_dir, exist_ok=True)
     print("=== [PHASE 3: MODULE A] XGBOOST BILATERAL TRADE FLOW FORECASTING ===")
-    
+
     X, y_log, y_raw, feature_cols, df_raw = load_and_preprocess_data(args.data_path, args.sample)
-    
-    # Chronological Holdout Split: Train (<= 2021), Test (>= 2022)
+
     train_mask = df_raw['period'] <= 2021
     test_mask = df_raw['period'] >= 2022
-    
+
     X_train, y_log_train, y_raw_train = X[train_mask], y_log[train_mask], y_raw[train_mask]
     X_test, y_log_test, y_raw_test = X[test_mask], y_log[test_mask], y_raw[test_mask]
-    
+
     print(f"\n[*] Chronological Holdout Split -> Train rows (<=2021): {len(X_train)} | Test rows (>=2022): {len(X_test)}")
-    
+
     print(f"\n[*] Launching Optuna Bayesian Optimization across {args.trials} trials with TimeSeriesSplit(5) on Train set...")
     study = optuna.create_study(direction="minimize")
     study.optimize(lambda trial: objective(trial, X_train, y_log_train), n_trials=args.trials, show_progress_bar=True)
-    
+
     best_params = study.best_params
     best_params['random_state'] = 42
     best_params['n_jobs'] = -1
     best_params['tree_method'] = 'hist'
     best_params['device'] = 'cuda'
-    
+
     print(f"\n[SUCCESS] Optuna Optimization Complete!")
     print(f"[BEST CV LOG-RMSE] : {study.best_value:.4f}")
     print(f"[BEST HYPERPARAMS] : {best_params}")
-    
-    # Train final production model on chronological Train set (<=2021)
+
     print("\n[*] Training final production XGBRegressor on chronological Train set (<=2021)...")
     final_model = xgb.XGBRegressor(**best_params)
     final_model.fit(X_train, y_log_train, eval_set=[(X_test, y_log_test)], verbose=False)
-    
-    # Evaluate ONLY on the held-out test set (2022-2024)
+
     preds_log_test = final_model.predict(X_test)
     preds_dollar_test = np.expm1(np.maximum(preds_log_test, 0))
-    
+
     r2_val = r2_score(y_log_test, preds_log_test)
     mae_dollar = mean_absolute_error(y_raw_test, preds_dollar_test)
     rmse_dollar = np.sqrt(mean_squared_error(y_raw_test, preds_dollar_test))
-    
+
     print("\n=== OUT-OF-SAMPLE TEST PERFORMANCE (Periods >= 2022) ===")
     print(f"  * Test Log-Scale R² Score : {r2_val:.4f}")
     print(f"  * Test Dollar-Scale MAE   : ${mae_dollar:,.2f}")
     print(f"  * Test Dollar-Scale RMSE  : ${rmse_dollar:,.2f}")
-    
-    # Top 10 Feature Importances
+
     importances = final_model.feature_importances_
     feat_df = pd.DataFrame({'feature': feature_cols, 'importance': importances}).sort_values('importance', ascending=False)
     print("\n=== TOP 10 MOST INFLUENTIAL TRADE & MACRO FEATURES ===")
     for idx, row in feat_df.head(10).iterrows():
         print(f"  [{row['feature']:30s}] : {row['importance']:.4f}")
-        
-    # Export to joblib (.pkl)
+
     pkl_path = os.path.join(args.output_dir, "xgboost_trade_forecast.pkl")
     joblib.dump({"model": final_model, "features": feature_cols, "params": best_params, "holdout_split_year": 2022}, pkl_path)
     print(f"\n[Exported] trained model checkpoint -> {pkl_path}")
-    
-    # Export to ONNX (.onnx)
+
     print("[*] Converting trained XGBoost model to ONNX format for zero-dependency inference...")
     try:
-        # ONNX converter requires Booster feature names to follow f%d pattern
+
         booster = final_model.get_booster()
         booster.feature_names = [f"f{i}" for i in range(len(feature_cols))]
         initial_types = [('float_input', FloatTensorType([None, len(feature_cols)]))]
@@ -196,8 +181,7 @@ def main():
         print(f"[Exported] production ONNX binary -> {onnx_path} ({os.path.getsize(onnx_path)/1024:.2f} KB)")
     except Exception as e:
         print(f"[Warning] ONNX conversion note: {e}")
-        
-    # Export comprehensive meta.json for exact verification from disk
+
     meta_path = os.path.join(args.output_dir, "xgboost_trade_forecast_meta.json")
     meta_data = {
         "model_name": "XGBoost Bilateral Trade Flow Forecast (Module A)",
@@ -227,8 +211,9 @@ def main():
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(meta_data, f, indent=2)
     print(f"[Exported] exact model metadata -> {meta_path}")
-        
+
     print("\n[COMPLETE] Module A (XGBoost Trade Flow Forecast) pipeline complete!")
 
 if __name__ == "__main__":
     main()
+

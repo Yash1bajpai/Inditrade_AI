@@ -28,7 +28,7 @@ async def detect_anomaly(req: AnomalyRequest):
     load_model()
     if anomaly_model == "FAILED":
         return {"error": "Anomaly model is unavailable."}
-        
+
     try:
         import pandas as pd
         df = pd.DataFrame([{
@@ -39,11 +39,10 @@ async def detect_anomaly(req: AnomalyRequest):
             "rolling_3y_mean_export": 0,
             "policy_event_flag": 0
         }])
-        
-        # Isolation Forest returns -1 for anomaly, 1 for normal
+
         prediction = anomaly_model['model'].predict(df)[0]
         is_anomaly = bool(prediction == -1)
-        
+
         return {
             "is_anomaly": is_anomaly,
             "status": "success"
@@ -60,28 +59,24 @@ async def get_historical_anomalies():
         filepath = "data/processed/flagged_trade_anomalies.csv"
         if not os.path.exists(filepath):
             return {"data": []}
-            
+
         df = pd.read_csv(filepath)
-        
-        # F-06: Sort by anomaly_score descending to get the true top 50 most severe anomalies
+
         if "anomaly_score" in df.columns:
             df = df.sort_values(by="anomaly_score", ascending=False)
-            
-        # Select top 50 anomalies for plotting
+
         df = df.head(50)
-        
-        # Sort by period so the X-axis is chronological
+
         if "period" in df.columns:
             df = df.sort_values(by="period")
-        
+
         import math
         data = []
         for _, row in df.iterrows():
             val = float(row.get("primaryValue", 0))
             mean_val = row.get("primaryValue_rolling_3y_mean", 1)
             score = float(row.get("anomaly_score", -1))
-            
-            # Handle missing or zero means (new trade routes)
+
             if pd.isna(mean_val) or math.isnan(float(mean_val)) or float(mean_val) == 0:
                 deviation_pct = 0
                 reason_str = "Value deviated (No historical 3yr data)"
@@ -89,11 +84,11 @@ async def get_historical_anomalies():
                 mean_val = float(mean_val)
                 deviation_pct = ((val - mean_val) / mean_val) * 100
                 reason_str = f"Value deviated {deviation_pct:+.1f}% from 3yr mean"
-            
+
             cmd_desc = row.get("cmdDesc")
             cmd_code = row.get("cmdCode", "XX")
             if pd.isna(cmd_desc) or str(cmd_desc).lower() == "nan" or str(cmd_desc).strip() == "" or str(cmd_desc) == "None":
-                # Quick fallback mapping for common HS codes
+
                 hs_map = {
                     "84": "Machinery & Mechanical Appliances",
                     "85": "Electrical Machinery & Electronics",
@@ -107,7 +102,7 @@ async def get_historical_anomalies():
                     "71": "Precious Metals & Stones"
                 }
                 cmd_desc = hs_map.get(str(cmd_code).zfill(2), f"HS Code {cmd_code}")
-                
+
             data.append({
                 "date": str(row.get("period", "Unknown")),
                 "value": val,
@@ -120,3 +115,4 @@ async def get_historical_anomalies():
     except Exception as e:
         logger.error(f"Error fetching historical anomalies: {e}")
         return {"error": str(e)}
+

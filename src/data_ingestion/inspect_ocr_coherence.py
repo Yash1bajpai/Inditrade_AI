@@ -6,41 +6,36 @@ def check_coherence(ans: str) -> list:
     reasons = []
     if not ans:
         return ["Empty answer"]
-        
-    # 1. Structural fragments
+
     if re.search(r'(?i)\b(subject\s*[:\-]|s\.o\.\s*\(e\)|new\s+delhi,\s*dated|to\s+be\s+published|notification\s+no[:\.]|trade\s+notice\s+no[:\.]|public\s+notice\s+no[:\.]|\[page\s*\d+\]|to,\s*1\.\s*all|part\-?ii,\s*section|extraordinary\s+part)', ans):
         reasons.append("Structural fragment (Subject/Dated/S.O./Header)")
-        
-    # 2. OCR digit-garble / symbol corruption in dates/words (e.g. 018 May, 30" June, 08" May, 2' May, {7 June)
+
     if re.search(r'\b0\d{2,}\s+[A-Za-z]|\d+[\"\'\`]\s*[A-Za-z]|[{[|]\d+\s+[A-Za-z]', ans) or re.search(r'([a-zA-Z]\d[a-zA-Z]|\b[a-z]{1,2}[?|_~][a-z]{1,2}\b)', ans):
         reasons.append("OCR garble/digit-garble")
-        
-    # 3. Mid-sentence cutoff or cutoff right after preposition/article
+
     if ans.strip().endswith(('...', '(', '[', '-', ':', ',', ' of', ' for', ' under', ' in', ' to', ' and', ' the', ' a', ' an', ' or', ' with', ' by')):
         reasons.append("Mid-sentence cutoff / trailing fragment")
-        
-    # 4. Table/schedule fragments or lack of coherent sentences
+
     words = re.findall(r'\b[a-zA-Z]{2,}\b', ans)
     if len(words) < 12 or not re.search(r'[a-zA-Z0-9][.!?](?:\s|$)', ans):
         reasons.append("No coherent sentence / too short")
-        
-    # 5. Check if answer is just raw unparsed table header dump
+
     if re.search(r'\b(?:Sl\s*No|HS\s*Code|Item\s*Description|Policy\s*Condition|Existing\s*Policy|Revised\s*Policy)\b.*\b(?:Sl\s*No|HS\s*Code|Item\s*Description|Policy\s*Condition|Existing\s*Policy|Revised\s*Policy)\b', ans, re.IGNORECASE):
         reasons.append("Table header fragment dump")
-        
+
     return reasons
 
 def run_inspection():
     qa = [json.loads(l) for l in open("data/processed/policy_qa_dataset.jsonl", encoding="utf-8") if l.strip()]
     ocr = [r for r in qa if r.get("doc_type") == "DGFT_OCR"]
     print(f"Total DGFT_OCR entries: {len(ocr)}")
-    
+
     flagged = []
     for r in ocr:
         reasons = check_coherence(r.get("answer", ""))
         if reasons:
             flagged.append((r, reasons))
-            
+
     print(f"Total flagged by general coherence check: {len(flagged)}")
     all_reasons = [item for _, rlist in flagged for item in rlist]
     print("Reasons breakdown:", Counter(all_reasons))
@@ -52,3 +47,4 @@ def run_inspection():
 
 if __name__ == "__main__":
     run_inspection()
+

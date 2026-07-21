@@ -16,11 +16,9 @@ import pandas as pd
 import pdfplumber
 from datetime import datetime
 
-# Set safe UTF-8 output encoding for Windows terminals
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-# Directories
 RAW_DIR = os.path.join("data", "raw", "dgft_notifications")
 PDF_DIR = os.path.join(RAW_DIR, "pdfs")
 PROCESSED_DIR = os.path.join("data", "processed")
@@ -47,17 +45,17 @@ def scrape_full_dgft_master_list():
     os.makedirs(RAW_DIR, exist_ok=True)
     os.makedirs(PDF_DIR, exist_ok=True)
     os.makedirs(PROCESSED_DIR, exist_ok=True)
-    
+
     print("=== [STEP 1] SCRAPING MASTER LIST OF DGFT NOTIFICATIONS/NOTICES ===")
-    
+
     targets = [
         {"Type": "Notification", "Url": "https://www.dgft.gov.in/CP/?opt=notification"},
         {"Type": "Public_Notice", "Url": "https://www.dgft.gov.in/CP/?opt=public-notice"},
         {"Type": "Trade_Notice", "Url": "https://www.dgft.gov.in/CP/?opt=trade-notice"}
     ]
-    
+
     all_records = []
-    
+
     for t in targets:
         print(f"[*] Fetching table from {t['Url']}...", end=" ", flush=True)
         try:
@@ -65,11 +63,11 @@ def scrape_full_dgft_master_list():
             if resp.status_code != 200:
                 print(f"[FAILED] HTTP {resp.status_code}")
                 continue
-                
+
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(resp.content, "html.parser")
             rows = soup.find_all("tr")
-            
+
             count = 0
             for row in rows:
                 cols = row.find_all("td")
@@ -78,7 +76,7 @@ def scrape_full_dgft_master_list():
                     fin_year = cols[2].text.strip()
                     subject = cols[3].text.strip()
                     issue_date = cols[4].text.strip()
-                    
+
                     pdf_link = ""
                     a_tag = row.find("a", href=True)
                     if a_tag:
@@ -89,11 +87,11 @@ def scrape_full_dgft_master_list():
                             pdf_link = f"https://www.dgft.gov.in{href}"
                         else:
                             pdf_link = f"https://www.dgft.gov.in/CP/{href}"
-                            
+
                     if notif_no and subject and pdf_link:
                         local_pdf_name = clean_filename(notif_no, subject, t["Type"])
                         local_pdf_path = os.path.join(PDF_DIR, local_pdf_name)
-                        
+
                         all_records.append({
                             "Type": t["Type"],
                             "Notification_No": notif_no,
@@ -104,13 +102,13 @@ def scrape_full_dgft_master_list():
                             "Local_PDF_Path": local_pdf_path
                         })
                         count += 1
-                        
+
             print(f"[SUCCESS] Extracted {count} records.")
             time.sleep(1.0)
-            
+
         except Exception as e:
             print(f"[ERROR] Exception scraping {t['Type']}: {e}")
-            
+
     df_master = pd.DataFrame(all_records)
     if not df_master.empty:
         df_master = df_master.drop_duplicates(subset=["Type", "Notification_No", "Subject"]).reset_index(drop=True)
@@ -120,7 +118,7 @@ def scrape_full_dgft_master_list():
         print(f"Saved Master CSV: {master_csv}")
     else:
         print("\n[WARNING] No records found.")
-        
+
     return df_master
 
 def download_pdfs(df_master, limit=None):
@@ -129,25 +127,25 @@ def download_pdfs(df_master, limit=None):
     Skips if file already exists and has valid size (>500 bytes).
     """
     print(f"\n=== [STEP 2] DOWNLOADING OFFICIAL DGFT PDF DOCUMENTS ===")
-    
+
     if limit:
         df_master = df_master.head(limit)
-        
+
     downloaded_count = 0
     existing_count = 0
     failed_count = 0
-    
+
     total = len(df_master)
-    
+
     for idx, row in df_master.iterrows():
         path = row["Local_PDF_Path"]
         url = row["PDF_Link"]
         notif_no = str(row["Notification_No"]).encode('ascii', 'replace').decode('ascii')
-        
+
         if os.path.exists(path) and os.path.getsize(path) > 500:
             existing_count += 1
             continue
-            
+
         print(f"[{idx+1:03d}/{total}] Downloading {row['Type']} {notif_no[:30]}...", end=" ", flush=True)
         try:
             resp = requests.get(url, headers=HEADERS, timeout=12)
@@ -163,9 +161,9 @@ def download_pdfs(df_master, limit=None):
             failed_count += 1
             err_msg = str(e).encode('ascii', 'replace').decode('ascii')
             print(f"[ERROR] {err_msg[:30]}")
-            
+
         time.sleep(0.25)
-        
+
     print(f"\n[PDF DOWNLOAD SUMMARY] Newly Downloaded: {downloaded_count} | Already Existing: {existing_count} | Failed/Broken Link: {failed_count}")
     return downloaded_count + existing_count
 
@@ -177,11 +175,10 @@ def clean_pdf_text(raw_text):
     """
     if not raw_text:
         return ""
-        
+
     lines = raw_text.splitlines()
     clean_lines = []
-    
-    # Common header/footer/noise patterns
+
     noise_patterns = [
         r'TO BE PUBLISHED IN THE GAZETTE OF INDIA',
         r'EXTRAORDINARY, PART(-| )II',
@@ -195,22 +192,21 @@ def clean_pdf_text(raw_text):
         r'^\s*-+\s*$',
         r'^\s*\d+\s*$'
     ]
-    
+
     for line in lines:
         stripped = line.strip()
         if not stripped:
             continue
-            
+
         is_noise = False
         for pat in noise_patterns:
             if re.search(pat, stripped, re.IGNORECASE):
                 is_noise = True
                 break
-                
+
         if not is_noise:
             clean_lines.append(stripped)
-            
-    # Join and normalize multiple spaces
+
     text = "\n".join(clean_lines)
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
@@ -221,16 +217,16 @@ def process_pdfs_to_chunks(df_master):
     Output: data/processed/dgft_policy_chunks.jsonl
     """
     print(f"\n=== [STEP 3] EXTRACTING & CLEANING TEXT USING PDFPLUMBER ===")
-    
+
     chunks = []
     processed_count = 0
     total = len(df_master)
-    
+
     for idx, row in df_master.iterrows():
         path = row["Local_PDF_Path"]
         if not os.path.exists(path) or os.path.getsize(path) < 500:
             continue
-            
+
         try:
             full_raw_text = ""
             with pdfplumber.open(path) as pdf:
@@ -238,10 +234,9 @@ def process_pdfs_to_chunks(df_master):
                     txt = page.extract_text()
                     if txt:
                         full_raw_text += txt + "\n"
-                        
+
             clean_text = clean_pdf_text(full_raw_text)
-            
-            # If text extraction via pdfplumber got clean content
+
             if clean_text and len(clean_text) > 30:
                 chunk_id = f"DGFT_{row['Type'].upper()}_{re.sub(r'[^a-zA-Z0-9]', '_', str(row['Notification_No']))}"
                 chunk_record = {
@@ -260,12 +255,11 @@ def process_pdfs_to_chunks(df_master):
                     print(f"[*] Processed {processed_count} PDF chunks...")
         except Exception as e:
             pass
-            
-    # Write to JSONL
+
     with open(OUTPUT_JSONL, "w", encoding="utf-8") as f:
         for chunk in chunks:
             f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
-            
+
     print(f"\n[PROCESSING COMPLETE] Total Clean Policy Chunks Created: {len(chunks)}")
     print(f"Saved Output JSONL: {OUTPUT_JSONL}")
     return chunks
@@ -275,3 +269,4 @@ if __name__ == "__main__":
     if not df_master.empty:
         download_pdfs(df_master)
         chunks = process_pdfs_to_chunks(df_master)
+

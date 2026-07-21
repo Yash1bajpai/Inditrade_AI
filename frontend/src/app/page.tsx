@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, TrendingUp, AlertTriangle, MessageSquare, Activity, X, Sparkles, Network, Map as MapIcon, GripVertical, Maximize2 } from 'lucide-react';
@@ -7,17 +6,13 @@ import { LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, To
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import styles from './page.module.css';
-
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
-
-// Colors from our new palette
 const MINTED_BRASS = "#C8A97E";
 const CRIMSON_WAX = "#9E3E3E";
 const NIGHT_SLATE = "#1A1C21";
 const FADED_INK = "#4A4F5C";
 const CARD_SURFACE = "#23262D";
-
 export interface AnomalyRow {
   date: string;
   partner: string;
@@ -25,7 +20,6 @@ export interface AnomalyRow {
   reason: string;
   anomaly_score: number;
 }
-
 export interface NetworkNode {
   id: string;
   country_name: string;
@@ -35,15 +29,12 @@ export interface NetworkNode {
   y: number;
   val: number;
 }
-
 const SkeletonLoader = () => (
-  <motion.div 
+  <motion.div
     initial={{ opacity: 0.3 }} animate={{ opacity: 0.8 }} transition={{ repeat: Infinity, duration: 1, repeatType: "mirror" }}
     style={{ height: '100%', width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '0px' }}
   />
 );
-
-// Typewriter Component
 const TypewriterMessage = ({ content }: { content: string }) => {
   const [displayed, setDisplayed] = useState('');
   useEffect(() => {
@@ -57,22 +48,18 @@ const TypewriterMessage = ({ content }: { content: string }) => {
   }, [content]);
   return <span>{displayed}</span>;
 };
-
-// Modal Component for 10-Year Drill-Down
 const DrillDownModal = ({ country, originalCountry, onClose }: { country: string, originalCountry: string, onClose: () => void }) => {
   const [historyData, setHistoryData] = useState<{period: string, volume: number}[]>([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     fetch(`${API_BASE}/network/history/${encodeURIComponent(originalCountry)}`)
       .then(res => res.json())
       .then(data => { setHistoryData(data.history || []); setLoading(false); })
       .catch(err => { console.error(err); setLoading(false); });
   }, [originalCountry]);
-
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -101,9 +88,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
     </div>
   );
 };
-
 export default function Dashboard() {
-  // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [drawerWidth, setDrawerWidth] = useState(450);
   const [isDragging, setIsDragging] = useState(false);
@@ -113,11 +98,7 @@ export default function Dashboard() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // Modal State
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-
-  // Forecast State
   const [usdInr, setUsdInr] = useState('83.50');
   const [crudePrice, setCrudePrice] = useState('80.00');
   const [forecastYear, setForecastYear] = useState('2025');
@@ -130,20 +111,13 @@ export default function Dashboard() {
   ]);
   const [isPredicting, setIsPredicting] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
-  // Data State
   const [anomalyData, setAnomalyData] = useState<AnomalyRow[]>([]);
   const [isLoadingAnomalies, setIsLoadingAnomalies] = useState(true);
   const [networkData, setNetworkData] = useState<NetworkNode[]>([]);
   const [isLoadingNetwork, setIsLoadingNetwork] = useState(true);
-
-  // Fetch initial data
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     const abortController = new AbortController();
-
-    // Fetch anomalies
     fetch(`${API_BASE}/anomaly/historical`, { signal: abortController.signal })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -151,8 +125,6 @@ export default function Dashboard() {
       })
       .then(data => { setAnomalyData(data.data || []); setIsLoadingAnomalies(false); })
       .catch(err => { if (err.name !== 'AbortError') { console.error(err); setIsLoadingAnomalies(false); }});
-
-    // Fetch network data
     fetch(`${API_BASE}/network/`, { signal: abortController.signal })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -160,8 +132,6 @@ export default function Dashboard() {
       })
       .then(data => { setNetworkData(data.nodes || []); setIsLoadingNetwork(false); })
       .catch(err => { if (err.name !== 'AbortError') { console.error(err); setIsLoadingNetwork(false); }});
-
-    // F-02: Fetch real forecast history instead of using mock data
     fetch(`${API_BASE}/forecast/history`, { signal: abortController.signal })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -176,20 +146,15 @@ export default function Dashboard() {
         }
       })
       .catch(err => { if (err.name !== 'AbortError') console.error(err); });
-
     return () => abortController.abort();
   }, []);
-
-  // Resizable Drawer Logic
   const handleDrag = useCallback((e: MouseEvent) => {
     if (isDragging) {
       const newWidth = window.innerWidth - e.clientX;
       setDrawerWidth(Math.max(300, Math.min(newWidth, 1000)));
     }
   }, [isDragging]);
-
   const stopDrag = useCallback(() => { setIsDragging(false); }, []);
-
   useEffect(() => {
     if (isDragging) {
       window.addEventListener('mousemove', handleDrag);
@@ -203,21 +168,16 @@ export default function Dashboard() {
       window.removeEventListener('mouseup', stopDrag);
     };
   }, [isDragging, handleDrag, stopDrag]);
-
-  // Auto-scroll chat
   useEffect(() => {
     if (isChatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isChatOpen]);
-
   const handleChatSubmit = async (e?: React.FormEvent, customMsg?: string) => {
     if (e) e.preventDefault();
     const userMessage = customMsg || input;
     if (!userMessage.trim()) return;
-
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsTyping(true);
-
     try {
       const res = await fetch(`${API_BASE}/query/`, {
         method: 'POST',
@@ -232,26 +192,21 @@ export default function Dashboard() {
       setIsTyping(false);
     }
   };
-
   const handleAnomalyClick = (row: AnomalyRow) => {
     const prompt = `Analyze the trade anomaly for ${row.partner} in ${row.commodity} during ${row.date}. The system flagged: ${row.reason}. Severity score: ${row.anomaly_score}`;
     setIsChatOpen(true);
     setInput(prompt);
-    // F-12: Auto-submit the investigation prompt
     handleChatSubmit(undefined, prompt);
   };
-
   const handlePredict = async () => {
     setIsPredicting(true);
     try {
       const parsedUsdInr = parseFloat(usdInr);
       const parsedCrude = parseFloat(crudePrice);
       const parsedYear = parseInt(forecastYear);
-      
       if (isNaN(parsedUsdInr) || isNaN(parsedCrude) || isNaN(parsedYear)) {
         throw new Error("Invalid input values");
       }
-
       const res = await fetch(`${API_BASE}/forecast/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -259,13 +214,9 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      
-      // F-01: Convert raw USD to Billions
       const newPrediction = data.forecasted_trade_value_usd / 1e9;
       setForecast(newPrediction);
       if (data.feature_importance) setFeatureImportances(data.feature_importance);
-      
-      // Append prediction to the current history
       setChartData(prev => [
         ...prev.filter(d => !d.year.includes('Pred')),
         { year: `${parsedYear} (Pred)`, value: parseFloat(newPrediction.toFixed(1)) }
@@ -276,27 +227,21 @@ export default function Dashboard() {
       setIsPredicting(false);
     }
   };
-
   const colorScale = scaleLinear<string>().domain([0, 50, 100]).range([NIGHT_SLATE, MINTED_BRASS, CRIMSON_WAX]);
-
-  // Staggered Animations
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
   };
-  
   const itemVariants = {
     hidden: { opacity: 0, y: 30 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
   };
-
   return (
     <main className={styles.container}>
-      {/* 6-Month Drill-Down Modal */}
+      {}
       <AnimatePresence>
         {selectedCountry && <DrillDownModal country={selectedCountry} originalCountry={selectedCountry} onClose={() => setSelectedCountry(null)} />}
       </AnimatePresence>
-
       <motion.div variants={containerVariants} initial="hidden" animate="visible">
         <motion.header variants={itemVariants} className={styles.header}>
           <div>
@@ -308,9 +253,8 @@ export default function Dashboard() {
             Institutional Core Online
           </div>
         </motion.header>
-
         <div className={styles.grid}>
-          {/* Pillar 1: Trade Forecast (XGBoost) */}
+          {}
           <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`} style={{ padding: '2rem' }}>
             <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -319,7 +263,6 @@ export default function Dashboard() {
               </div>
               <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = 0.992 (Log-Scale)</div>
             </div>
-            
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div className={styles.inputGroup}>
                 <label className={styles.inputLabel}>Forecast Year</label>
@@ -338,11 +281,9 @@ export default function Dashboard() {
                 <input type="number" value={crudePrice} onChange={(e) => setCrudePrice(e.target.value)} className={styles.chatInput} step="0.1" />
               </div>
             </div>
-
             <button onClick={handlePredict} disabled={isPredicting} className={styles.chatButton} style={{ width: '100%', padding: '0.75rem', marginTop: '1rem', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.1rem' }}>
               {isPredicting ? 'Running Model...' : 'Generate AI Forecast'}
             </button>
-
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', marginTop: '2rem' }}>
               <div className={styles.chartContainer} style={{ height: '300px' }}>
                 {mounted && (
@@ -357,7 +298,6 @@ export default function Dashboard() {
                   </ResponsiveContainer>
                 )}
               </div>
-              
               <div style={{ padding: '1.5rem', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}` }}>
                 <h3 style={{ fontSize: '0.9rem', fontWeight: 500, marginBottom: '1rem', color: '#EFECE6', fontFamily: "'Playfair Display', serif" }}>Global Model Feature Importance</h3>
                 <div className={styles.featureBarContainer}>
@@ -375,15 +315,13 @@ export default function Dashboard() {
               </div>
             </div>
           </motion.section>
-
-          {/* Pillar 2: Anomaly Detection */}
+          {}
           <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`} style={{ padding: '2rem' }}>
             <div className={styles.sectionHeader} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
               <AlertTriangle size={20} color={CRIMSON_WAX} />
               <h2 className={styles.sectionTitle} style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.5rem', margin: 0 }}>Isolation Forest Anomalies</h2>
             </div>
             <p style={{ fontSize: '0.85rem', color: FADED_INK, marginBottom: '1.5rem' }}>Click any flagged anomaly row to investigate with the AI Policy Assistant.</p>
-            
             <div className={styles.chartContainer} style={{ height: '250px', marginBottom: '2rem' }}>
               {isLoadingAnomalies ? <SkeletonLoader /> : mounted && (
                 <ResponsiveContainer width="100%" height="100%">
@@ -391,8 +329,8 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis type="category" dataKey="date" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis type="number" dataKey="value" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `$${(val/1e9).toFixed(1)}B`} />
-                    <Tooltip 
-                      cursor={{ strokeDasharray: '3 3' }} 
+                    <Tooltip
+                      cursor={{ strokeDasharray: '3 3' }}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
@@ -404,14 +342,13 @@ export default function Dashboard() {
                           );
                         }
                         return null;
-                      }} 
+                      }}
                     />
                     <Scatter name="Anomalies" data={anomalyData} fill={CRIMSON_WAX} />
                   </ScatterChart>
                 </ResponsiveContainer>
               )}
             </div>
-
             <div className={styles.tableContainer} style={{ border: `1px solid ${FADED_INK}` }}>
               <table className={styles.anomalyTable} style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
                 <thead>
@@ -427,15 +364,15 @@ export default function Dashboard() {
                   {isLoadingAnomalies ? (
                     <tr><td colSpan={5} style={{ padding: '1rem' }}><SkeletonLoader /></td></tr>
                   ) : anomalyData.slice(0, 5).map((row, i) => (
-                    <tr 
-                      key={i} 
-                      onClick={() => handleAnomalyClick(row)} 
+                    <tr
+                      key={i}
+                      onClick={() => handleAnomalyClick(row)}
                       tabIndex={0}
                       onKeyDown={(e) => { if(e.key === 'Enter') handleAnomalyClick(row); }}
-                      style={{ cursor: 'pointer', borderBottom: `1px solid rgba(255,255,255,0.05)`, transition: 'background-color 0.2s' }} 
+                      style={{ cursor: 'pointer', borderBottom: `1px solid rgba(255,255,255,0.05)`, transition: 'background-color 0.2s' }}
                       onFocus={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
                       onBlur={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'} 
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
                       onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       <td style={{ padding: '1rem' }}>{row.date}</td>
@@ -451,8 +388,7 @@ export default function Dashboard() {
               </table>
             </div>
           </motion.section>
-
-          {/* Pillar 3: Trade Network (Node2Vec) */}
+          {}
           <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`} style={{ padding: '2rem' }}>
             <div className={styles.sectionHeader} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -463,9 +399,8 @@ export default function Dashboard() {
             <p style={{ fontSize: '0.85rem', color: FADED_INK, marginBottom: '1.5rem' }}>
               Choropleth mapping of node volumes and 2D PCA projection of Node2Vec random walks over the global trade graph.
             </p>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              {/* Choropleth Map */}
+              {}
               <div className={styles.chartContainer} style={{ height: '300px', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}`, overflow: 'hidden', position: 'relative' }}>
                 {mounted && (
                   <ComposableMap projection="geoMercator" projectionConfig={{ scale: 100 }} style={{ width: '100%', height: '100%' }}>
@@ -492,7 +427,7 @@ export default function Dashboard() {
                     </Geographies>
                   </ComposableMap>
                 )}
-                {/* Gradient Legend */}
+                {}
                 <div style={{ position: 'absolute', bottom: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={{ fontSize: '0.65rem', color: FADED_INK, textTransform: 'uppercase' }}>Flagged Anomaly Value</span>
                   <div style={{ width: '100px', height: '6px', background: `linear-gradient(to right, ${NIGHT_SLATE}, ${MINTED_BRASS}, ${CRIMSON_WAX})`, border: `1px solid ${FADED_INK}` }} />
@@ -501,8 +436,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-
-              {/* PCA Network Scatter */}
+              {}
               <div className={styles.chartContainer} style={{ height: '300px', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}` }}>
                 {isLoadingNetwork ? <SkeletonLoader /> : mounted && (
                   <ResponsiveContainer width="100%" height="100%">
@@ -532,18 +466,16 @@ export default function Dashboard() {
           </motion.section>
         </div>
       </motion.div>
-
-      {/* Floating Action Button */}
+      {}
       <button className={styles.fab} onClick={() => setIsChatOpen(true)}>
         <Sparkles size={20} />
         Ask AI
       </button>
-
-      {/* Resizable Slide-out Drawer */}
+      {}
       <AnimatePresence>
         {isChatOpen && (
           <div className={styles.sidebarOverlay} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 50 }}>
-            <motion.div 
+            <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -551,15 +483,14 @@ export default function Dashboard() {
               className={styles.sidebar}
               style={{ position: 'absolute', right: 0, top: 0, height: '100%', width: drawerWidth, backgroundColor: CARD_SURFACE, borderLeft: `1px solid ${MINTED_BRASS}`, pointerEvents: 'auto', display: 'flex', flexDirection: 'row' }}
             >
-              {/* Drag Handle */}
-              <div 
+              {}
+              <div
                 onMouseDown={() => setIsDragging(true)}
                 style={{ width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: `1px solid ${FADED_INK}` }}
               >
                 <GripVertical size={12} color={FADED_INK} />
               </div>
-
-              {/* Drawer Content */}
+              {}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div className={styles.sidebarHeader} style={{ padding: '1.5rem', borderBottom: `1px solid ${FADED_INK}`, display: 'flex', justifyContent: 'space-between' }}>
                   <div className={styles.sidebarTitle} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontFamily: "'Playfair Display', serif" }}>
@@ -570,16 +501,15 @@ export default function Dashboard() {
                     <X size={20} />
                   </button>
                 </div>
-
                 <div className={styles.chatContainer} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <AnimatePresence>
                     {messages.map((msg, i) => (
-                      <motion.div 
+                      <motion.div
                         key={i}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         style={{
-                          padding: '1rem', 
+                          padding: '1rem',
                           border: `1px solid ${msg.role === 'ai' ? MINTED_BRASS : FADED_INK}`,
                           alignSelf: msg.role === 'ai' ? 'flex-start' : 'flex-end',
                           maxWidth: '85%',
@@ -589,7 +519,6 @@ export default function Dashboard() {
                         }}
                       >
                         {msg.role === 'ai' ? <TypewriterMessage content={msg.content} /> : msg.content}
-                        
                         {msg.role === 'ai' && msg.citation && msg.citation !== "Knowledge Base Error" && (
                           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }} style={{ marginTop: '1rem', paddingTop: '0.5rem', borderTop: `1px solid ${FADED_INK}`, fontSize: '0.75rem', color: MINTED_BRASS, display: 'flex', justifyContent: 'space-between' }}>
                             <span><strong>Source:</strong> {msg.citation}</span>
@@ -610,10 +539,9 @@ export default function Dashboard() {
                   </AnimatePresence>
                   <div ref={chatEndRef} />
                 </div>
-
                 <form onSubmit={handleChatSubmit} style={{ padding: '1.5rem', borderTop: `1px solid ${FADED_INK}`, display: 'flex', gap: '0.5rem' }}>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Ask about duty free imports..."

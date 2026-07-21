@@ -23,7 +23,6 @@ DEFAULT_BM25_PATH = "data/cache/bm25_index.pkl"
 DEFAULT_COLLECTION = "trade_policy_compliance"
 DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
 
-
 class HybridPolicyRetriever:
     """
     Hybrid Retriever combining Qdrant dense vector search with BM25 keyword search.
@@ -41,11 +40,11 @@ class HybridPolicyRetriever:
         self.bm25_path = bm25_path
         self.collection_name = collection_name
         self.model_name = model_name
-        
+
         print(f"[*] Initializing HybridPolicyRetriever (Model: {model_name})...")
         self.embedder = SentenceTransformer(model_name)
         self.qdrant_client = QdrantClient(path=qdrant_path)
-        
+
         print(f"[*] Loading serialized BM25 index from -> {bm25_path}")
         if not os.path.exists(bm25_path):
             raise FileNotFoundError(f"BM25 index not found at {bm25_path}. Run indexer.py first!")
@@ -60,20 +59,20 @@ class HybridPolicyRetriever:
         Executes dense vector search on Qdrant.
         """
         query_vector = self.embedder.encode(query, normalize_embeddings=True).tolist()
-        
+
         query_filter = None
         if doc_type_filter:
             query_filter = Filter(
                 must=[FieldCondition(key="doc_type", match=MatchValue(value=doc_type_filter))]
             )
-            
+
         results = self.qdrant_client.query_points(
             collection_name=self.collection_name,
             query=query_vector,
             query_filter=query_filter,
             limit=top_k
         ).points
-        
+
         dense_hits = []
         for rank, r in enumerate(results):
             payload = r.payload or {}
@@ -92,10 +91,10 @@ class HybridPolicyRetriever:
         tokens = [word.lower().strip(",.()[]{}\"'") for word in query.split() if len(word) > 1]
         if not tokens:
             return []
-            
+
         scores = self.bm25.get_scores(tokens)
         top_indices = np.argsort(scores)[::-1]
-        
+
         sparse_hits = []
         rank = 1
         for idx in top_indices:
@@ -129,33 +128,30 @@ class HybridPolicyRetriever:
         """
         dense_hits = self.search_dense(query, top_k=top_k * 3, doc_type_filter=doc_type_filter)
         sparse_hits = self.search_sparse(query, top_k=top_k * 3, doc_type_filter=doc_type_filter)
-        
+
         rrf_scores = {}
         payload_map = {}
         ranks_map = {}
-        
-        # Process dense hits
+
         for h in dense_hits:
             doc_id = h["doc_id"]
             payload_map[doc_id] = h["payload"]
             ranks_map.setdefault(doc_id, {})["dense_rank"] = h["dense_rank"]
             ranks_map[doc_id]["dense_score"] = h["dense_score"]
             rrf_scores[doc_id] = alpha / (rrf_k + h["dense_rank"])
-            
-        # Process sparse hits
+
         for h in sparse_hits:
             doc_id = h["doc_id"]
             if doc_id not in payload_map:
                 payload_map[doc_id] = h["payload"]
             ranks_map.setdefault(doc_id, {})["sparse_rank"] = h["sparse_rank"]
             ranks_map[doc_id]["sparse_score"] = h["sparse_score"]
-            
+
             sparse_contrib = (1.0 - alpha) / (rrf_k + h["sparse_rank"])
             rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + sparse_contrib
-            
-        # Sort by combined RRF score descending
+
         sorted_doc_ids = sorted(rrf_scores.keys(), key=lambda k: rrf_scores[k], reverse=True)[:top_k]
-        
+
         final_results = []
         for idx, doc_id in enumerate(sorted_doc_ids):
             payload = payload_map[doc_id]
@@ -174,9 +170,8 @@ class HybridPolicyRetriever:
                 "snippet": payload.get("text", "")[:450] + ("..." if len(payload.get("text", "")) > 450 else ""),
                 "full_text": payload.get("text", "")
             })
-            
-        return final_results
 
+        return final_results
 
 def main():
     parser = argparse.ArgumentParser(description="Test Hybrid RAG Legal Retriever")
@@ -184,17 +179,17 @@ def main():
     parser.add_argument("--top-k", type=int, default=5, help="Number of results to retrieve")
     parser.add_argument("--filter", type=str, default=None, choices=["DGFT_Policy", "DGFT_OCR", "PIB_Press_Release"], help="Filter by document type")
     args = parser.parse_args()
-    
+
     retriever = HybridPolicyRetriever()
     print(f"\n[*] Executing Hybrid Search for Query: '{args.query}'\n")
     results = retriever.search(args.query, top_k=args.top_k, doc_type_filter=args.filter)
-    
+
     for r in results:
         print(f"[{r['rank']}] [Score: {r['rrf_score']:.4f}] {r['doc_type']} | {r['title']}")
         print(f"    * Notification No: {r['notification_no']} | Date: {r['date']}")
         print(f"    * Ranks -> Dense: {r['dense_rank']} | Sparse (BM25): {r['sparse_rank']}")
         print(f"    * Snippet: {r['snippet']}\n" + "-" * 80)
 
-
 if __name__ == "__main__":
     main()
+

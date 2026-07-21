@@ -28,7 +28,6 @@ TEST_QUESTIONS = [
     "What is the procedure for allocation of quota for export of broken rice under Trade Notice 16/2023?"
 ]
 
-
 def test_cloud_hf_inference(model_id: str, hf_token: str):
     """Tests Method 1: Hugging Face Free Serverless Inference API."""
     print("=" * 65)
@@ -49,7 +48,7 @@ def test_cloud_hf_inference(model_id: str, hf_token: str):
     for idx, q in enumerate(TEST_QUESTIONS, 1):
         print(f"\n[Q{idx}] {q}")
         prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant for IndiTrade AI. Answer accurately.\n\n### Question:\n{q}\n\n### Answer:\n"
-        
+
         payload = json.dumps({
             "inputs": prompt,
             "parameters": {
@@ -76,7 +75,6 @@ def test_cloud_hf_inference(model_id: str, hf_token: str):
                 print("--> Note: Status 503 means Hugging Face is currently loading/warming up your model into memory. Try again in 30 seconds!")
         except Exception as e:
             print(f"[ERROR] -> {e}")
-
 
 def test_local_lora_checkpoint(lora_path: str, base_model: str):
     """Tests local LoRA weights using Unsloth/PEFT before pushing to Hugging Face Hub."""
@@ -121,7 +119,6 @@ def test_local_lora_checkpoint(lora_path: str, base_model: str):
         gen_text = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
         print(f"[ANSWER] -> {gen_text}")
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Test IndiTrade AI Fine-Tuned Model (Method 1 Cloud vs Local)")
     parser.add_argument("--mode", type=str, choices=["cloud", "local"], default="cloud", help="Test Mode: cloud (HF API) or local (LoRA weights)")
@@ -131,10 +128,10 @@ def parse_args():
     parser.add_argument("--base-model", type=str, default="meta-llama/Meta-Llama-3-8B-Instruct", help="Base model for local loading")
     return parser.parse_args()
 
-
 if __name__ == "__main__":
     args = parse_args()
     if args.mode == "cloud":
         test_cloud_hf_inference(args.model_id, args.hf_token)
     else:
         test_local_lora_checkpoint(args.lora_path, args.base_model)
+

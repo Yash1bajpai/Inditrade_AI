@@ -2,7 +2,6 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# Ensure dependencies
 try:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -18,7 +17,6 @@ except ImportError:
 
 load_dotenv()
 
-# Use the finetune token if available
 HF_TOKEN = os.getenv("HF_TOKEN_FINETUNE") or os.getenv("HF_TOKEN")
 if not HF_TOKEN:
     print("ERROR: HF_TOKEN not found in .env")
@@ -36,7 +34,7 @@ try:
         BASE_MODEL,
         dtype=torch.float16,
         low_cpu_mem_usage=True,
-        device_map="cpu", # Keep on CPU for safety
+        device_map="cpu",
         token=HF_TOKEN
     )
 except Exception as e:
@@ -58,3 +56,4 @@ merged_model.push_to_hub(HUB_MODEL_ID, token=HF_TOKEN, private=True)
 tokenizer.push_to_hub(HUB_MODEL_ID, token=HF_TOKEN, private=True)
 
 print("✅ Merged model successfully pushed to Hugging Face Hub (Private Repository)!")
+
