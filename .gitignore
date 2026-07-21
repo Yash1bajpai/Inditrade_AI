@@ -72,6 +72,8 @@ scratch/
 .scan_tmp/
 .scannerwork/
 .sonar/
+reports/
+notebooks/
 
 # Model Checkpoints and LLM outputs
 models/llm_output/
