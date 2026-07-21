@@ -8,7 +8,7 @@ import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-
 import { scaleLinear } from 'd3-scale';
 import styles from './page.module.css';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
 // Colors from our new palette
@@ -17,6 +17,31 @@ const CRIMSON_WAX = "#9E3E3E";
 const NIGHT_SLATE = "#1A1C21";
 const FADED_INK = "#4A4F5C";
 const CARD_SURFACE = "#23262D";
+
+export interface AnomalyRow {
+  date: string;
+  partner: string;
+  commodity: string;
+  reason: string;
+  anomaly_score: number;
+}
+
+export interface NetworkNode {
+  id: string;
+  country_name: string;
+  original_country: string;
+  trade_volume: number;
+  x: number;
+  y: number;
+  val: number;
+}
+
+const SkeletonLoader = () => (
+  <motion.div 
+    initial={{ opacity: 0.3 }} animate={{ opacity: 0.8 }} transition={{ repeat: Infinity, duration: 1, repeatType: "mirror" }}
+    style={{ height: '100%', width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '0px' }}
+  />
+);
 
 // Typewriter Component
 const TypewriterMessage = ({ content }: { content: string }) => {
@@ -33,13 +58,17 @@ const TypewriterMessage = ({ content }: { content: string }) => {
   return <span>{displayed}</span>;
 };
 
-// Modal Component for 6-Month Drill-Down
-const DrillDownModal = ({ country, onClose }: { country: string, onClose: () => void }) => {
-  // Generate stable mock data for the 6-month drilldown
-  const mockData = Array.from({length: 6}).map((_, i) => ({
-    month: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'][i],
-    volume: Math.floor(Math.random() * 50) + 10
-  }));
+// Modal Component for 10-Year Drill-Down
+const DrillDownModal = ({ country, originalCountry, onClose }: { country: string, originalCountry: string, onClose: () => void }) => {
+  const [historyData, setHistoryData] = useState<{period: string, volume: number}[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/network/history/${encodeURIComponent(originalCountry)}`)
+      .then(res => res.json())
+      .then(data => { setHistoryData(data.history || []); setLoading(false); })
+      .catch(err => { console.error(err); setLoading(false); });
+  }, [originalCountry]);
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
@@ -50,19 +79,23 @@ const DrillDownModal = ({ country, onClose }: { country: string, onClose: () => 
         style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: '500px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>{country} - 6 Month Trend</h3>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }}><X size={20}/></button>
+          <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>{country} - Historical Trade Value</h3>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={20}/></button>
         </div>
         <div style={{ height: '250px' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={mockData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="month" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}B`} />
-              <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
-              <Line type="monotone" dataKey="volume" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
-            </LineChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: FADED_INK }}>Loading history...</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={historyData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="period" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}B`} />
+                <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
+                <Line type="monotone" dataKey="volume" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </motion.div>
     </div>
@@ -97,25 +130,54 @@ export default function Dashboard() {
   ]);
   const [isPredicting, setIsPredicting] = useState(false);
   const [mounted, setMounted] = useState(false);
-
+  
   // Data State
-  const [anomalyData, setAnomalyData] = useState<any[]>([]);
+  const [anomalyData, setAnomalyData] = useState<AnomalyRow[]>([]);
   const [isLoadingAnomalies, setIsLoadingAnomalies] = useState(true);
-  const [networkData, setNetworkData] = useState<any[]>([]);
+  const [networkData, setNetworkData] = useState<NetworkNode[]>([]);
   const [isLoadingNetwork, setIsLoadingNetwork] = useState(true);
 
   // Fetch initial data
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    fetch(`${API_BASE}/anomaly/historical`)
-      .then(res => res.json())
-      .then(data => { setAnomalyData(data.data || []); setIsLoadingAnomalies(false); })
-      .catch(err => { console.error(err); setIsLoadingAnomalies(false); });
+    const abortController = new AbortController();
 
-    fetch(`${API_BASE}/network/`)
-      .then(res => res.json())
+    // Fetch anomalies
+    fetch(`${API_BASE}/anomaly/historical`, { signal: abortController.signal })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then(data => { setAnomalyData(data.data || []); setIsLoadingAnomalies(false); })
+      .catch(err => { if (err.name !== 'AbortError') { console.error(err); setIsLoadingAnomalies(false); }});
+
+    // Fetch network data
+    fetch(`${API_BASE}/network/`, { signal: abortController.signal })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
       .then(data => { setNetworkData(data.nodes || []); setIsLoadingNetwork(false); })
-      .catch(err => { console.error(err); setIsLoadingNetwork(false); });
+      .catch(err => { if (err.name !== 'AbortError') { console.error(err); setIsLoadingNetwork(false); }});
+
+    // F-02: Fetch real forecast history instead of using mock data
+    fetch(`${API_BASE}/forecast/history`, { signal: abortController.signal })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        if (data.history) {
+          setChartData(data.history.map((item: {year: number, value: number}) => ({
+            year: item.year.toString(),
+            value: parseFloat(item.value.toFixed(1))
+          })));
+        }
+      })
+      .catch(err => { if (err.name !== 'AbortError') console.error(err); });
+
+    return () => abortController.abort();
   }, []);
 
   // Resizable Drawer Logic
@@ -164,37 +226,49 @@ export default function Dashboard() {
       });
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'ai', content: data.answer, source: data.source, citation: data.citation }]);
-    } catch (error) {
+    } catch {
       setMessages(prev => [...prev, { role: 'ai', content: 'Failed to connect to the backend server.', source: 'Error' }]);
     } finally {
       setIsTyping(false);
     }
   };
 
-  const handleAnomalyClick = (row: any) => {
-    const prompt = `Analyze the trade anomaly for ${row.partner} in ${row.commodity} during ${row.date}. The system flagged: ${row.reason}.`;
+  const handleAnomalyClick = (row: AnomalyRow) => {
+    const prompt = `Analyze the trade anomaly for ${row.partner} in ${row.commodity} during ${row.date}. The system flagged: ${row.reason}. Severity score: ${row.anomaly_score}`;
     setIsChatOpen(true);
     setInput(prompt);
+    // F-12: Auto-submit the investigation prompt
+    handleChatSubmit(undefined, prompt);
   };
 
   const handlePredict = async () => {
     setIsPredicting(true);
     try {
+      const parsedUsdInr = parseFloat(usdInr);
+      const parsedCrude = parseFloat(crudePrice);
+      const parsedYear = parseInt(forecastYear);
+      
+      if (isNaN(parsedUsdInr) || isNaN(parsedCrude) || isNaN(parsedYear)) {
+        throw new Error("Invalid input values");
+      }
+
       const res = await fetch(`${API_BASE}/forecast/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usd_inr: parseFloat(usdInr), crude_price: parseFloat(crudePrice), year: parseInt(forecastYear) })
+        body: JSON.stringify({ usd_inr: parsedUsdInr, crude_price: parsedCrude, year: parsedYear })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      const newPrediction = data.forecasted_trade_value_usd;
+      
+      // F-01: Convert raw USD to Billions
+      const newPrediction = data.forecasted_trade_value_usd / 1e9;
       setForecast(newPrediction);
       if (data.feature_importance) setFeatureImportances(data.feature_importance);
-      setChartData([
-        { year: '2022', value: 453.2 },
-        { year: '2023', value: 437.1 },
-        { year: '2024', value: 442.8 },
-        { year: `${forecastYear} (Pred)`, value: parseFloat(newPrediction.toFixed(1)) }
+      
+      // Append prediction to the current history
+      setChartData(prev => [
+        ...prev.filter(d => !d.year.includes('Pred')),
+        { year: `${parsedYear} (Pred)`, value: parseFloat(newPrediction.toFixed(1)) }
       ]);
     } catch (error) {
       console.error("Forecast failed:", error);
@@ -205,13 +279,6 @@ export default function Dashboard() {
 
   const colorScale = scaleLinear<string>().domain([0, 50, 100]).range([NIGHT_SLATE, MINTED_BRASS, CRIMSON_WAX]);
 
-  const SkeletonLoader = () => (
-    <motion.div 
-      initial={{ opacity: 0.3 }} animate={{ opacity: 0.8 }} transition={{ repeat: Infinity, duration: 1, direction: "alternate" }}
-      style={{ height: '100%', width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '0px' }}
-    />
-  );
-
   // Staggered Animations
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -220,14 +287,14 @@ export default function Dashboard() {
   
   const itemVariants = {
     hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
   };
 
   return (
     <main className={styles.container}>
       {/* 6-Month Drill-Down Modal */}
       <AnimatePresence>
-        {selectedCountry && <DrillDownModal country={selectedCountry} onClose={() => setSelectedCountry(null)} />}
+        {selectedCountry && <DrillDownModal country={selectedCountry} originalCountry={selectedCountry} onClose={() => setSelectedCountry(null)} />}
       </AnimatePresence>
 
       <motion.div variants={containerVariants} initial="hidden" animate="visible">
@@ -248,9 +315,9 @@ export default function Dashboard() {
             <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <TrendingUp size={20} color={MINTED_BRASS} />
-                <h2 className={styles.sectionTitle} style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.5rem', margin: 0 }}>XGBoost Trade Forecaster</h2>
+                <h2 className={styles.sectionTitle} style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.5rem', margin: 0 }}>XGBoost Bilateral Trade Forecaster</h2>
               </div>
-              <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R² = 0.992 (Tested on 2022+ Genuine Holdout)</div>
+              <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = 0.992 (Log-Scale)</div>
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -292,7 +359,7 @@ export default function Dashboard() {
               </div>
               
               <div style={{ padding: '1.5rem', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}` }}>
-                <h3 style={{ fontSize: '0.9rem', fontWeight: 500, marginBottom: '1rem', color: '#EFECE6', fontFamily: "'Playfair Display', serif" }}>Prediction Drivers</h3>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 500, marginBottom: '1rem', color: '#EFECE6', fontFamily: "'Playfair Display', serif" }}>Global Model Feature Importance</h3>
                 <div className={styles.featureBarContainer}>
                   {featureImportances.length > 0 ? featureImportances.map((f, i) => (
                     <div key={i} className={styles.featureBarRow}>
@@ -353,17 +420,31 @@ export default function Dashboard() {
                     <th style={{ padding: '1rem' }}>Partner</th>
                     <th style={{ padding: '1rem' }}>Commodity</th>
                     <th style={{ padding: '1rem' }}>Reason Flagged</th>
+                    <th style={{ padding: '1rem' }}>Severity</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoadingAnomalies ? (
-                    <tr><td colSpan={4} style={{ padding: '1rem' }}><SkeletonLoader /></td></tr>
+                    <tr><td colSpan={5} style={{ padding: '1rem' }}><SkeletonLoader /></td></tr>
                   ) : anomalyData.slice(0, 5).map((row, i) => (
-                    <tr key={i} onClick={() => handleAnomalyClick(row)} style={{ cursor: 'pointer', borderBottom: `1px solid rgba(255,255,255,0.05)`, transition: 'background-color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                    <tr 
+                      key={i} 
+                      onClick={() => handleAnomalyClick(row)} 
+                      tabIndex={0}
+                      onKeyDown={(e) => { if(e.key === 'Enter') handleAnomalyClick(row); }}
+                      style={{ cursor: 'pointer', borderBottom: `1px solid rgba(255,255,255,0.05)`, transition: 'background-color 0.2s' }} 
+                      onFocus={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
+                      onBlur={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'} 
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
                       <td style={{ padding: '1rem' }}>{row.date}</td>
                       <td style={{ padding: '1rem' }}>{row.partner}</td>
                       <td style={{ padding: '1rem' }}>{row.commodity}</td>
                       <td style={{ padding: '1rem', color: CRIMSON_WAX }}>{row.reason}</td>
+                      <td style={{ padding: '1rem', color: row.anomaly_score < -0.1 ? CRIMSON_WAX : MINTED_BRASS }}>
+                        {row.anomaly_score ? row.anomaly_score.toFixed(3) : "N/A"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -378,7 +459,6 @@ export default function Dashboard() {
                 <MapIcon size={20} color={MINTED_BRASS} />
                 <h2 className={styles.sectionTitle} style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.5rem', margin: 0 }}>Global Trade Heatmap & Network Embeddings</h2>
               </div>
-              <Maximize2 size={16} color={FADED_INK} style={{ cursor: 'pointer' }} title="Expand Map" />
             </div>
             <p style={{ fontSize: '0.85rem', color: FADED_INK, marginBottom: '1.5rem' }}>
               Choropleth mapping of node volumes and 2D PCA projection of Node2Vec random walks over the global trade graph.
@@ -414,7 +494,7 @@ export default function Dashboard() {
                 )}
                 {/* Gradient Legend */}
                 <div style={{ position: 'absolute', bottom: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '0.65rem', color: FADED_INK, textTransform: 'uppercase' }}>Volume</span>
+                  <span style={{ fontSize: '0.65rem', color: FADED_INK, textTransform: 'uppercase' }}>Flagged Anomaly Value</span>
                   <div style={{ width: '100px', height: '6px', background: `linear-gradient(to right, ${NIGHT_SLATE}, ${MINTED_BRASS}, ${CRIMSON_WAX})`, border: `1px solid ${FADED_INK}` }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: FADED_INK }}>
                     <span>Low</span><span>High</span>
@@ -437,13 +517,13 @@ export default function Dashboard() {
                             <div style={{ backgroundColor: CARD_SURFACE, padding: '10px', border: `1px solid ${MINTED_BRASS}`, fontSize: '0.85rem' }}>
                               <strong style={{ color: MINTED_BRASS }}>{data.country_name}</strong>
                               <br/>
-                              Vol: ${(data.trade_volume / 1e9).toFixed(2)}B
+                              Anomaly Value: ${(data.trade_volume / 1e9).toFixed(2)}B
                             </div>
                           );
                         }
                         return null;
                       }} />
-                      <Scatter data={networkData} fill={MINTED_BRASS} fillOpacity={0.7} onClick={(e: any) => setSelectedCountry(e.payload?.country_name)} style={{ cursor: 'pointer' }} />
+                      <Scatter data={networkData} fill={MINTED_BRASS} fillOpacity={0.7} onClick={(e: { payload?: { country_name?: string } }) => setSelectedCountry(e.payload?.country_name || null)} style={{ cursor: 'pointer' }} />
                     </ScatterChart>
                   </ResponsiveContainer>
                 )}
@@ -511,8 +591,9 @@ export default function Dashboard() {
                         {msg.role === 'ai' ? <TypewriterMessage content={msg.content} /> : msg.content}
                         
                         {msg.role === 'ai' && msg.citation && msg.citation !== "Knowledge Base Error" && (
-                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }} style={{ marginTop: '1rem', paddingTop: '0.5rem', borderTop: `1px solid ${FADED_INK}`, fontSize: '0.75rem', color: MINTED_BRASS }}>
-                            <strong>Source:</strong> {msg.citation}
+                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }} style={{ marginTop: '1rem', paddingTop: '0.5rem', borderTop: `1px solid ${FADED_INK}`, fontSize: '0.75rem', color: MINTED_BRASS, display: 'flex', justifyContent: 'space-between' }}>
+                            <span><strong>Source:</strong> {msg.citation}</span>
+                            {msg.source && <span style={{ color: FADED_INK }}>{msg.source}</span>}
                           </motion.div>
                         )}
                       </motion.div>

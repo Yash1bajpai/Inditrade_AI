@@ -62,8 +62,14 @@ async def get_historical_anomalies():
             return {"data": []}
             
         df = pd.read_csv(filepath)
-        # Select top 50 anomalies for plotting to avoid overwhelming the UI
+        
+        # F-06: Sort by anomaly_score descending to get the true top 50 most severe anomalies
+        if "anomaly_score" in df.columns:
+            df = df.sort_values(by="anomaly_score", ascending=False)
+            
+        # Select top 50 anomalies for plotting
         df = df.head(50)
+        
         # Sort by period so the X-axis is chronological
         if "period" in df.columns:
             df = df.sort_values(by="period")
@@ -72,24 +78,43 @@ async def get_historical_anomalies():
         data = []
         for _, row in df.iterrows():
             val = float(row.get("primaryValue", 0))
-            mean_val = float(row.get("primaryValue_rolling_3y_mean", 1))
+            mean_val = row.get("primaryValue_rolling_3y_mean", 1)
+            score = float(row.get("anomaly_score", -1))
             
-            # Fix Zero-Division and NaN Bug
-            if pd.isna(mean_val) or math.isnan(mean_val) or mean_val == 0:
-                mean_val = 1e-9
-                
-            deviation_pct = ((val - mean_val) / mean_val) * 100
+            # Handle missing or zero means (new trade routes)
+            if pd.isna(mean_val) or math.isnan(float(mean_val)) or float(mean_val) == 0:
+                deviation_pct = 0
+                reason_str = "Value deviated (No historical 3yr data)"
+            else:
+                mean_val = float(mean_val)
+                deviation_pct = ((val - mean_val) / mean_val) * 100
+                reason_str = f"Value deviated {deviation_pct:+.1f}% from 3yr mean"
             
-            cmd_desc = row.get("cmdDesc", "Unknown")
-            if pd.isna(cmd_desc) or str(cmd_desc).lower() == "nan":
-                cmd_desc = "Unknown"
+            cmd_desc = row.get("cmdDesc")
+            cmd_code = row.get("cmdCode", "XX")
+            if pd.isna(cmd_desc) or str(cmd_desc).lower() == "nan" or str(cmd_desc).strip() == "" or str(cmd_desc) == "None":
+                # Quick fallback mapping for common HS codes
+                hs_map = {
+                    "84": "Machinery & Mechanical Appliances",
+                    "85": "Electrical Machinery & Electronics",
+                    "90": "Optical, Photographic & Medical Instruments",
+                    "39": "Plastics & Articles Thereof",
+                    "73": "Articles of Iron or Steel",
+                    "27": "Mineral Fuels & Oils",
+                    "29": "Organic Chemicals",
+                    "30": "Pharmaceutical Products",
+                    "87": "Vehicles & Parts",
+                    "71": "Precious Metals & Stones"
+                }
+                cmd_desc = hs_map.get(str(cmd_code).zfill(2), f"HS Code {cmd_code}")
                 
             data.append({
                 "date": str(row.get("period", "Unknown")),
                 "value": val,
                 "partner": str(row.get("partnerDesc", "Unknown")),
                 "commodity": str(cmd_desc),
-                "reason": f"Value deviated {deviation_pct:.1f}% from 3yr mean"
+                "reason": reason_str,
+                "anomaly_score": score
             })
         return {"data": data}
     except Exception as e:

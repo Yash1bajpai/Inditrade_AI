@@ -25,6 +25,31 @@ def load_model():
             logger.error(f"Failed to load XGBoost model: {e}")
             xgboost_model = "FAILED"
 
+@router.get("/history")
+async def get_global_history():
+    """
+    Returns the real global trade volume history (last 3-5 years)
+    for the XGBoost chart before the prediction point.
+    """
+    try:
+        import pandas as pd
+        df = pd.read_parquet("data/processed/trade_features.parquet")
+        yearly_vol = df.groupby("period")["primaryValue"].sum().reset_index()
+        yearly_vol = yearly_vol.sort_values(by="period")
+        # Get the last 4 years
+        recent = yearly_vol.tail(4)
+        
+        history = []
+        for _, row in recent.iterrows():
+            history.append({
+                "year": str(int(row["period"])),
+                "value": float(row["primaryValue"] / 1e9) # Billions
+            })
+        return {"history": history}
+    except Exception as e:
+        logger.error(f"Failed to fetch global history: {e}")
+        return {"history": []}
+
 @router.post("/")
 async def get_forecast(req: ForecastRequest):
     load_model()
@@ -49,7 +74,10 @@ async def get_forecast(req: ForecastRequest):
             
         df = pd.DataFrame([input_data])
         
-        prediction = xgboost_model['model'].predict(df)[0]
+        prediction_log = xgboost_model['model'].predict(df)[0]
+        # Reverse the np.log1p transformation applied during training
+        import numpy as np
+        actual_prediction_usd = float(np.expm1(prediction_log))
         
         # Extract feature importances
         try:
@@ -62,7 +90,7 @@ async def get_forecast(req: ForecastRequest):
             
         return {
             "year": req.year,
-            "forecasted_trade_value_usd": float(prediction),
+            "forecasted_trade_value_usd": actual_prediction_usd,
             "feature_importance": feature_importance,
             "status": "success"
         }

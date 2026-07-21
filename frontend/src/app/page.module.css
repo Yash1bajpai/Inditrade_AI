@@ -364,3 +364,21 @@
   height: 300px;
   margin-top: 2rem;
 }
+
+/* Responsive Mobile Media Queries */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .inputGrid {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    width: 100vw !important;
+  }
+}

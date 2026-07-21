@@ -67,7 +67,8 @@
     "best_cv_log_rmse_train": 0.5307419099226689,
     "test_log_scale_r2": 0.9920411296139235,
     "test_dollar_scale_rmse": 2278235327.5776014,
-    "test_dollar_scale_mae": 138526291.22288153
+    "test_dollar_scale_mae": 138526291.22288153,
+    "test_log_scale_rmse": 0.30767661759657394
   },
   "target_statistics": {
     "target_column": "primaryValue",

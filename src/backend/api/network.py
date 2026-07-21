@@ -44,14 +44,27 @@ def load_network_data():
                 df['x'] = np.random.randn(len(df))
                 df['y'] = np.random.randn(len(df))
 
+            # Mapping for TopoJSON compatibility
+            topo_map = {
+                "USA": "United States of America",
+                "Russian Federation": "Russia",
+                "UK": "United Kingdom",
+                "South Korea": "South Korea",
+                "Hong Kong": "Hong Kong"
+            }
+
             nodes = []
             for _, row in df.iterrows():
                 country = str(row.get('node_desc', 'Unknown'))
+                # Apply TopoJSON mapping
+                mapped_country = topo_map.get(country, country)
+                
                 # Map real volume from dict, default to a generic scale if missing
                 vol = float(vol_map.get(country, row.get('trade_value_usd', np.random.uniform(1e9, 10e9))))
                 nodes.append({
-                    "id": country,
-                    "country_name": country,
+                    "id": str(row.get('node_id', country)),
+                    "country_name": mapped_country,
+                    "original_country": country,
                     "trade_volume": vol,
                     "x": float(row['x']),
                     "y": float(row['y']),
@@ -68,3 +81,34 @@ def load_network_data():
 async def get_network():
     load_network_data()
     return {"nodes": network_data}
+
+@router.get("/history/{country}")
+async def get_country_history(country: str):
+    """
+    Returns the real 10-year historical trade volume for a specific country 
+    to populate the Drill-Down Modal in the UI.
+    """
+    try:
+        import pandas as pd
+        # Read the real trade features dataset
+        df = pd.read_parquet("data/processed/trade_features.parquet")
+        # Filter for the specific country
+        country_df = df[df['partnerDesc'] == country]
+        if country_df.empty:
+            return {"history": []}
+            
+        # Group by year (period) and sum the total trade volume
+        yearly_vol = country_df.groupby("period")["primaryValue"].sum().reset_index()
+        yearly_vol = yearly_vol.sort_values(by="period")
+        
+        history = []
+        for _, row in yearly_vol.iterrows():
+            history.append({
+                "period": str(int(row["period"])),
+                "volume": float(row["primaryValue"] / 1e9) # Convert to Billions
+            })
+            
+        return {"history": history}
+    except Exception as e:
+        logger.error(f"Failed to fetch history for {country}: {e}")
+        return {"error": str(e), "history": []}
