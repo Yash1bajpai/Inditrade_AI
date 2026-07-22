@@ -1,8 +1,8 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical } from 'lucide-react';
-import { LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis } from 'recharts';
+import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2 } from 'lucide-react';
+import { LineChart, Line, ScatterChart, Scatter, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis } from 'recharts';
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import styles from './page.module.css';
@@ -50,11 +50,18 @@ const TypewriterMessage = ({ content }: { content: string }) => {
 };
 const DrillDownModal = ({ country, originalCountry, onClose }: { country: string, originalCountry: string, onClose: () => void }) => {
   const [historyData, setHistoryData] = useState<{period: string, volume: number}[]>([]);
+  const [domains, setDomains] = useState<{name: string, value: number}[]>([]);
+  const [latestYear, setLatestYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     fetch(`${API_BASE}/network/history/${encodeURIComponent(originalCountry)}`)
       .then(res => res.json())
-      .then(data => { setHistoryData(data.history || []); setLoading(false); })
+      .then(data => { 
+        setHistoryData(data.history || []); 
+        setDomains(data.domains || []);
+        setLatestYear(data.latest_year || null);
+        setLoading(false); 
+      })
       .catch(err => { console.error(err); setLoading(false); });
   }, [originalCountry]);
   return (
@@ -66,10 +73,10 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
         style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: '500px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>{country} - Historical Trade Value</h3>
+          <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>{country} - Historical Trade</h3>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={20}/></button>
         </div>
-        <div style={{ height: '250px' }}>
+        <div style={{ height: '200px', marginBottom: '1.5rem' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: FADED_INK }}>Loading history...</div>
           ) : (
@@ -83,6 +90,19 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
               </LineChart>
             </ResponsiveContainer>
           )}
+        </div>
+        
+        <div>
+           <h4 style={{ color: MINTED_BRASS, marginBottom: '0.5rem', fontFamily: "'Playfair Display', serif", fontSize: '1.1rem' }}>Top Traded Domains ({latestYear || 'Recent'})</h4>
+           <div style={{ display: 'grid', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+             {loading ? <span style={{ color: FADED_INK, fontSize: '0.85rem' }}>Loading domains...</span> : domains.map((d, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', backgroundColor: NIGHT_SLATE, border: `1px solid ${FADED_INK}`, borderRadius: '4px' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#e2e8f0' }}>{d.name}</span>
+                  <span style={{ color: MINTED_BRASS, fontWeight: 'bold', fontSize: '0.85rem' }}>${d.value.toFixed(2)}B</span>
+                </div>
+             ))}
+             {domains.length === 0 && !loading && <span style={{ color: FADED_INK, fontSize: '0.85rem' }}>No domain data available.</span>}
+           </div>
         </div>
       </motion.div>
     </div>
@@ -99,6 +119,7 @@ export default function Dashboard() {
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [isMapEnlarged, setIsMapEnlarged] = useState(false);
   const [usdInr, setUsdInr] = useState('83.50');
   const [crudePrice, setCrudePrice] = useState('80.00');
   const [forecastYear, setForecastYear] = useState('2025');
@@ -245,6 +266,49 @@ export default function Dashboard() {
       {}
       <AnimatePresence>
         {selectedCountry && <DrillDownModal country={selectedCountry} originalCountry={selectedCountry} onClose={() => setSelectedCountry(null)} />}
+        
+        {isMapEnlarged && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: '90%', height: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', display: 'flex', flexDirection: 'column' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>Enlarged Global Trade Heatmap</h3>
+                <button onClick={() => setIsMapEnlarged(false)} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={24}/></button>
+              </div>
+              <div style={{ flex: 1, position: 'relative' }}>
+                {mounted && (
+                  <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} style={{ width: '100%', height: '100%' }}>
+                    <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
+                    <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
+                    <Geographies geography={geoUrl}>
+                      {({ geographies }) =>
+                        geographies.map((geo) => {
+                          const nodeData = networkData.find(d => d.country_name === geo.properties.name);
+                          const val = nodeData ? nodeData.val : 0;
+                          return (
+                            <Geography
+                              key={geo.rsmKey}
+                              geography={geo}
+                              fill={val > 0 ? colorScale(val) : '#2C303A'}
+                              stroke={NIGHT_SLATE}
+                              strokeWidth={0.5}
+                              onClick={() => { if(nodeData) { setSelectedCountry(nodeData.country_name); setIsMapEnlarged(false); } }}
+                              style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
+                            />
+                          );
+                        })
+                      }
+                    </Geographies>
+                  </ComposableMap>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
       <motion.div variants={containerVariants} initial="hidden" animate="visible">
         <motion.header variants={itemVariants} className={styles.header}>
@@ -399,6 +463,12 @@ export default function Dashboard() {
                 <MapIcon size={20} color={MINTED_BRASS} />
                 <h2 className={styles.sectionTitle} style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.5rem', margin: 0 }}>Global Trade Heatmap & Network Embeddings</h2>
               </div>
+              <button 
+                onClick={() => setIsMapEnlarged(true)} 
+                style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}
+              >
+                <Maximize2 size={16} /> Enlarge Map
+              </button>
             </div>
             <p style={{ fontSize: '0.85rem', color: FADED_INK, marginBottom: '1.5rem' }}>
               Choropleth mapping of node volumes and 2D PCA projection of Node2Vec random walks over the global trade graph.
@@ -448,7 +518,7 @@ export default function Dashboard() {
                       <XAxis type="number" dataKey="x" hide />
                       <YAxis type="number" dataKey="y" hide />
                       <ZAxis type="number" dataKey="val" range={[50, 400]} />
-                      <Tooltip cursor={false} content={({ payload }) => {
+                      <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: CARD_SURFACE, border: 'none', borderRadius: '4px' }} content={({ payload }) => {
                         if (payload && payload.length) {
                           const data = payload[0].payload;
                           return (

@@ -102,7 +102,19 @@ async def get_country_history(country: str):
                 "volume": float(row["primaryValue"] / 1e9)
             })
 
-        return {"history": history}
+        latest_year = country_df['period'].max()
+        latest_df = country_df[country_df['period'] == latest_year]
+        top_domains = latest_df.groupby("cmdDesc")["primaryValue"].sum().reset_index()
+        top_domains = top_domains.sort_values(by="primaryValue", ascending=False).head(10)
+        
+        domains = []
+        for _, row in top_domains.iterrows():
+            domains.append({
+                "name": str(row["cmdDesc"]),
+                "value": float(row["primaryValue"] / 1e9)
+            })
+
+        return {"history": history, "latest_year": int(latest_year), "domains": domains}
     except Exception as e:
         logger.error(f"Failed to fetch history for {country}: {e}")
         return {"error": str(e), "history": []}
