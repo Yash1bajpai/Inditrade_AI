@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+import os
+
+new_code = '''from fastapi import APIRouter
 from pydantic import BaseModel
 import logging
 from typing import Optional
@@ -266,3 +268,7 @@ async def get_forecast(req: ForecastRequest):
     except Exception as e:
         logger.error(f"Prediction error: {e}")
         return {"error": str(e)}
+'''
+
+with open('src/backend/api/forecast.py', 'w', encoding='utf-8') as f:
+    f.write(new_code)

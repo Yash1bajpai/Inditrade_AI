@@ -83,20 +83,19 @@ button, input, select, textarea {
   background: #52525b;
 }
 
-@keyframes float {
-  0% { transform: translateY(-3px); }
+@keyframes floaty {
+  0%, 100% { transform: translateY(-3px); }
   50% { transform: translateY(3px); }
-  100% { transform: translateY(-3px); }
 }
 
-.floating-node {
-  animation-name: float;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
+.float-node {
+  animation: floaty ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .floating-node {
-    animation: none;
+  .float-node {
+    animation: none !important;
   }
 }

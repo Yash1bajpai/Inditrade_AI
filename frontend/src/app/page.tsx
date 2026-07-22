@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2 } from 'lucide-react';
-import { LineChart, Line, ScatterChart, Scatter, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis } from 'recharts';
+import { LineChart, Line, ScatterChart, Scatter, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { scaleLinear } from 'd3-scale';
@@ -79,7 +79,7 @@ const TypewriterMessage = ({ content }: { content: string }) => {
   return <span>{displayed}</span>;
 };
 const DrillDownModal = ({ country, originalCountry, onClose }: { country: string, originalCountry: string, onClose: () => void }) => {
-  const [historyData, setHistoryData] = useState<{year: string, value_billions: number}[]>([]);
+  const [historyData, setHistoryData] = useState<{year: string, value_billions: number, import_billions?: number, export_billions?: number}[]>([]);
   const [domains, setDomains] = useState<{code: string, name: string, value_billions: number}[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -109,13 +109,25 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: FADED_INK }}>Loading history...</div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={historyData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
-                <Line type="monotone" dataKey="value_billions" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
-              </LineChart>
+              {historyData.length > 0 && historyData[0].import_billions !== undefined ? (
+                <ComposedChart data={historyData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
+                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
+                  <Bar dataKey="import_billions" name="Imports" fill={CRIMSON_WAX} barSize={20} />
+                  <Bar dataKey="export_billions" name="Exports" fill="#4a90e2" barSize={20} />
+                  <Line type="monotone" dataKey="value_billions" name="Total Trade" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
+                </ComposedChart>
+              ) : (
+                <LineChart data={historyData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
+                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
+                  <Line type="monotone" dataKey="value_billions" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
+                </LineChart>
+              )}
             </ResponsiveContainer>
           )}
         </div>
@@ -146,6 +158,9 @@ export default function Dashboard() {
   const [partnerCode, setPartnerCode] = useState('156');
   const [commodityCode, setCommodityCode] = useState('27');
   const [forecastError, setForecastError] = useState<string | null>(null);
+  const [partnerList, setPartnerList] = useState<{code:string, name:string}[]>([]);
+  const [validMap, setValidMap] = useState<Record<string, string[]>>({});
+  const [suggestedCommodities, setSuggestedCommodities] = useState<{code:string, name:string}[]>([]);
 
   const [featureImportances, setFeatureImportances] = useState<{feature: string, importance: number}[]>([]);
   const [chartData, setChartData] = useState<{year: string, value: number}[]>([]);
@@ -233,8 +248,7 @@ export default function Dashboard() {
         if (window.VanijyaChat) {
           window.VanijyaChat.mount(document.getElementById('vanijya-chat-root'), {
             apiBase: API_BASE,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            chatEndpoint: '/api/query/' as any
+            chatEndpoint: '/query/' as any
           });
         }
       };
@@ -271,6 +285,36 @@ export default function Dashboard() {
       .catch(err => { if (!ignore) { console.error(err); setIsLoadingYearData(false); } });
     return () => { ignore = true; };
   }, [isYearDrawerOpen, yearDrawerYear, yearDrawerTab]);
+
+  
+  useEffect(() => {
+    fetch(`${API_BASE}/forecast/valid_combinations`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.partners) {
+          setPartnerList(data.partners);
+          setValidMap(data.map || {});
+        }
+      }).catch(console.error);
+  }, []);
+
+  const handlePartnerChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const p = e.target.value;
+    setPartnerCode(p);
+    setForecastError(null);
+    setSuggestedCommodities([]);
+    try {
+      const res = await fetch(`${API_BASE}/forecast/partner_signature?partner_code=${p}`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        setCommodityCode(data[0].code);
+      } else if (validMap[p] && validMap[p].length > 0) {
+        setCommodityCode(validMap[p][0]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handlePredict = async () => {
     setIsPredicting(true);
@@ -425,22 +469,14 @@ export default function Dashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div className={styles.inputGroup}>
                 <label className={styles.inputLabel}>Partner</label>
-                <select value={partnerCode} onChange={(e) => setPartnerCode(e.target.value)} className={styles.chatInput}>
-                  <option value="156">China</option>
-                  <option value="842">USA</option>
-                  <option value="784">United Arab Emirates</option>
-                  <option value="682">Saudi Arabia</option>
-                  <option value="643">Russian Federation</option>
+                <select value={partnerCode} onChange={handlePartnerChange} className={styles.chatInput}>
+                  {partnerList.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
                 </select>
               </div>
               <div className={styles.inputGroup}>
                 <label className={styles.inputLabel}>Commodity</label>
-                <select value={commodityCode} onChange={(e) => setCommodityCode(e.target.value)} className={styles.chatInput}>
-                  <option value="27">Mineral Fuels & Oils</option>
-                  <option value="71">Precious Metals & Stones</option>
-                  <option value="85">Electrical Machinery & Electronics</option>
-                  <option value="84">Machinery & Mechanical Appliances</option>
-                  <option value="29">Organic Chemicals</option>
+                <select value={commodityCode} onChange={(e) => { setCommodityCode(e.target.value); setForecastError(null); setSuggestedCommodities([]); }} className={styles.chatInput}>
+                  {validMap[partnerCode]?.map(c => <option key={c} value={c}>HS {c}</option>) || <option value="">No valid commodities</option>}
                 </select>
               </div>
               <div className={styles.inputGroup}>
@@ -481,7 +517,7 @@ export default function Dashboard() {
                       <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
                       <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
-                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: { cx?: number; cy?: number; payload?: { year: string }; key?: string }) => {
+                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: { cx?: number; cy?: number; payload?: { year: string }; key?: React.Key }) => {
                         const { cx, cy, payload, key } = props;
                         const isPred = payload?.year?.includes('Pred');
                         return (
