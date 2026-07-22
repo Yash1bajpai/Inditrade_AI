@@ -1,18 +1,15 @@
 import json
 import os
 import re
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from src.utils.file_io import read_jsonl, write_jsonl
 
 def run_deletion():
     dataset_path = "data/processed/policy_qa_dataset.jsonl"
-    if not os.path.exists(dataset_path):
-        print("Dataset not found!")
+    all_rows = read_jsonl(dataset_path)
+    if all_rows is None:
         return
-
-    all_rows = []
-    with open(dataset_path, "r", encoding="utf-8") as f:
-        for l in f:
-            if l.strip():
-                all_rows.append(json.loads(l))
 
     c1_deleted_refs = []
     c2_deleted_refs = []
@@ -38,9 +35,7 @@ def run_deletion():
         else:
             retained_rows.append(row)
 
-    with open(dataset_path, "w", encoding="utf-8") as f:
-        for r in retained_rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    write_jsonl(dataset_path, retained_rows)
 
     print("=== DELETION SUMMARY ===")
     print(f"Condition 1 (raw filing code ending) deleted count: {len(c1_deleted_refs)}")

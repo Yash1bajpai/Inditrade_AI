@@ -8,13 +8,18 @@ IndiTrade AI - DGFT Master Scraper, PDF Downloader & Text Chunk Processor
 
 import os
 import re
+import requests
+import sqlite3
+from urllib.parse import urljoin
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from src.utils.scraping_utils import fetch_table_rows
 import json
 import time
-import requests
 import pandas as pd
 import pdfplumber
-from datetime import datetime
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -59,15 +64,8 @@ def scrape_full_dgft_master_list():
     for t in targets:
         print(f"[*] Fetching table from {t['Url']}...", end=" ", flush=True)
         try:
-            resp = requests.get(t["Url"], headers=HEADERS, timeout=15)
-            if resp.status_code != 200:
-                print(f"[FAILED] HTTP {resp.status_code}")
-                continue
-
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(resp.content, "html.parser")
-            rows = soup.find_all("tr")
-
+            rows = fetch_table_rows(t["Url"], headers=HEADERS)
+            
             count = 0
             for row in rows:
                 cols = row.find_all("td")

@@ -10,11 +10,16 @@ Features:
 """
 
 import os
-import time
-import json
+import re
 import requests
+import sqlite3
+import time
 import pandas as pd
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from src.utils.scraping_utils import fetch_table_rows
 from datetime import datetime
 
 PIB_DIR = os.path.join("data", "raw", "pib_releases")
@@ -114,14 +119,7 @@ def scrape_dgft_notifications():
     for t in targets:
         print(f"[*] Scraping DGFT {t['Type']} table from {t['Url']}...", end=" ", flush=True)
         try:
-            resp = requests.get(t['Url'], headers=HEADERS, timeout=15)
-            if resp.status_code != 200:
-                print(f"[FAILED] HTTP {resp.status_code}")
-                continue
-
-            soup = BeautifulSoup(resp.content, "html.parser")
-
-            rows = soup.find_all("tr")
+            rows = fetch_table_rows(t['Url'], headers=HEADERS)
             count = 0
             for row in rows:
                 cols = row.find_all("td")

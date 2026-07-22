@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, TrendingUp, AlertTriangle, MessageSquare, Activity, X, Sparkles, Network, Map as MapIcon, GripVertical, Maximize2 } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical } from 'lucide-react';
 import { LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis } from 'recharts';
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
@@ -102,7 +102,7 @@ export default function Dashboard() {
   const [usdInr, setUsdInr] = useState('83.50');
   const [crudePrice, setCrudePrice] = useState('80.00');
   const [forecastYear, setForecastYear] = useState('2025');
-  const [forecast, setForecast] = useState<number | null>(null);
+
   const [featureImportances, setFeatureImportances] = useState<{feature: string, importance: number}[]>([]);
   const [chartData, setChartData] = useState<{year: string, value: number}[]>([
     { year: '2022', value: 453.2 },
@@ -116,7 +116,11 @@ export default function Dashboard() {
   const [networkData, setNetworkData] = useState<NetworkNode[]>([]);
   const [isLoadingNetwork, setIsLoadingNetwork] = useState(true);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
     const abortController = new AbortController();
     fetch(`${API_BASE}/anomaly/historical`, { signal: abortController.signal })
       .then(res => {
@@ -215,7 +219,7 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       const newPrediction = data.forecasted_trade_value_usd / 1e9;
-      setForecast(newPrediction);
+
       if (data.feature_importance) setFeatureImportances(data.feature_importance);
       setChartData(prev => [
         ...prev.filter(d => !d.year.includes('Pred')),

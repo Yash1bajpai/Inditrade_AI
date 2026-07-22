@@ -1,6 +1,9 @@
 import json
 import os
 import re
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from src.utils.file_io import read_jsonl, write_jsonl
 
 def strip_letterhead(text: str) -> str:
     if not text:
@@ -69,15 +72,9 @@ def regenerate_answer(row: dict, subject: str, body: str) -> str:
 def run_cleanup():
 
     dataset_path = "data/processed/policy_qa_dataset.jsonl"
-    if not os.path.exists(dataset_path):
-        print("Dataset not found!")
+    all_rows = read_jsonl(dataset_path)
+    if all_rows is None:
         return
-
-    all_rows = []
-    with open(dataset_path, "r", encoding="utf-8") as f:
-        for l in f:
-            if l.strip():
-                all_rows.append(json.loads(l))
 
     flagged_count = 0
     regenerated_count = 0
@@ -117,9 +114,7 @@ def run_cleanup():
         else:
             updated_rows.append(row)
 
-    with open(dataset_path, "w", encoding="utf-8") as f:
-        for r in updated_rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    write_jsonl(dataset_path, updated_rows)
 
     print(f"Flagged entries count: {flagged_count}")
     print(f"Successfully regenerated with real answer: {regenerated_count}")
