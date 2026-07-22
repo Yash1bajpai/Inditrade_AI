@@ -4,15 +4,45 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2 } from 'lucide-react';
 import { LineChart, Line, ScatterChart, Scatter, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis } from 'recharts';
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
+import { Tooltip as ReactTooltip } from "react-tooltip";
 import { scaleLinear } from 'd3-scale';
 import styles from './page.module.css';
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/$/, "");
 const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 const MINTED_BRASS = "#C8A97E";
 const CRIMSON_WAX = "#9E3E3E";
 const NIGHT_SLATE = "#1A1C21";
 const FADED_INK = "#4A4F5C";
 const CARD_SURFACE = "#23262D";
+
+declare global {
+  interface Window {
+    VanijyaChat?: {
+      open: () => void;
+      ask: (prompt: string) => void;
+      mount: (el: HTMLElement | null, config: Record<string, unknown>) => void;
+      destroy: () => void;
+    };
+  }
+}
+
+const formatMoney = (value: number | undefined | null) => {
+  if (value === null || value === undefined || isNaN(value)) return "N/A";
+  if (value >= 1) return `$${value.toFixed(2)}B`;
+  if (value > 0 && value < 1) return `$${Math.round(value * 1000)}M`;
+  if (value === 0) return "$0";
+  return formatSigned(value); // fallback for any accidental negatives
+};
+
+const formatSigned = (value: number | undefined | null) => {
+  if (value === null || value === undefined || isNaN(value)) return "N/A";
+  const sign = value >= 0 ? '+' : '-';
+  const absVal = Math.abs(value);
+  if (absVal >= 1) return `${sign}$${absVal.toFixed(2)}B`;
+  if (absVal > 0 && absVal < 1) return `${sign}$${Math.round(absVal * 1000)}M`;
+  return "$0";
+};
+
 export interface AnomalyRow {
   date: string;
   partner: string;
@@ -49,17 +79,15 @@ const TypewriterMessage = ({ content }: { content: string }) => {
   return <span>{displayed}</span>;
 };
 const DrillDownModal = ({ country, originalCountry, onClose }: { country: string, originalCountry: string, onClose: () => void }) => {
-  const [historyData, setHistoryData] = useState<{period: string, volume: number}[]>([]);
-  const [domains, setDomains] = useState<{name: string, value: number}[]>([]);
-  const [latestYear, setLatestYear] = useState<number | null>(null);
+  const [historyData, setHistoryData] = useState<{year: string, value_billions: number}[]>([]);
+  const [domains, setDomains] = useState<{code: string, name: string, value_billions: number}[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    fetch(`${API_BASE}/network/history/${encodeURIComponent(originalCountry)}`)
+    fetch(`${API_BASE}/forecast/country_series?partner_code=${encodeURIComponent(originalCountry)}`)
       .then(res => res.json())
       .then(data => { 
-        setHistoryData(data.history || []); 
-        setDomains(data.domains || []);
-        setLatestYear(data.latest_year || null);
+        setHistoryData(data.yearly || []); 
+        setDomains(data.top_commodities || []);
         setLoading(false); 
       })
       .catch(err => { console.error(err); setLoading(false); });
@@ -83,22 +111,22 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={historyData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="period" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}B`} />
+                <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
                 <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
-                <Line type="monotone" dataKey="volume" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
+                <Line type="monotone" dataKey="value_billions" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
         
         <div>
-           <h4 style={{ color: MINTED_BRASS, marginBottom: '0.5rem', fontFamily: "'Playfair Display', serif", fontSize: '1.1rem' }}>Top Traded Domains ({latestYear || 'Recent'})</h4>
+           <h4 style={{ color: MINTED_BRASS, marginBottom: '0.5rem', fontFamily: "'Playfair Display', serif", fontSize: '1.1rem' }}>Top Commodities</h4>
            <div style={{ display: 'grid', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', paddingRight: '0.5rem' }}>
              {loading ? <span style={{ color: FADED_INK, fontSize: '0.85rem' }}>Loading domains...</span> : domains.map((d, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', backgroundColor: NIGHT_SLATE, border: `1px solid ${FADED_INK}`, borderRadius: '4px' }}>
                   <span style={{ fontSize: '0.85rem', color: '#e2e8f0' }}>{d.name}</span>
-                  <span style={{ color: MINTED_BRASS, fontWeight: 'bold', fontSize: '0.85rem' }}>${d.value.toFixed(2)}B</span>
+                  <span style={{ color: MINTED_BRASS, fontWeight: 'bold', fontSize: '0.85rem' }}>{formatMoney(d.value_billions)}</span>
                 </div>
              ))}
              {domains.length === 0 && !loading && <span style={{ color: FADED_INK, fontSize: '0.85rem' }}>No domain data available.</span>}
@@ -109,15 +137,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
   );
 };
 export default function Dashboard() {
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [drawerWidth, setDrawerWidth] = useState(450);
-  const [isDragging, setIsDragging] = useState(false);
-  const [messages, setMessages] = useState<{role: string, content: string, source?: string, citation?: string}[]>([
-    { role: 'ai', content: 'Hello! I am your AI Indian Trade Policy Assistant. Ask me anything about DGFT compliance, import/export policies, or tariff rates.' }
-  ]);
-  const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [isMapEnlarged, setIsMapEnlarged] = useState(false);
   const [usdInr, setUsdInr] = useState('83.50');
@@ -125,13 +145,10 @@ export default function Dashboard() {
   const [forecastYear, setForecastYear] = useState('2025');
   const [partnerCode, setPartnerCode] = useState('156');
   const [commodityCode, setCommodityCode] = useState('27');
+  const [forecastError, setForecastError] = useState<string | null>(null);
 
   const [featureImportances, setFeatureImportances] = useState<{feature: string, importance: number}[]>([]);
-  const [chartData, setChartData] = useState<{year: string, value: number}[]>([
-    { year: '2022', value: 453.2 },
-    { year: '2023', value: 437.1 },
-    { year: '2024', value: 442.8 },
-  ]);
+  const [chartData, setChartData] = useState<{year: string, value: number}[]>([]);
   const [isPredicting, setIsPredicting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [anomalyChartData, setAnomalyChartData] = useState<AnomalyRow[]>([]);
@@ -143,6 +160,24 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
+
+  const getForecastHistory = async (partner: string, commodity: string, signal?: AbortSignal) => {
+    try {
+      const res = await fetch(`${API_BASE}/forecast/history?partner_code=${encodeURIComponent(partner)}&commodity_code=${encodeURIComponent(commodity)}`, { signal });
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      if (data.history) {
+        return data.history.map((item: {year: string | number, value: number}) => ({
+          year: String(item.year),
+          value: Number(Number(item.value || 0).toFixed(3))
+        }));
+      }
+      return [];
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== 'AbortError') console.error(err);
+      return [];
+    }
+  };
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -160,74 +195,86 @@ export default function Dashboard() {
       })
       .then(data => { setNetworkData(data.nodes || []); setIsLoadingNetwork(false); })
       .catch(err => { if (err.name !== 'AbortError') { console.error(err); setIsLoadingNetwork(false); }});
-    fetch(`${API_BASE}/forecast/history`, { signal: abortController.signal })
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        if (data.history) {
-          setChartData(data.history.map((item: {year: number, value: number}) => ({
-            year: item.year.toString(),
-            value: parseFloat(item.value.toFixed(1))
-          })));
-        }
-      })
-      .catch(err => { if (err.name !== 'AbortError') console.error(err); });
     return () => abortController.abort();
   }, []);
-  const handleDrag = useCallback((e: MouseEvent) => {
-    if (isDragging) {
-      const newWidth = window.innerWidth - e.clientX;
-      setDrawerWidth(Math.max(300, Math.min(newWidth, 1000)));
-    }
-  }, [isDragging]);
-  const stopDrag = useCallback(() => { setIsDragging(false); }, []);
+
   useEffect(() => {
-    if (isDragging) {
-      window.addEventListener('mousemove', handleDrag);
-      window.addEventListener('mouseup', stopDrag);
-    } else {
-      window.removeEventListener('mousemove', handleDrag);
-      window.removeEventListener('mouseup', stopDrag);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleDrag);
-      window.removeEventListener('mouseup', stopDrag);
-    };
-  }, [isDragging, handleDrag, stopDrag]);
-  useEffect(() => {
-    if (isChatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isChatOpen]);
-  const handleChatSubmit = async (e?: React.FormEvent, customMsg?: string) => {
-    if (e) e.preventDefault();
-    const userMessage = customMsg || input;
-    if (!userMessage.trim()) return;
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-    setIsTyping(true);
-    try {
-      const res = await fetch(`${API_BASE}/query/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: userMessage })
-      });
-      const data = await res.json();
-      setMessages(prev => [...prev, { role: 'ai', content: data.answer, source: data.source, citation: data.citation }]);
-    } catch {
-      setMessages(prev => [...prev, { role: 'ai', content: 'Failed to connect to the backend server.', source: 'Error' }]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
+    const abortController = new AbortController();
+    getForecastHistory(partnerCode, commodityCode, abortController.signal).then(history => {
+      setChartData(history);
+    });
+    return () => abortController.abort();
+  }, [partnerCode, commodityCode]);
   const handleAnomalyClick = (row: AnomalyRow) => {
-    const prompt = `Analyze the trade anomaly for ${row.partner} in ${row.commodity} during ${row.date}. The system flagged: ${row.reason}. Severity score: ${row.anomaly_score}`;
-    setIsChatOpen(true);
-    setInput(prompt);
-    handleChatSubmit(undefined, prompt);
+    const prompt = `Analyze the trade anomaly for ${row.partner} in ${row.commodity} during ${row.date}. The system flagged: ${row.reason === 'No historical 3yr data' ? 'Insufficient baseline data' : row.reason}. Severity score: ${row.anomaly_score}`;
+    if (window.VanijyaChat) {
+      window.VanijyaChat.open();
+      window.VanijyaChat.ask(prompt);
+    }
   };
+
+  // Vanijya Chat Injection
+  useEffect(() => {
+    const cssId = 'vanijya-chat-css';
+    const jsId = 'vanijya-chat-js';
+    
+    if (!document.getElementById(cssId)) {
+      const link = document.createElement('link');
+      link.id = cssId;
+      link.rel = 'stylesheet';
+      link.href = '/chat.css';
+      document.head.appendChild(link);
+    }
+    if (!document.getElementById(jsId)) {
+      const script = document.createElement('script');
+      script.id = jsId;
+      script.src = '/chat.js';
+      script.onload = () => {
+        if (window.VanijyaChat) {
+          window.VanijyaChat.mount(document.getElementById('vanijya-chat-root'), {
+            apiBase: API_BASE,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            chatEndpoint: '/api/query/' as any
+          });
+        }
+      };
+      document.body.appendChild(script);
+    }
+    
+    return () => {
+      if (window.VanijyaChat) {
+        window.VanijyaChat.destroy();
+      }
+      const existingScript = document.getElementById(jsId);
+      if (existingScript) existingScript.remove();
+      const existingLink = document.getElementById(cssId);
+      if (existingLink) existingLink.remove();
+    };
+  }, []);
+  
+  // Year Breakdown Drawer States
+  const [isYearDrawerOpen, setIsYearDrawerOpen] = useState(false);
+  const [yearDrawerYear] = useState<number>(2024);
+  const [yearDrawerTab, setYearDrawerTab] = useState<'partner'|'commodity'>('partner');
+  const [yearDrawerData, setYearDrawerData] = useState<{code:string, name:string, value_billions:number}[]>([]);
+  const [isLoadingYearData, setIsLoadingYearData] = useState(false);
+
+  useEffect(() => {
+    if (!isYearDrawerOpen) return;
+    let ignore = false;
+    Promise.resolve().then(() => {
+      if (!ignore) setIsLoadingYearData(true);
+    });
+    fetch(`${API_BASE}/forecast/year_breakdown?year=${yearDrawerYear}&group_by=${yearDrawerTab}`)
+      .then(res => res.json())
+      .then(data => { if (!ignore) { setYearDrawerData(data || []); setIsLoadingYearData(false); } })
+      .catch(err => { if (!ignore) { console.error(err); setIsLoadingYearData(false); } });
+    return () => { ignore = true; };
+  }, [isYearDrawerOpen, yearDrawerYear, yearDrawerTab]);
+
   const handlePredict = async () => {
     setIsPredicting(true);
+    setForecastError(null);
     try {
       const parsedUsdInr = parseFloat(usdInr);
       const parsedCrude = parseFloat(crudePrice);
@@ -242,21 +289,40 @@ export default function Dashboard() {
       });
       const data = await res.json();
       
-      if (data.error) {
-        alert("Forecast Error: " + data.error);
-        setIsPredicting(false);
-        return;
+      if (!res.ok) {
+        const errMsg = data?.error || data?.detail?.[0]?.msg || data?.detail || `HTTP error ${res.status}`;
+        throw new Error(errMsg);
       }
+      
       if (data.error) throw new Error(data.error);
-      const newPrediction = data.forecasted_trade_value_usd / 1e9;
 
-      if (data.feature_importance) setFeatureImportances(data.feature_importance);
-      setChartData(prev => [
-        ...prev.filter(d => !d.year.includes('Pred')),
-        { year: `${parsedYear} (Pred)`, value: parseFloat(newPrediction.toFixed(1)) }
+      const usdVal = Number(data.forecasted_trade_value_usd);
+      if (!Number.isFinite(usdVal)) {
+        throw new Error("Model returned an invalid prediction");
+      }
+
+      const billions = usdVal / 1e9;
+      let formattedBillions;
+      if (billions >= 100) {
+        formattedBillions = Number(billions.toFixed(1));
+      } else if (billions >= 1) {
+        formattedBillions = Number(billions.toFixed(2));
+      } else {
+        formattedBillions = Number(billions.toFixed(3));
+      }
+
+      if (Array.isArray(data.feature_importance)) {
+        setFeatureImportances(data.feature_importance);
+      }
+      
+      const history = await getForecastHistory(partnerCode, commodityCode);
+      setChartData([
+        ...history,
+        { year: `${parsedYear} (Pred)`, value: formattedBillions }
       ]);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Forecast failed:", error);
+      setForecastError(error instanceof Error ? error.message : "Forecast failed");
     } finally {
       setIsPredicting(false);
     }
@@ -290,29 +356,34 @@ export default function Dashboard() {
               </div>
               <div style={{ flex: 1, position: 'relative' }}>
                 {mounted && (
-                  <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} style={{ width: '100%', height: '100%' }}>
-                    <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
-                    <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
-                    <Geographies geography={geoUrl}>
-                      {({ geographies }) =>
-                        geographies.map((geo) => {
-                          const nodeData = networkData.find(d => d.country_name === geo.properties.name);
-                          const val = nodeData ? nodeData.val : 0;
-                          return (
-                            <Geography
-                              key={geo.rsmKey}
-                              geography={geo}
-                              fill={val > 0 ? colorScale(val) : '#2C303A'}
-                              stroke={NIGHT_SLATE}
-                              strokeWidth={0.5}
-                              onClick={() => { if(nodeData) { setSelectedCountry(nodeData.country_name); setIsMapEnlarged(false); } }}
-                              style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
-                            />
-                          );
-                        })
-                      }
-                    </Geographies>
-                  </ComposableMap>
+                  <>
+                    <ReactTooltip id="map-tooltip" />
+                    <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                        <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
+                        <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
+                        <Geographies geography={geoUrl}>
+                          {({ geographies }) =>
+                            geographies.map((geo) => {
+                              const nodeData = networkData.find(d => d.country_name === geo.properties.name);
+                              const val = nodeData ? nodeData.val : 0;
+                              return (
+                                <Geography
+                                  key={geo.rsmKey}
+                                  geography={geo}
+                                  data-tooltip-id="map-tooltip"
+                                  data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
+                                  fill={val > 0 ? colorScale(val) : '#2C303A'}
+                                  stroke={NIGHT_SLATE}
+                                  strokeWidth={0.5}
+                                  onClick={() => { if(nodeData) { setSelectedCountry(nodeData.country_name); setIsMapEnlarged(false); } }}
+                                  style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
+                                />
+                              );
+                            })
+                          }
+                        </Geographies>
+                      </ComposableMap>
+                  </>
                 )}
               </div>
             </motion.div>
@@ -338,7 +409,18 @@ export default function Dashboard() {
                 <TrendingUp size={20} color={MINTED_BRASS} />
                 <h2 className={styles.sectionTitle}>XGBoost Bilateral Trade Forecaster</h2>
               </div>
-              <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = 0.992 (Log-Scale)</div>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {(() => {
+                  const latestChartPoint = chartData.length > 0 ? chartData[chartData.length - 1] : null;
+                  const formattedLabel = !latestChartPoint ? "N/A" : (latestChartPoint.value >= 1 ? `$${latestChartPoint.value.toFixed(2)}B` : `$${(latestChartPoint.value * 1000).toFixed(0)}M`);
+                  return (
+                    <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>
+                      Latest: {formattedLabel}
+                    </div>
+                  );
+                })()}
+                <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = 0.992 (Log-Scale)</div>
+              </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div className={styles.inputGroup}>
@@ -381,16 +463,31 @@ export default function Dashboard() {
             <button onClick={handlePredict} disabled={isPredicting} className={styles.chatButton} style={{ width: '100%', padding: '0.75rem', marginTop: '1rem', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.1rem' }}>
               {isPredicting ? 'Running Model...' : 'Generate AI Forecast'}
             </button>
+            {forecastError && (
+              <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: `1px solid ${CRIMSON_WAX}`, color: CRIMSON_WAX, borderRadius: '4px' }}>
+                Forecast Error: {forecastError}
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', marginTop: '2rem' }}>
-              <div className={styles.chartContainer} style={{ height: '300px' }}>
-                {mounted && (
+              <div className={styles.chartContainer} style={{ height: '300px', position: 'relative' }}>
+                {chartData.length === 0 ? (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: FADED_INK }}>
+                    No historical data available for this partner/commodity combination.
+                  </div>
+                ) : mounted && (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                       <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}B`} />
+                      <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
                       <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
-                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: NIGHT_SLATE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
+                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: { cx?: number; cy?: number; payload?: { year: string }; key?: string }) => {
+                        const { cx, cy, payload, key } = props;
+                        const isPred = payload?.year?.includes('Pred');
+                        return (
+                          <circle key={key} cx={cx} cy={cy} r={isPred ? 6 : 4} fill={isPred ? CRIMSON_WAX : NIGHT_SLATE} stroke={MINTED_BRASS} strokeWidth={2} />
+                        );
+                      }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
                     </LineChart>
                   </ResponsiveContainer>
                 )}
@@ -398,16 +495,20 @@ export default function Dashboard() {
               <div style={{ padding: '1.5rem', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}` }}>
                 <h3 style={{ fontSize: '0.9rem', fontWeight: 500, marginBottom: '1rem', color: '#EFECE6', fontFamily: "'Playfair Display', serif" }}>Global Model Feature Importance</h3>
                 <div className={styles.featureBarContainer}>
-                  {featureImportances.length > 0 ? featureImportances.map((f, i) => (
-                    <div key={i} className={styles.featureBarRow}>
-                      <span className={styles.featureLabel} title={f.feature}>{f.feature}</span>
-                      <div className={styles.featureTrack}>
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(5, (f.importance / featureImportances[0].importance) * 100)}%` }} className={styles.featureFill} style={{ backgroundColor: MINTED_BRASS }} />
+                  {(() => {
+                    if (featureImportances.length === 0) {
+                      return <p style={{ fontSize: '0.8rem', color: FADED_INK }}>Run forecast to view feature importance.</p>;
+                    }
+                    const maxImportance = Math.max(...featureImportances.map(f => f.importance), 1);
+                    return featureImportances.map((f, i) => (
+                      <div key={i} className={styles.featureBarRow}>
+                        <span className={styles.featureLabel} title={f.feature}>{f.feature}</span>
+                        <div className={styles.featureTrack}>
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${(f.importance / maxImportance) * 100}%` }} className={styles.featureFill} style={{ backgroundColor: MINTED_BRASS }} />
+                        </div>
                       </div>
-                    </div>
-                  )) : (
-                    <p style={{ fontSize: '0.8rem', color: FADED_INK }}>Run forecast to view feature importance.</p>
-                  )}
+                    ));
+                  })()}
                 </div>
               </div>
             </div>
@@ -480,7 +581,7 @@ export default function Dashboard() {
                       <td style={{ padding: '1rem' }}>{row.date}</td>
                       <td style={{ padding: '1rem' }}>{row.partner}</td>
                       <td style={{ padding: '1rem' }}>{row.commodity}</td>
-                      <td style={{ padding: '1rem', color: CRIMSON_WAX }}>{row.reason}</td>
+                      <td style={{ padding: '1rem', color: CRIMSON_WAX }}>{row.reason === 'No historical 3yr data' ? 'Insufficient baseline data' : row.reason}</td>
                       <td style={{ padding: '1rem', color: row.anomaly_score < -0.1 ? CRIMSON_WAX : MINTED_BRASS }}>
                         {row.anomaly_score ? row.anomaly_score.toFixed(3) : "N/A"}
                       </td>
@@ -511,7 +612,9 @@ export default function Dashboard() {
               {}
               <div className={styles.chartContainer} style={{ height: '300px', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}`, overflow: 'hidden', position: 'relative' }}>
                 {mounted && (
-                  <ComposableMap projection="geoMercator" projectionConfig={{ scale: 100 }} style={{ width: '100%', height: '100%' }}>
+                  <>
+                    <ReactTooltip id="map-tooltip" />
+                    <ComposableMap projection="geoMercator" projectionConfig={{ scale: 120, center: [0, 20] }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
                     <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
                     <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
                     <Geographies geography={geoUrl}>
@@ -523,6 +626,8 @@ export default function Dashboard() {
                             <Geography
                               key={geo.rsmKey}
                               geography={geo}
+                              data-tooltip-id="map-tooltip"
+                              data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
                               fill={val > 0 ? colorScale(val) : '#2C303A'}
                               stroke={NIGHT_SLATE}
                               strokeWidth={0.5}
@@ -534,6 +639,7 @@ export default function Dashboard() {
                       }
                     </Geographies>
                   </ComposableMap>
+                  </>
                 )}
                 {}
                 <div style={{ position: 'absolute', bottom: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -575,92 +681,31 @@ export default function Dashboard() {
         </div>
       </motion.div>
       {}
-      <button className={styles.fab} onClick={() => setIsChatOpen(true)}>
+      <button className={styles.fab} onClick={() => window.VanijyaChat?.open()}>
         <Sparkles size={20} />
         Ask AI
       </button>
       {}
       <AnimatePresence>
-        {isChatOpen && (
-          <div className={styles.sidebarOverlay} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 50 }}>
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className={styles.sidebar}
-              style={{ position: 'absolute', right: 0, top: 0, height: '100%', width: drawerWidth, backgroundColor: CARD_SURFACE, borderLeft: `1px solid ${MINTED_BRASS}`, pointerEvents: 'auto', display: 'flex', flexDirection: 'row' }}
-            >
-              {}
-              <div
-                onMouseDown={() => setIsDragging(true)}
-                style={{ width: '12px', cursor: 'ew-resize', backgroundColor: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: `1px solid ${FADED_INK}` }}
-              >
-                <GripVertical size={12} color={FADED_INK} />
-              </div>
-              {}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div className={styles.sidebarHeader} style={{ padding: '1.5rem', borderBottom: `1px solid ${FADED_INK}`, display: 'flex', justifyContent: 'space-between' }}>
-                  <div className={styles.sidebarTitle} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontFamily: "'Playfair Display', serif" }}>
-                    <MessageSquare size={18} color={MINTED_BRASS} />
-                    AI Policy Assistant
+        <div id="vanijya-chat-root"></div>
+        {isYearDrawerOpen && (
+          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '400px', backgroundColor: CARD_SURFACE, borderLeft: `1px solid ${MINTED_BRASS}`, zIndex: 1100, display: 'flex', flexDirection: 'column', boxShadow: '-5px 0 25px rgba(0,0,0,0.5)', fontFamily: 'inherit' }}>
+             <div style={{ padding: '1.5rem', borderBottom: `1px solid ${MINTED_BRASS}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <h3 style={{ margin: 0, color: MINTED_BRASS, fontFamily: "'Playfair Display', serif" }}>{yearDrawerYear} Trade Breakdown</h3>
+               <button onClick={() => setIsYearDrawerOpen(false)} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }}><X size={20}/></button>
+             </div>
+             <div style={{ display: 'flex', padding: '1rem', gap: '1rem', borderBottom: `1px solid ${FADED_INK}` }}>
+               <button onClick={() => setYearDrawerTab('partner')} style={{ flex: 1, padding: '0.5rem', background: yearDrawerTab === 'partner' ? 'rgba(200, 169, 126, 0.1)' : 'transparent', color: yearDrawerTab === 'partner' ? MINTED_BRASS : FADED_INK, border: `1px solid ${yearDrawerTab === 'partner' ? MINTED_BRASS : FADED_INK}`, borderRadius: '4px', cursor: 'pointer' }}>By Country</button>
+               <button onClick={() => setYearDrawerTab('commodity')} style={{ flex: 1, padding: '0.5rem', background: yearDrawerTab === 'commodity' ? 'rgba(200, 169, 126, 0.1)' : 'transparent', color: yearDrawerTab === 'commodity' ? MINTED_BRASS : FADED_INK, border: `1px solid ${yearDrawerTab === 'commodity' ? MINTED_BRASS : FADED_INK}`, borderRadius: '4px', cursor: 'pointer' }}>By Commodity</button>
+             </div>
+             <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {isLoadingYearData ? <div style={{ color: FADED_INK, textAlign: 'center', marginTop: '2rem' }}>Loading...</div> : yearDrawerData.map((d, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: NIGHT_SLATE, border: `1px solid ${FADED_INK}`, borderRadius: '4px' }}>
+                    <span style={{ color: '#e2e8f0', fontSize: '0.9rem' }}>{d.name}</span>
+                    <span style={{ color: MINTED_BRASS, fontWeight: 'bold' }}>{formatMoney(d.value_billions)}</span>
                   </div>
-                  <button onClick={() => setIsChatOpen(false)} style={{ background: 'none', border: 'none', color: FADED_INK, cursor: 'pointer' }}>
-                    <X size={20} />
-                  </button>
-                </div>
-                <div className={styles.chatContainer} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <AnimatePresence>
-                    {messages.map((msg, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        style={{
-                          padding: '1rem',
-                          border: `1px solid ${msg.role === 'ai' ? MINTED_BRASS : FADED_INK}`,
-                          alignSelf: msg.role === 'ai' ? 'flex-start' : 'flex-end',
-                          maxWidth: '85%',
-                          backgroundColor: msg.role === 'ai' ? 'transparent' : 'rgba(255,255,255,0.02)',
-                          fontSize: '0.9rem',
-                          fontFamily: "'Inter', sans-serif"
-                        }}
-                      >
-                        {msg.role === 'ai' ? <TypewriterMessage content={msg.content} /> : msg.content}
-                        {msg.role === 'ai' && msg.citation && msg.citation !== "Knowledge Base Error" && (
-                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }} style={{ marginTop: '1rem', paddingTop: '0.5rem', borderTop: `1px solid ${FADED_INK}`, fontSize: '0.75rem', color: MINTED_BRASS, display: 'flex', justifyContent: 'space-between' }}>
-                            <span><strong>Source:</strong> {msg.citation}</span>
-                            {msg.source && <span style={{ color: FADED_INK }}>{msg.source}</span>}
-                          </motion.div>
-                        )}
-                      </motion.div>
-                    ))}
-                    {isTyping && (
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '1rem', border: `1px solid ${MINTED_BRASS}`, alignSelf: 'flex-start', maxWidth: '85%' }}>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6 }} style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: MINTED_BRASS }} />
-                          <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: MINTED_BRASS }} />
-                          <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: MINTED_BRASS }} />
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  <div ref={chatEndRef} />
-                </div>
-                <form onSubmit={handleChatSubmit} style={{ padding: '1.5rem', borderTop: `1px solid ${FADED_INK}`, display: 'flex', gap: '0.5rem' }}>
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask about duty free imports..."
-                    style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: `1px solid ${FADED_INK}`, color: '#EFECE6', outline: 'none' }}
-                  />
-                  <button type="submit" disabled={isTyping || !input.trim()} style={{ padding: '0 1rem', background: MINTED_BRASS, color: NIGHT_SLATE, border: 'none', cursor: 'pointer' }}>
-                    <Send size={18} />
-                  </button>
-                </form>
-              </div>
-            </motion.div>
+                ))}
+             </div>
           </div>
         )}
       </AnimatePresence>
