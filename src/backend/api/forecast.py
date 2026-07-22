@@ -9,6 +9,8 @@ class ForecastRequest(BaseModel):
     usd_inr: float
     crude_price: float
     year: int
+    partner_code: str
+    commodity_code: str
 
 xgboost_model = None
 
@@ -61,6 +63,26 @@ async def get_forecast(req: ForecastRequest):
 
         expected_features = xgboost_model['features']
         input_data = {feat: 0.0 for feat in expected_features}
+
+        df_hist = pd.read_parquet("data/processed/trade_features.parquet")
+        df_hist['partnerCode'] = df_hist['partnerCode'].astype(str)
+        df_hist['cmdCode'] = df_hist['cmdCode'].astype(str)
+        
+        df_filtered = df_hist[(df_hist['partnerCode'] == str(req.partner_code)) & (df_hist['cmdCode'] == str(req.commodity_code))]
+        
+        if df_filtered.empty:
+            return {"error": "No historical data for this combination, try another"}
+            
+        latest_row = df_filtered.sort_values(by="period").iloc[-1]
+        
+        for feat in expected_features:
+            if feat in latest_row:
+                val = latest_row[feat]
+                if pd.notna(val):
+                    try:
+                        input_data[feat] = float(val)
+                    except (ValueError, TypeError):
+                        pass
 
         if "usdinr_mean" in input_data:
             input_data["usdinr_mean"] = float(req.usd_inr)

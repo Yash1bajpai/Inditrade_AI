@@ -68,7 +68,8 @@ async def get_historical_anomalies():
         df = df.head(50)
 
         if "period" in df.columns:
-            df = df.sort_values(by="period")
+            # Removed period sort here to preserve severity order for table
+            pass
 
         import math
         data = []
@@ -111,7 +112,11 @@ async def get_historical_anomalies():
                 "reason": reason_str,
                 "anomaly_score": score
             })
-        return {"data": data}
+        
+        table_data = data
+        chart_data = sorted(data, key=lambda x: str(x.get("date", "")))
+        
+        return {"chart_data": chart_data, "table_data": table_data}
     except Exception as e:
         logger.error(f"Error fetching historical anomalies: {e}")
         return {"error": str(e)}

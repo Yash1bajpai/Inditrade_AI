@@ -123,6 +123,8 @@ export default function Dashboard() {
   const [usdInr, setUsdInr] = useState('83.50');
   const [crudePrice, setCrudePrice] = useState('80.00');
   const [forecastYear, setForecastYear] = useState('2025');
+  const [partnerCode, setPartnerCode] = useState('156');
+  const [commodityCode, setCommodityCode] = useState('27');
 
   const [featureImportances, setFeatureImportances] = useState<{feature: string, importance: number}[]>([]);
   const [chartData, setChartData] = useState<{year: string, value: number}[]>([
@@ -132,7 +134,8 @@ export default function Dashboard() {
   ]);
   const [isPredicting, setIsPredicting] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [anomalyData, setAnomalyData] = useState<AnomalyRow[]>([]);
+  const [anomalyChartData, setAnomalyChartData] = useState<AnomalyRow[]>([]);
+  const [anomalyTableData, setAnomalyTableData] = useState<AnomalyRow[]>([]);
   const [isLoadingAnomalies, setIsLoadingAnomalies] = useState(true);
   const [networkData, setNetworkData] = useState<NetworkNode[]>([]);
   const [isLoadingNetwork, setIsLoadingNetwork] = useState(true);
@@ -148,7 +151,7 @@ export default function Dashboard() {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();
       })
-      .then(data => { setAnomalyData(data.data || []); setIsLoadingAnomalies(false); })
+      .then(data => { setAnomalyChartData(data.chart_data || []); setAnomalyTableData(data.table_data || []); setIsLoadingAnomalies(false); })
       .catch(err => { if (err.name !== 'AbortError') { console.error(err); setIsLoadingAnomalies(false); }});
     fetch(`${API_BASE}/network/`, { signal: abortController.signal })
       .then(res => {
@@ -235,9 +238,15 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE}/forecast/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usd_inr: parsedUsdInr, crude_price: parsedCrude, year: parsedYear })
+        body: JSON.stringify({ usd_inr: parsedUsdInr, crude_price: parsedCrude, year: parsedYear, partner_code: partnerCode, commodity_code: commodityCode })
       });
       const data = await res.json();
+      
+      if (data.error) {
+        alert("Forecast Error: " + data.error);
+        setIsPredicting(false);
+        return;
+      }
       if (data.error) throw new Error(data.error);
       const newPrediction = data.forecasted_trade_value_usd / 1e9;
 
@@ -323,15 +332,35 @@ export default function Dashboard() {
         </motion.header>
         <div className={styles.grid}>
           {}
-          <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`} style={{ padding: '2rem' }}>
-            <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+          <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`}>
+            <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <TrendingUp size={20} color={MINTED_BRASS} />
-                <h2 className={styles.sectionTitle} style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.5rem', margin: 0 }}>XGBoost Bilateral Trade Forecaster</h2>
+                <h2 className={styles.sectionTitle}>XGBoost Bilateral Trade Forecaster</h2>
               </div>
               <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = 0.992 (Log-Scale)</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>Partner</label>
+                <select value={partnerCode} onChange={(e) => setPartnerCode(e.target.value)} className={styles.chatInput}>
+                  <option value="156">China</option>
+                  <option value="842">USA</option>
+                  <option value="784">United Arab Emirates</option>
+                  <option value="682">Saudi Arabia</option>
+                  <option value="643">Russian Federation</option>
+                </select>
+              </div>
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>Commodity</label>
+                <select value={commodityCode} onChange={(e) => setCommodityCode(e.target.value)} className={styles.chatInput}>
+                  <option value="27">Mineral Fuels & Oils</option>
+                  <option value="71">Precious Metals & Stones</option>
+                  <option value="85">Electrical Machinery & Electronics</option>
+                  <option value="84">Machinery & Mechanical Appliances</option>
+                  <option value="29">Organic Chemicals</option>
+                </select>
+              </div>
               <div className={styles.inputGroup}>
                 <label className={styles.inputLabel}>Forecast Year</label>
                 <select value={forecastYear} onChange={(e) => setForecastYear(e.target.value)} className={styles.chatInput}>
@@ -384,21 +413,26 @@ export default function Dashboard() {
             </div>
           </motion.section>
           {}
-          <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`} style={{ padding: '2rem' }}>
-            <div className={styles.sectionHeader} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-              <AlertTriangle size={20} color={CRIMSON_WAX} />
-              <h2 className={styles.sectionTitle} style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.5rem', margin: 0 }}>Isolation Forest Anomalies</h2>
+          <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`}>
+            <div className={styles.sectionHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <AlertTriangle size={20} color={CRIMSON_WAX} />
+                <h2 className={styles.sectionTitle}>Isolation Forest Anomalies</h2>
+              </div>
             </div>
-            <p style={{ fontSize: '0.85rem', color: FADED_INK, marginBottom: '1.5rem' }}>Click any flagged anomaly row to investigate with the AI Policy Assistant.</p>
-            <div className={styles.chartContainer} style={{ height: '250px', marginBottom: '2rem' }}>
+            <p style={{ fontSize: '0.85rem', color: FADED_INK, marginBottom: '2rem' }}>
+              Click any flagged anomaly row to investigate with the AI Policy Assistant.
+            </p>
+            <div className={styles.chartContainer} style={{ height: '200px', marginBottom: '2rem' }}>
               {isLoadingAnomalies ? <SkeletonLoader /> : mounted && (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                  <ScatterChart margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis type="category" dataKey="date" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis type="number" dataKey="value" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `$${(val/1e9).toFixed(1)}B`} />
-                    <Tooltip
-                      cursor={{ strokeDasharray: '3 3' }}
+                    <XAxis dataKey="date" stroke={FADED_INK} fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis dataKey="value" stroke={FADED_INK} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${(val / 1e9).toFixed(1)}B`} />
+                    <Tooltip 
+                      cursor={{ strokeDasharray: '3 3' }} 
+                      contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}` }}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
@@ -412,7 +446,7 @@ export default function Dashboard() {
                         return null;
                       }}
                     />
-                    <Scatter name="Anomalies" data={anomalyData} fill={CRIMSON_WAX} />
+                    <Scatter name="Anomalies" data={anomalyChartData} fill={CRIMSON_WAX} />
                   </ScatterChart>
                 </ResponsiveContainer>
               )}
@@ -431,7 +465,7 @@ export default function Dashboard() {
                 <tbody>
                   {isLoadingAnomalies ? (
                     <tr><td colSpan={5} style={{ padding: '1rem' }}><SkeletonLoader /></td></tr>
-                  ) : anomalyData.slice(0, 5).map((row, i) => (
+                  ) : anomalyTableData.slice(0, 5).map((row, i) => (
                     <tr
                       key={i}
                       onClick={() => handleAnomalyClick(row)}
@@ -457,11 +491,11 @@ export default function Dashboard() {
             </div>
           </motion.section>
           {}
-          <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`} style={{ padding: '2rem' }}>
-            <div className={styles.sectionHeader} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`}>
+            <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <MapIcon size={20} color={MINTED_BRASS} />
-                <h2 className={styles.sectionTitle} style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.5rem', margin: 0 }}>Global Trade Heatmap & Network Embeddings</h2>
+                <h2 className={styles.sectionTitle}>Global Trade Heatmap & Network Embeddings</h2>
               </div>
               <button 
                 onClick={() => setIsMapEnlarged(true)} 
