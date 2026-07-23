@@ -83,6 +83,13 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
   const [domains, setDomains] = useState<{code: string, name: string, value_billions: number}[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
+    if (!originalCountry) {
+      setHistoryData([]);
+      setDomains([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     fetch(`${API_BASE}/forecast/country_series?partner_code=${encodeURIComponent(originalCountry)}`)
       .then(res => res.json())
       .then(data => { 
@@ -100,16 +107,23 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
         style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: '500px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>{country} - Historical Trade</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
+          <div>
+            <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>{country} - Historical Trade</h3>
+            <span style={{ fontSize: '0.75rem', color: FADED_INK, border: `1px solid rgba(255,255,255,0.1)`, padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' }}>Yearly 2015-2024 · monthly view coming next update</span>
+          </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={20}/></button>
         </div>
         <div style={{ height: '200px', marginBottom: '1.5rem' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: FADED_INK }}>Loading history...</div>
+          ) : historyData.length === 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: FADED_INK }}>
+              {!originalCountry ? "No bilateral trade data for this country." : "No historical trade data available."}
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              {historyData.length > 0 && historyData[0].import_billions !== undefined ? (
+              {historyData[0].import_billions !== undefined ? (
                 <ComposedChart data={historyData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
@@ -150,7 +164,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
 };
 export default function Dashboard() {
 
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<{name: string, code: string} | null>(null);
   const [isMapEnlarged, setIsMapEnlarged] = useState(false);
   const [usdInr, setUsdInr] = useState('83.50');
   const [crudePrice, setCrudePrice] = useState('80.00');
@@ -384,7 +398,7 @@ export default function Dashboard() {
     <main className={styles.container}>
       {}
       <AnimatePresence>
-        {selectedCountry && <DrillDownModal country={selectedCountry} originalCountry={selectedCountry} onClose={() => setSelectedCountry(null)} />}
+        {selectedCountry && <DrillDownModal country={selectedCountry.name} originalCountry={selectedCountry.code} onClose={() => setSelectedCountry(null)} />}
         
         {isMapEnlarged && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
@@ -419,7 +433,16 @@ export default function Dashboard() {
                                   fill={val > 0 ? colorScale(val) : '#2C303A'}
                                   stroke={NIGHT_SLATE}
                                   strokeWidth={0.5}
-                                  onClick={() => { if(nodeData) { setSelectedCountry(nodeData.country_name); setIsMapEnlarged(false); } }}
+                                  onClick={() => { 
+                                    const geoCode = parseInt(geo.id).toString();
+                                    const partner = partnerList.find(p => p.code === geoCode);
+                                    if (partner) {
+                                      setSelectedCountry({ name: geo.properties.name, code: geoCode });
+                                    } else {
+                                      setSelectedCountry({ name: geo.properties.name, code: "" });
+                                    }
+                                    setIsMapEnlarged(false);
+                                  }}
                                   style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
                                 />
                               );
@@ -517,7 +540,7 @@ export default function Dashboard() {
                       <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
                       <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
-                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: { cx?: number; cy?: number; payload?: { year: string }; key?: React.Key }) => {
+                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: any) => {
                         const { cx, cy, payload, key } = props;
                         const isPred = payload?.year?.includes('Pred');
                         return (
@@ -667,7 +690,15 @@ export default function Dashboard() {
                               fill={val > 0 ? colorScale(val) : '#2C303A'}
                               stroke={NIGHT_SLATE}
                               strokeWidth={0.5}
-                              onClick={() => { if(nodeData) setSelectedCountry(nodeData.country_name); }}
+                              onClick={() => {
+                                const geoCode = parseInt(geo.id).toString();
+                                const partner = partnerList.find(p => p.code === geoCode);
+                                if (partner) {
+                                  setSelectedCountry({ name: geo.properties.name, code: geoCode });
+                                } else {
+                                  setSelectedCountry({ name: geo.properties.name, code: "" });
+                                }
+                              }}
                               style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
                             />
                           );
@@ -707,7 +738,7 @@ export default function Dashboard() {
                         }
                         return null;
                       }} />
-                      <Scatter data={networkData} fill={MINTED_BRASS} fillOpacity={0.7} onClick={(e: { payload?: { country_name?: string } }) => setSelectedCountry(e.payload?.country_name || null)} style={{ cursor: 'pointer' }} />
+                      <Scatter data={networkData} fill={MINTED_BRASS} fillOpacity={0.7} onClick={(e: any) => setSelectedCountry({ name: e.payload?.country_name || "Unknown", code: e.payload?.original_country || "" })} style={{ cursor: 'pointer' }} />
                     </ScatterChart>
                   </ResponsiveContainer>
                 )}

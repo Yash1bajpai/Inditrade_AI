@@ -76,14 +76,22 @@ async def get_valid_combinations():
         logger.error(f"Failed to build valid combinations: {e}")
         return {"partners": [], "map": {}}
 
+def resolve_partner_code(code: str) -> str:
+    c = str(code).split('.')[0]
+    if not c.isdigit():
+        rev_map = {v.lower(): k for k, v in PARTNER_MAP.items()}
+        c = rev_map.get(str(code).lower(), c)
+    return c
+
 @router.get("/partner_signature")
 async def get_partner_signature(partner_code: str):
     try:
+        p_code_str = resolve_partner_code(partner_code)
         df = pd.read_parquet("data/processed/trade_features.parquet")
         df['pStr'] = df['partnerCode'].apply(lambda x: str(x).split('.')[0])
         df['cStr'] = df['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
         
-        df_partner = df[df['pStr'] == str(partner_code).split('.')[0]]
+        df_partner = df[df['pStr'] == p_code_str]
         if df_partner.empty:
             return []
             
@@ -123,7 +131,8 @@ async def get_year_breakdown(year: int, group_by: str, partner_code: Optional[st
         df = pd.read_parquet("data/processed/trade_features.parquet")
         df = df[df['period'] == year]
         if partner_code:
-            df = df[df['partnerCode'].astype(str).str.split('.').str[0] == str(partner_code).split('.')[0]]
+            p_code_str = resolve_partner_code(partner_code)
+            df = df[df['partnerCode'].astype(str).str.split('.').str[0] == p_code_str]
         if commodity_code:
             df = df[df['cmdCode'].astype(str).str.split('.').str[0].str.zfill(2) == str(commodity_code).split('.')[0].zfill(2)]
             
@@ -139,19 +148,27 @@ async def get_year_breakdown(year: int, group_by: str, partner_code: Optional[st
         else:
             return []
             
-        top = df.groupby(group_col)['primaryValue'].sum().reset_index().sort_values(by='primaryValue', ascending=False).head(10)
-        return [{"code": r[group_col], "name": map_dict.get(r[group_col], r[group_col]), "value_billions": float(r["primaryValue"]/1e9)} for _, r in top.iterrows()]
+        agg = df.groupby(group_col)['primaryValue'].sum().reset_index()
+        agg = agg.sort_values(by='primaryValue', ascending=False).head(10)
+        
+        res = []
+        for _, row in agg.iterrows():
+            c = row[group_col]
+            res.append({"code": c, "name": map_dict.get(c, c), "value_billions": float(row['primaryValue']/1e9)})
+        return res
     except Exception as e:
+        logger.error(f"Failed to fetch year breakdown: {e}")
         return []
 
 @router.get("/country_series")
 async def get_country_series(partner_code: str):
     try:
+        p_code_str = resolve_partner_code(partner_code)
         df = pd.read_parquet("data/processed/trade_features.parquet")
         df['pStr'] = df['partnerCode'].apply(lambda x: str(x).split('.')[0])
         df['cStr'] = df['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
         
-        df = df[df['pStr'] == str(partner_code).split('.')[0]]
+        df = df[df['pStr'] == p_code_str]
         if df.empty:
             return {"yearly": [], "top_commodities": []}
             
