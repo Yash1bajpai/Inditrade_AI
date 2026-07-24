@@ -6,6 +6,7 @@ import { LineChart, Line, ScatterChart, Scatter, Cell, XAxis, YAxis, CartesianGr
 import { ComposableMap, Geographies, Geography, Sphere, Graticule, Line as MapLine } from 'react-simple-maps';
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { scaleLinear } from 'd3-scale';
+import { geoMercator } from 'd3-geo';
 import styles from './page.module.css';
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/$/, "");
 const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
@@ -14,6 +15,8 @@ const CRIMSON_WAX = "#9E3E3E";
 const NIGHT_SLATE = "#1A1C21";
 const FADED_INK = "#4A4F5C";
 const CARD_SURFACE = "#23262D";
+
+const proj = geoMercator().scale(150).translate([400, 225]);
 
 declare global {
   interface Window {
@@ -49,6 +52,19 @@ const COUNTRY_COORDS: Record<string, [number, number]> = {
   '842': [-95.7129, 37.0902], // USA
 };
 const INDIA_COORDS: [number, number] = [78.9629, 20.5937];
+
+const drawCurve = (startCoords: [number, number], endCoords: [number, number], curvature: number = 0.2) => {
+  const start = proj(startCoords);
+  const end = proj(endCoords);
+  if (!start || !end) return "";
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const midX = (start[0] + end[0]) / 2;
+  const midY = (start[1] + end[1]) / 2;
+  const cx = midX - dy * curvature;
+  const cy = midY + dx * curvature;
+  return `M ${start[0]},${start[1]} Q ${cx},${cy} ${end[0]},${end[1]}`;
+};
 
 const formatMoney = (value: number | undefined | null) => {
   if (value === null || value === undefined || isNaN(value)) return "N/A";
@@ -456,6 +472,14 @@ export default function Dashboard() {
                   <>
                     <ReactTooltip id="map-tooltip" />
                     <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                        <defs>
+                          <marker id="arrow-export" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill={MINTED_BRASS} />
+                          </marker>
+                          <marker id="arrow-import" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#00E5FF" />
+                          </marker>
+                        </defs>
                         <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
                         <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
                         <Geographies geography={geoUrl}>
@@ -499,14 +523,15 @@ export default function Dashboard() {
                           const coords = COUNTRY_COORDS[code];
                           if (!coords) return null;
                           return (
-                            <MapLine
+                            <path
                               key={`export-${code}`}
-                              from={INDIA_COORDS}
-                              to={coords}
+                              d={drawCurve(INDIA_COORDS, coords, 0.3)}
+                              fill="none"
                               stroke={MINTED_BRASS}
                               strokeWidth={2}
                               strokeLinecap="round"
-                              className={styles.flowLineOut}
+                              markerEnd="url(#arrow-export)"
+                              style={{ filter: `drop-shadow(0 0 4px rgba(200, 169, 126, 0.8))` }}
                             />
                           );
                         })}
@@ -514,14 +539,15 @@ export default function Dashboard() {
                           const coords = COUNTRY_COORDS[code];
                           if (!coords) return null;
                           return (
-                            <MapLine
+                            <path
                               key={`import-${code}`}
-                              from={coords}
-                              to={INDIA_COORDS}
-                              stroke="#00E5FF" // Neon Cyan
+                              d={drawCurve(coords, INDIA_COORDS, 0.3)}
+                              fill="none"
+                              stroke="#00E5FF"
                               strokeWidth={2}
                               strokeLinecap="round"
-                              className={styles.flowLineIn}
+                              markerEnd="url(#arrow-import)"
+                              style={{ filter: `drop-shadow(0 0 4px rgba(0, 229, 255, 0.8))` }}
                             />
                           );
                         })}
