@@ -461,7 +461,7 @@ export default function Dashboard() {
                 
                 <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.25rem', borderRadius: '20px', border: `1px solid ${FADED_INK}` }}>
                   <button onClick={() => setFlowMode('off')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'off' ? FADED_INK : 'transparent', color: flowMode === 'off' ? '#fff' : FADED_INK, transition: 'all 0.3s' }}>Off</button>
-                  <button onClick={() => setFlowMode('exports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'exports' ? MINTED_BRASS : 'transparent', color: flowMode === 'exports' ? NIGHT_SLATE : MINTED_BRASS, transition: 'all 0.3s' }}>Exports</button>
+                  <button onClick={() => setFlowMode('exports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'exports' ? '#FF9F43' : 'transparent', color: flowMode === 'exports' ? NIGHT_SLATE : '#FF9F43', transition: 'all 0.3s' }}>Exports</button>
                   <button onClick={() => setFlowMode('imports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'imports' ? '#00E5FF' : 'transparent', color: flowMode === 'imports' ? NIGHT_SLATE : '#00E5FF', transition: 'all 0.3s' }}>Imports</button>
                 </div>
 
@@ -474,7 +474,7 @@ export default function Dashboard() {
                     <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
                         <defs>
                           <marker id="arrow-export" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill={MINTED_BRASS} />
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#FF9F43" />
                           </marker>
                           <marker id="arrow-import" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
                             <path d="M 0 0 L 10 5 L 0 10 z" fill="#00E5FF" />
@@ -527,11 +527,12 @@ export default function Dashboard() {
                               key={`export-${code}`}
                               d={drawCurve(INDIA_COORDS, coords, 0.3)}
                               fill="none"
-                              stroke={MINTED_BRASS}
+                              stroke="#FF9F43"
                               strokeWidth={2}
                               strokeLinecap="round"
                               markerEnd="url(#arrow-export)"
-                              style={{ filter: `drop-shadow(0 0 4px rgba(200, 169, 126, 0.8))` }}
+                              className={styles.animatedPath}
+                              style={{ filter: `drop-shadow(0 0 4px rgba(255, 159, 67, 0.8))` }}
                             />
                           );
                         })}
@@ -547,6 +548,7 @@ export default function Dashboard() {
                               strokeWidth={2}
                               strokeLinecap="round"
                               markerEnd="url(#arrow-import)"
+                              className={styles.animatedPath}
                               style={{ filter: `drop-shadow(0 0 4px rgba(0, 229, 255, 0.8))` }}
                             />
                           );
