@@ -7,3 +7,4 @@ pandas
 qdrant-client
 supabase
 groq
+python-dotenv
