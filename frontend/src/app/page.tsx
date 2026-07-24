@@ -7,7 +7,21 @@ import { ComposableMap, Geographies, Geography, Sphere, Graticule, Line as MapLi
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { scaleLinear } from 'd3-scale';
 import { geoMercator } from 'd3-geo';
+import CountUp from 'react-countup';
 import styles from './page.module.css';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15, delayChildren: 0.1 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 12 } }
+};
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/$/, "");
 const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 const MINTED_BRASS = "#C8A97E";
@@ -100,6 +114,28 @@ export interface NetworkNode {
   y: number;
   val: number;
 }
+const AnimatedMoney = ({ value }: { value: number | undefined | null }) => {
+  if (value === null || value === undefined || isNaN(value)) return <span>N/A</span>;
+  if (value === 0) return <span>$0</span>;
+  
+  const absVal = Math.abs(value);
+  const isBillion = absVal >= 1;
+  const displayVal = isBillion ? absVal : absVal * 1000;
+  const suffix = isBillion ? 'B' : 'M';
+  const prefix = value < 0 ? '-$' : '$';
+  
+  return (
+    <CountUp 
+      start={0} 
+      end={displayVal} 
+      duration={2} 
+      decimals={isBillion ? 2 : 0} 
+      prefix={prefix} 
+      suffix={suffix} 
+      useEasing={true}
+    />
+  );
+};
 const SkeletonLoader = () => (
   <motion.div
     initial={{ opacity: 0.3 }} animate={{ opacity: 0.8 }} transition={{ repeat: Infinity, duration: 1, repeatType: "mirror" }}
@@ -573,7 +609,7 @@ export default function Dashboard() {
           </div>
         </motion.header>
         <div className={styles.grid}>
-          <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`}>
+          <motion.section variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <TrendingUp size={20} color={MINTED_BRASS} />
@@ -582,10 +618,9 @@ export default function Dashboard() {
               <div style={{ display: 'flex', gap: '1rem' }}>
                 {(() => {
                   const latestChartPoint = chartData.length > 0 ? chartData[chartData.length - 1] : null;
-                  const formattedLabel = !latestChartPoint ? "N/A" : (latestChartPoint.value >= 1 ? `$${latestChartPoint.value.toFixed(2)}B` : `$${(latestChartPoint.value * 1000).toFixed(0)}M`);
                   return (
                     <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>
-                      Latest: {formattedLabel}
+                      Latest: <AnimatedMoney value={latestChartPoint ? latestChartPoint.value : null} />
                     </div>
                   );
                 })()}
@@ -700,7 +735,7 @@ export default function Dashboard() {
               </div>
             </div>
           </motion.section>
-          <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`}>
+          <motion.section variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <AlertTriangle size={20} color={CRIMSON_WAX} />
@@ -777,7 +812,7 @@ export default function Dashboard() {
               </table>
             </div>
           </motion.section>
-          <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`}>
+          <motion.section variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <MapIcon size={20} color={MINTED_BRASS} />

@@ -3,6 +3,7 @@
   padding: 2rem;
   max-width: 1400px;
   margin: 0 auto;
+  background: radial-gradient(circle at 50% 0%, rgba(200, 169, 126, 0.05), transparent 60%);
 }
 
 .header {
@@ -67,8 +68,8 @@
 }
 
 .fab:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 20px 25px -5px rgba(200, 169, 126, 0.4), 0 8px 10px -6px rgba(200, 169, 126, 0.2);
 }
 
 /* Sidebar Chat Overlay */
