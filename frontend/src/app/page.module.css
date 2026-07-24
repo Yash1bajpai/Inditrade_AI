@@ -32,6 +32,19 @@
   margin: 0 auto;
 }
 
+.forecastGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.mapGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
 /* Floating Action Button */
 .fab {
   position: fixed;
@@ -562,7 +575,13 @@
 
 /* Responsive Mobile Media Queries */
 @media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
   .grid {
+    grid-template-columns: 1fr;
+  }
+  .forecastGrid, .mapGrid {
     grid-template-columns: 1fr;
   }
   .header {
@@ -575,6 +594,26 @@
   }
   .sidebar {
     width: 100vw !important;
+    min-width: 100vw;
+  }
+  .metricValue {
+    font-size: clamp(1.5rem, 5vw, 2.5rem);
+  }
+  .title {
+    font-size: clamp(1.5rem, 5vw, 2rem);
+  }
+  .section {
+    padding: clamp(1rem, 3vw, 2rem);
+  }
+  .featureBarContainer {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 375px) {
+  .metricValue {
+    font-size: 1.5rem;
   }
 }
 

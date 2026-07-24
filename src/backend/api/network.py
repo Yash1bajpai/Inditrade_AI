@@ -30,7 +30,8 @@ def load_network_data():
                 vol_map = {}
 
             import numpy as np
-            if 'embedding_vector' in df.columns:
+            has_embeddings = 'embedding_vector' in df.columns
+            if has_embeddings:
                 vectors = np.stack(df['embedding_vector'].values)
                 from sklearn.decomposition import PCA
                 pca = PCA(n_components=2)
@@ -38,8 +39,8 @@ def load_network_data():
                 df['x'] = coords[:, 0]
                 df['y'] = coords[:, 1]
             else:
-                df['x'] = np.random.randn(len(df))
-                df['y'] = np.random.randn(len(df))
+                df['x'] = [None] * len(df)
+                df['y'] = [None] * len(df)
 
             topo_map = {
                 "USA": "United States of America",
@@ -55,15 +56,24 @@ def load_network_data():
 
                 mapped_country = topo_map.get(country, country)
 
-                vol = float(vol_map.get(country, row.get('trade_value_usd', np.random.uniform(1e9, 10e9))))
+                if country in vol_map:
+                    vol = float(vol_map[country])
+                elif 'trade_value_usd' in row and not pd.isna(row['trade_value_usd']):
+                    vol = float(row['trade_value_usd'])
+                else:
+                    vol = None
+
+                x_val = float(row['x']) if not pd.isna(row['x']) else None
+                y_val = float(row['y']) if not pd.isna(row['y']) else None
+                
                 nodes.append({
                     "id": str(row.get('node_id', country)),
                     "country_name": mapped_country,
                     "original_country": country,
                     "trade_volume": vol,
-                    "x": float(row['x']),
-                    "y": float(row['y']),
-                    "val": max(10, min(100, vol / 1000000000))
+                    "x": x_val,
+                    "y": y_val,
+                    "val": max(10, min(100, vol / 1000000000)) if vol is not None else None
                 })
 
             network_data = nodes

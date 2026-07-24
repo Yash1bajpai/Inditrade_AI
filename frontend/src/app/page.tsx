@@ -26,6 +26,8 @@ declare global {
   }
 }
 
+const CMD_MAP: Record<string, string> = {'01': 'Live Animals', '02': 'Meat', '03': 'Fish', '04': 'Dairy', '05': 'Animal Products', '06': 'Trees/Plants', '07': 'Vegetables', '08': 'Fruits/Nuts', '09': 'Coffee/Tea/Spices', '10': 'Cereals', '11': 'Milling Products', '12': 'Oil Seeds', '13': 'Gums/Resins', '14': 'Vegetable Plaiting', '15': 'Fats/Oils', '16': 'Prepared Meat/Fish', '17': 'Sugars', '18': 'Cocoa', '19': 'Cereal Preps', '20': 'Vegetable/Fruit Preps', '21': 'Misc Edibles', '22': 'Beverages', '23': 'Food Waste/Fodder', '24': 'Tobacco', '25': 'Salt/Earths/Stone', '26': 'Ores/Slag/Ash', '27': 'Mineral Fuels', '28': 'Inorganic Chemicals', '29': 'Organic Chemicals', '30': 'Pharmaceuticals', '31': 'Fertilizers', '32': 'Tanning/Dyes', '33': 'Essential Oils/Cosmetics', '34': 'Soap/Waxes', '35': 'Albuminoids', '36': 'Explosives', '37': 'Photographic Goods', '38': 'Misc Chemicals', '39': 'Plastics', '40': 'Rubber', '41': 'Raw Hides/Skins', '42': 'Leather Articles', '43': 'Furskins', '44': 'Wood', '45': 'Cork', '46': 'Straw/Esparto', '47': 'Wood Pulp', '48': 'Paper/Paperboard', '49': 'Printed Books', '50': 'Silk', '51': 'Wool', '52': 'Cotton', '53': 'Vegetable Textile Fibers', '54': 'Man-made Filaments', '55': 'Man-made Staple Fibers', '56': 'Wadding/Felt/Yarn', '57': 'Carpets', '58': 'Special Woven Fabrics', '59': 'Impregnated Fabrics', '60': 'Knitted Fabrics', '61': 'Knitted Apparel', '62': 'Non-knitted Apparel', '63': 'Other Textiles', '64': 'Footwear', '65': 'Headgear', '66': 'Umbrellas', '67': 'Prepared Feathers', '68': 'Stone/Plaster Articles', '69': 'Ceramics', '70': 'Glass', '71': 'Precious Stones/Metals', '72': 'Iron/Steel', '73': 'Articles of Iron/Steel', '74': 'Copper', '75': 'Nickel', '76': 'Aluminum', '78': 'Lead', '79': 'Zinc', '80': 'Tin', '81': 'Other Base Metals', '82': 'Tools/Cutlery', '83': 'Misc Base Metal Articles', '84': 'Nuclear Reactors/Boilers/Machinery', '85': 'Electrical Machinery', '86': 'Railway/Tramway', '87': 'Vehicles', '88': 'Aircraft/Spacecraft', '89': 'Ships/Boats', '90': 'Optical/Medical Instruments', '91': 'Clocks/Watches', '92': 'Musical Instruments', '93': 'Arms/Ammunition', '94': 'Furniture', '95': 'Toys/Sports', '96': 'Misc Manufactured', '97': 'Works of Art', '98': 'Special Classification', '99': 'Special Classification'};
+
 const formatMoney = (value: number | undefined | null) => {
   if (value === null || value === undefined || isNaN(value)) return "N/A";
   if (value >= 1) return `$${value.toFixed(2)}B`;
@@ -48,6 +50,7 @@ export interface AnomalyRow {
   partner: string;
   commodity: string;
   reason: string;
+  reason_code: string;
   anomaly_score: number;
 }
 export interface NetworkNode {
@@ -100,12 +103,13 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
       .catch(err => { console.error(err); setLoading(false); });
   }, [originalCountry]);
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+    <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: '500px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
+        onClick={(e) => e.stopPropagation()} 
+        style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: 'clamp(300px, 90vw, 500px)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
           <div>
@@ -128,7 +132,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
+                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
                   <Bar dataKey="import_billions" name="Imports" fill={CRIMSON_WAX} barSize={20} />
                   <Bar dataKey="export_billions" name="Exports" fill="#4a90e2" barSize={20} />
                   <Line type="monotone" dataKey="value_billions" name="Total Trade" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
@@ -138,7 +142,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
+                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
                   <Line type="monotone" dataKey="value_billions" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
                 </LineChart>
               )}
@@ -235,7 +239,7 @@ export default function Dashboard() {
     return () => abortController.abort();
   }, [partnerCode, commodityCode]);
   const handleAnomalyClick = (row: AnomalyRow) => {
-    const prompt = `Analyze the trade anomaly for ${row.partner} in ${row.commodity} during ${row.date}. The system flagged: ${row.reason === 'No historical 3yr data' ? 'Insufficient baseline data' : row.reason}. Severity score: ${row.anomaly_score}`;
+    const prompt = `Analyze the trade anomaly for ${row.partner} in ${row.commodity} during ${row.date}. The system flagged: ${row.reason_code === 'no_baseline' ? 'Insufficient baseline data (not a true anomaly)' : row.reason}. Severity score: ${row.anomaly_score}`;
     if (window.VanijyaChat) {
       window.VanijyaChat.open();
       window.VanijyaChat.ask(prompt);
@@ -348,6 +352,9 @@ export default function Dashboard() {
       const data = await res.json();
       
       if (!res.ok) {
+        if (data?.suggested_commodities) {
+          setSuggestedCommodities(data.suggested_commodities);
+        }
         const errMsg = data?.error || data?.detail?.[0]?.msg || data?.detail || `HTTP error ${res.status}`;
         throw new Error(errMsg);
       }
@@ -396,17 +403,17 @@ export default function Dashboard() {
   };
   return (
     <main className={styles.container}>
-      {}
       <AnimatePresence>
-        {selectedCountry && <DrillDownModal country={selectedCountry.name} originalCountry={selectedCountry.code} onClose={() => setSelectedCountry(null)} />}
+        {selectedCountry && <DrillDownModal key="drilldown" country={selectedCountry.name} originalCountry={selectedCountry.code} onClose={() => setSelectedCountry(null)} />}
         
         {isMapEnlarged && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+          <div key="enlarged-map" onClick={() => setIsMapEnlarged(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: '90%', height: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', display: 'flex', flexDirection: 'column' }}
+              onClick={(e) => e.stopPropagation()} 
+              style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: 'clamp(300px, 95vw, 1200px)', height: 'clamp(300px, 90vh, 800px)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', display: 'flex', flexDirection: 'column' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
                 <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>Enlarged Global Trade Heatmap</h3>
@@ -423,25 +430,32 @@ export default function Dashboard() {
                           {({ geographies }) =>
                             geographies.map((geo) => {
                               const nodeData = networkData.find(d => d.country_name === geo.properties.name);
-                              const val = nodeData ? nodeData.val : 0;
+                              const val = nodeData?.val;
+                              let color = '#2C303A';
+                              if (val) {
+                                color = `rgba(200, 169, 126, ${val / 100})`;
+                              }
+                              const isSelected = selectedCountry?.name === geo.properties.name;
                               return (
                                 <Geography
                                   key={geo.rsmKey}
                                   geography={geo}
                                   data-tooltip-id="map-tooltip"
                                   data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
-                                  fill={val > 0 ? colorScale(val) : '#2C303A'}
+                                  fill={isSelected ? MINTED_BRASS : color}
                                   stroke={NIGHT_SLATE}
                                   strokeWidth={0.5}
-                                  onClick={() => { 
-                                    const geoCode = parseInt(geo.id).toString();
+                                  onClick={(e) => { 
+                                    e.stopPropagation();
+                                    let geoCode = parseInt(geo.id).toString();
+                                    if (geoCode === "840") geoCode = "842"; // USA Comtrade override
                                     const partner = partnerList.find(p => p.code === geoCode);
                                     if (partner) {
                                       setSelectedCountry({ name: geo.properties.name, code: geoCode });
                                     } else {
                                       setSelectedCountry({ name: geo.properties.name, code: "" });
                                     }
-                                    setIsMapEnlarged(false);
+
                                   }}
                                   style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
                                 />
@@ -469,7 +483,6 @@ export default function Dashboard() {
           </div>
         </motion.header>
         <div className={styles.grid}>
-          {}
           <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -498,8 +511,17 @@ export default function Dashboard() {
               </div>
               <div className={styles.inputGroup}>
                 <label className={styles.inputLabel}>Commodity</label>
-                <select value={commodityCode} onChange={(e) => { setCommodityCode(e.target.value); setForecastError(null); setSuggestedCommodities([]); }} className={styles.chatInput}>
-                  {validMap[partnerCode]?.map(c => <option key={c} value={c}>HS {c}</option>) || <option value="">No valid commodities</option>}
+                <select 
+                  value={commodityCode} 
+                  onChange={(e) => { setCommodityCode(e.target.value); setForecastError(null); setSuggestedCommodities([]); }} 
+                  className={styles.chatInput}
+                  disabled={!validMap[partnerCode] || validMap[partnerCode].length === 0}
+                >
+                  {validMap[partnerCode]?.length > 0 ? (
+                    validMap[partnerCode].map(c => <option key={c} value={c}>{c} — {CMD_MAP[c] || c}</option>)
+                  ) : (
+                    <option value="">No trade data for this partner</option>
+                  )}
                 </select>
               </div>
               <div className={styles.inputGroup}>
@@ -507,7 +529,6 @@ export default function Dashboard() {
                 <select value={forecastYear} onChange={(e) => setForecastYear(e.target.value)} className={styles.chatInput}>
                   <option value="2025">2025</option>
                   <option value="2026">2026</option>
-                  <option value="2027">2027</option>
                 </select>
               </div>
               <div className={styles.inputGroup}>
@@ -524,10 +545,27 @@ export default function Dashboard() {
             </button>
             {forecastError && (
               <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: `1px solid ${CRIMSON_WAX}`, color: CRIMSON_WAX, borderRadius: '4px' }}>
-                Forecast Error: {forecastError}
+                <div style={{ marginBottom: '0.5rem' }}>Forecast Error: {forecastError}</div>
+                {suggestedCommodities && suggestedCommodities.length > 0 && (
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                    {suggestedCommodities.map(c => (
+                      <button 
+                        key={c.code}
+                        onClick={() => {
+                          setCommodityCode(c.code);
+                          setForecastError(null);
+                          setSuggestedCommodities([]);
+                        }}
+                        style={{ background: 'rgba(255,255,255,0.1)', border: `1px solid ${CRIMSON_WAX}`, color: CRIMSON_WAX, padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                      >
+                        {c.code} — {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', marginTop: '2rem' }}>
+            <div className={styles.forecastGrid}>
               <div className={styles.chartContainer} style={{ height: '300px', position: 'relative' }}>
                 {chartData.length === 0 ? (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: FADED_INK }}>
@@ -539,7 +577,7 @@ export default function Dashboard() {
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                       <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                      <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} />
+                      <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
                       <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: any) => {
                         const { cx, cy, payload, key } = props;
                         const isPred = payload?.year?.includes('Pred');
@@ -572,7 +610,6 @@ export default function Dashboard() {
               </div>
             </div>
           </motion.section>
-          {}
           <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -640,7 +677,7 @@ export default function Dashboard() {
                       <td style={{ padding: '1rem' }}>{row.date}</td>
                       <td style={{ padding: '1rem' }}>{row.partner}</td>
                       <td style={{ padding: '1rem' }}>{row.commodity}</td>
-                      <td style={{ padding: '1rem', color: CRIMSON_WAX }}>{row.reason === 'No historical 3yr data' ? 'Insufficient baseline data' : row.reason}</td>
+                      <td style={{ padding: '1rem', color: row.reason_code === 'no_baseline' ? FADED_INK : CRIMSON_WAX }}>{row.reason_code === 'no_baseline' ? 'Insufficient baseline (not a true anomaly)' : row.reason}</td>
                       <td style={{ padding: '1rem', color: row.anomaly_score < -0.1 ? CRIMSON_WAX : MINTED_BRASS }}>
                         {row.anomaly_score ? row.anomaly_score.toFixed(3) : "N/A"}
                       </td>
@@ -650,7 +687,6 @@ export default function Dashboard() {
               </table>
             </div>
           </motion.section>
-          {}
           <motion.section variants={itemVariants} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -667,8 +703,7 @@ export default function Dashboard() {
             <p style={{ fontSize: '0.85rem', color: FADED_INK, marginBottom: '1.5rem' }}>
               Choropleth mapping of node volumes and 2D PCA projection of Node2Vec random walks over the global trade graph.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              {}
+            <div className={styles.mapGrid}>
               <div className={styles.chartContainer} style={{ height: '300px', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}`, overflow: 'hidden', position: 'relative' }}>
                 {mounted && (
                   <>
@@ -680,18 +715,25 @@ export default function Dashboard() {
                       {({ geographies }) =>
                         geographies.map((geo) => {
                           const nodeData = networkData.find(d => d.country_name === geo.properties.name);
-                          const val = nodeData ? nodeData.val : 0;
+                          const val = nodeData?.val;
+                          let color = '#2C303A';
+                          if (val) {
+                            color = `rgba(200, 169, 126, ${val / 100})`;
+                          }
+                          const isSelected = selectedCountry?.name === geo.properties.name;
                           return (
                             <Geography
                               key={geo.rsmKey}
                               geography={geo}
                               data-tooltip-id="map-tooltip"
                               data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
-                              fill={val > 0 ? colorScale(val) : '#2C303A'}
+                              fill={isSelected ? MINTED_BRASS : color}
                               stroke={NIGHT_SLATE}
                               strokeWidth={0.5}
-                              onClick={() => {
-                                const geoCode = parseInt(geo.id).toString();
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                let geoCode = parseInt(geo.id).toString();
+                                if (geoCode === "840") geoCode = "842"; // USA Comtrade override
                                 const partner = partnerList.find(p => p.code === geoCode);
                                 if (partner) {
                                   setSelectedCountry({ name: geo.properties.name, code: geoCode });
@@ -738,7 +780,7 @@ export default function Dashboard() {
                         }
                         return null;
                       }} />
-                      <Scatter data={networkData} fill={MINTED_BRASS} fillOpacity={0.7} onClick={(e: any) => setSelectedCountry({ name: e.payload?.country_name || "Unknown", code: e.payload?.original_country || "" })} style={{ cursor: 'pointer' }} />
+                      <Scatter data={networkData.filter(d => d.x !== null && d.y !== null)} fill={MINTED_BRASS} fillOpacity={0.7} onClick={(e: any) => setSelectedCountry({ name: e.payload?.country_name || "Unknown", code: e.payload?.original_country || "" })} style={{ cursor: 'pointer' }} />
                     </ScatterChart>
                   </ResponsiveContainer>
                 )}
@@ -756,7 +798,7 @@ export default function Dashboard() {
       <AnimatePresence>
         <div id="vanijya-chat-root"></div>
         {isYearDrawerOpen && (
-          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '400px', backgroundColor: CARD_SURFACE, borderLeft: `1px solid ${MINTED_BRASS}`, zIndex: 1100, display: 'flex', flexDirection: 'column', boxShadow: '-5px 0 25px rgba(0,0,0,0.5)', fontFamily: 'inherit' }}>
+          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'clamp(300px, 90vw, 400px)', backgroundColor: CARD_SURFACE, borderLeft: `1px solid ${MINTED_BRASS}`, zIndex: 1100, display: 'flex', flexDirection: 'column', boxShadow: '-5px 0 25px rgba(0,0,0,0.5)', fontFamily: 'inherit' }}>
              <div style={{ padding: '1.5rem', borderBottom: `1px solid ${MINTED_BRASS}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                <h3 style={{ margin: 0, color: MINTED_BRASS, fontFamily: "'Playfair Display', serif" }}>{yearDrawerYear} Trade Breakdown</h3>
                <button onClick={() => setIsYearDrawerOpen(false)} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }}><X size={20}/></button>

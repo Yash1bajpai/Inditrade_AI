@@ -52,10 +52,10 @@ async def query_policy(req: QueryRequest):
                         citations.append(cite)
 
                 context = "\n".join(contexts)
-                citation_str = " | ".join(set(citations)) if citations else "Unknown Source"
+                citation_str = " | ".join(set(citations)) if citations else ""
     except Exception as e:
         logger.warning(f"RAG Retrieval failed or mocked: {e}")
-        citation_str = "Knowledge Base Error"
+        citation_str = ""
 
     prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant.\n\n### Context:\n{context}\n\n### Question:\n{req.question}\n\n### Answer:\n"
 
@@ -112,7 +112,7 @@ def fallback_query(question, context, citation_str=""):
             ],
             model="llama-3.1-8b-instant",
         )
-        return {"answer": chat_completion.choices[0].message.content, "source": "Groq Fallback", "citation": citation_str}
+        return {"answer": chat_completion.choices[0].message.content, "source": "", "citation": ""}
     except Exception as e:
         logger.error(f"Groq fallback failed: {e}")
         return {"answer": "Both primary and fallback APIs failed.", "source": "Error"}

@@ -17,24 +17,12 @@
   let containerEl, messagesEl, inputEl, sendBtnEl, typingEl;
   
   function saveHistory() {
-    const validHistory = messages.filter(m => m.sent === true && m.answered === true);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(validHistory));
+    // History persistence is disabled
   }
   
   function loadHistory() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        messages = JSON.parse(saved);
-        if (!messages.some(m => m.role === 'ai')) {
-            messages = [{ role: 'ai', content: 'Hello! I am your AI Indian Trade Policy Assistant. Ask me anything about DGFT compliance, import/export policies, or tariff rates.', sent: true, answered: true }];
-        }
-      } else {
-        messages = [{ role: 'ai', content: 'Hello! I am your AI Indian Trade Policy Assistant. Ask me anything about DGFT compliance, import/export policies, or tariff rates.', sent: true, answered: true }];
-      }
-    } catch (e) {
-      messages = [{ role: 'ai', content: 'Hello! I am your AI Indian Trade Policy Assistant. Ask me anything about DGFT compliance, import/export policies, or tariff rates.', sent: true, answered: true }];
-    }
+    // Load fresh start message every time, disregarding localStorage
+    messages = [{ role: 'ai', content: 'Hello! I am your AI Indian Trade Policy Assistant. Ask me anything about DGFT compliance, import/export policies, or tariff rates.', sent: true, answered: true }];
     isTyping = false; // C4: clear typing flag on mount
   }
 
@@ -43,7 +31,7 @@
     messagesEl.innerHTML = '';
     messages.forEach(msg => {
       const msgDiv = document.createElement('div');
-      msgDiv.className = 'vanijya-message';
+      msgDiv.className = `vanijya-message ${msg.role}`;
       
       const avatar = document.createElement('div');
       avatar.className = `vanijya-avatar ${msg.role}`;
@@ -55,8 +43,25 @@
       content.className = 'vanijya-content';
       
       const p = document.createElement('p');
-      p.textContent = msg.content;
-      content.appendChild(p);
+      if (msg.typewriter && msg.role === 'ai') {
+        p.textContent = '';
+        content.appendChild(p);
+        let i = 0;
+        const speed = 15;
+        msg.typewriter = false; // Prevent re-triggering on subsequent renders
+        function typeWriter() {
+          if (i < msg.content.length) {
+            p.textContent += msg.content.charAt(i);
+            i++;
+            if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+            setTimeout(typeWriter, speed);
+          }
+        }
+        typeWriter();
+      } else {
+        p.textContent = msg.content;
+        content.appendChild(p);
+      }
       
       if (msg.source && msg.role === 'ai') {
         const src = document.createElement('div');
@@ -106,7 +111,7 @@
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       
-      const aiMsg = { role: 'ai', content: data.answer, source: data.source, citation: data.citation, sent: true, answered: true };
+      const aiMsg = { role: 'ai', content: data.answer, source: data.source, citation: data.citation, sent: true, answered: true, typewriter: true };
       userMsg.answered = true; // both are valid now
       messages.push(aiMsg);
       saveHistory(); // C4: persist
@@ -145,7 +150,11 @@
             </button>
           </div>
           <div class="vanijya-messages" id="vanijya-messages"></div>
-          <div class="vanijya-typing" id="vanijya-typing">AI is typing...</div>
+          <div class="vanijya-typing" id="vanijya-typing">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
           <form class="vanijya-input-area" id="vanijya-form">
             <input type="text" class="vanijya-input" id="vanijya-input" placeholder="Ask about Trade Policy..." autocomplete="off"/>
             <button type="submit" class="vanijya-send-btn" id="vanijya-send">

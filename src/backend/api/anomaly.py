@@ -25,6 +25,7 @@ def load_model():
 
 @router.post("/")
 async def detect_anomaly(req: AnomalyRequest):
+    """Hypothetical scenario tester (USD/INR + crude only)."""
     load_model()
     if anomaly_model == "FAILED":
         return {"error": "Anomaly model is unavailable."}
@@ -81,10 +82,12 @@ async def get_historical_anomalies():
             if pd.isna(mean_val) or math.isnan(float(mean_val)) or float(mean_val) == 0:
                 deviation_pct = 0
                 reason_str = "Value deviated (No historical 3yr data)"
+                reason_code = "no_baseline"
             else:
                 mean_val = float(mean_val)
                 deviation_pct = ((val - mean_val) / mean_val) * 100
                 reason_str = f"Value deviated {deviation_pct:+.1f}% from 3yr mean"
+                reason_code = "deviation"
 
             cmd_desc = row.get("cmdDesc")
             cmd_code = row.get("cmdCode", "XX")
@@ -110,6 +113,7 @@ async def get_historical_anomalies():
                 "partner": str(row.get("partnerDesc", "Unknown")),
                 "commodity": str(cmd_desc),
                 "reason": reason_str,
+                "reason_code": reason_code,
                 "anomaly_score": score
             })
         
