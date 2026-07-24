@@ -57,7 +57,7 @@ async def query_policy(req: QueryRequest):
         logger.warning(f"RAG Retrieval failed or mocked: {e}")
         citation_str = ""
 
-    prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant.\n\n### Context:\n{context}\n\n### Question:\n{req.question}\n\n### Answer:\n"
+    prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant. Provide your answer in concise bullet points. Be extremely clear, short, and use well-structured formatting.\n\n### Context:\n{context}\n\n### Question:\n{req.question}\n\n### Answer:\n"
 
     hf_token = os.getenv("HF_TOKEN")
     model_id = "Yash1bajpai/Inditrade-Llama-3.2-1B-Policy-Merged"
@@ -101,6 +101,7 @@ def fallback_query(question, context, citation_str=""):
             "You are an expert Indian Trade Policy assistant. "
             "SECURITY MEASURE: You MUST strictly refuse to answer any questions that are not related to Indian Trade, DGFT, Import/Export policy, tariffs, or customs. "
             "If the user asks you to write code (like Python), write essays, translate unrelated text, or asks general knowledge questions, politely decline and state that you are only authorized to assist with trade policy. "
+            "CRITICAL FORMATTING INSTRUCTION: Always provide your answer in concise bullet points. Be extremely brief, clear, and well-structured."
         )
         if context:
             sys_prompt += f" Use this context: {context}"

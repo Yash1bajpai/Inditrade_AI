@@ -21,8 +21,8 @@
   }
   
   function loadHistory() {
-    // Load fresh start message every time, disregarding localStorage
-    messages = [{ role: 'ai', content: 'Hello! I am your AI Indian Trade Policy Assistant. Ask me anything about DGFT compliance, import/export policies, or tariff rates.', sent: true, answered: true }];
+    // Start with a completely clear chat
+    messages = [];
     isTyping = false; // C4: clear typing flag on mount
   }
 
@@ -36,7 +36,7 @@
       const avatar = document.createElement('div');
       avatar.className = `vanijya-avatar ${msg.role}`;
       avatar.innerHTML = msg.role === 'ai' 
-        ? `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>`
+        ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`
         : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
       
       const content = document.createElement('div');

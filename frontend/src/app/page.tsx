@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2 } from 'lucide-react';
 import { LineChart, Line, ScatterChart, Scatter, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
-import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
+import { ComposableMap, Geographies, Geography, Sphere, Graticule, Line as MapLine } from 'react-simple-maps';
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { scaleLinear } from 'd3-scale';
 import styles from './page.module.css';
@@ -27,6 +27,28 @@ declare global {
 }
 
 const CMD_MAP: Record<string, string> = {'01': 'Live Animals', '02': 'Meat', '03': 'Fish', '04': 'Dairy', '05': 'Animal Products', '06': 'Trees/Plants', '07': 'Vegetables', '08': 'Fruits/Nuts', '09': 'Coffee/Tea/Spices', '10': 'Cereals', '11': 'Milling Products', '12': 'Oil Seeds', '13': 'Gums/Resins', '14': 'Vegetable Plaiting', '15': 'Fats/Oils', '16': 'Prepared Meat/Fish', '17': 'Sugars', '18': 'Cocoa', '19': 'Cereal Preps', '20': 'Vegetable/Fruit Preps', '21': 'Misc Edibles', '22': 'Beverages', '23': 'Food Waste/Fodder', '24': 'Tobacco', '25': 'Salt/Earths/Stone', '26': 'Ores/Slag/Ash', '27': 'Mineral Fuels', '28': 'Inorganic Chemicals', '29': 'Organic Chemicals', '30': 'Pharmaceuticals', '31': 'Fertilizers', '32': 'Tanning/Dyes', '33': 'Essential Oils/Cosmetics', '34': 'Soap/Waxes', '35': 'Albuminoids', '36': 'Explosives', '37': 'Photographic Goods', '38': 'Misc Chemicals', '39': 'Plastics', '40': 'Rubber', '41': 'Raw Hides/Skins', '42': 'Leather Articles', '43': 'Furskins', '44': 'Wood', '45': 'Cork', '46': 'Straw/Esparto', '47': 'Wood Pulp', '48': 'Paper/Paperboard', '49': 'Printed Books', '50': 'Silk', '51': 'Wool', '52': 'Cotton', '53': 'Vegetable Textile Fibers', '54': 'Man-made Filaments', '55': 'Man-made Staple Fibers', '56': 'Wadding/Felt/Yarn', '57': 'Carpets', '58': 'Special Woven Fabrics', '59': 'Impregnated Fabrics', '60': 'Knitted Fabrics', '61': 'Knitted Apparel', '62': 'Non-knitted Apparel', '63': 'Other Textiles', '64': 'Footwear', '65': 'Headgear', '66': 'Umbrellas', '67': 'Prepared Feathers', '68': 'Stone/Plaster Articles', '69': 'Ceramics', '70': 'Glass', '71': 'Precious Stones/Metals', '72': 'Iron/Steel', '73': 'Articles of Iron/Steel', '74': 'Copper', '75': 'Nickel', '76': 'Aluminum', '78': 'Lead', '79': 'Zinc', '80': 'Tin', '81': 'Other Base Metals', '82': 'Tools/Cutlery', '83': 'Misc Base Metal Articles', '84': 'Nuclear Reactors/Boilers/Machinery', '85': 'Electrical Machinery', '86': 'Railway/Tramway', '87': 'Vehicles', '88': 'Aircraft/Spacecraft', '89': 'Ships/Boats', '90': 'Optical/Medical Instruments', '91': 'Clocks/Watches', '92': 'Musical Instruments', '93': 'Arms/Ammunition', '94': 'Furniture', '95': 'Toys/Sports', '96': 'Misc Manufactured', '97': 'Works of Art', '98': 'Special Classification', '99': 'Special Classification'};
+
+const COUNTRY_COORDS: Record<string, [number, number]> = {
+  '36': [133.7751, -25.2744], // Australia
+  '56': [4.4699, 50.5039], // Belgium
+  '156': [104.1954, 35.8617], // China
+  '276': [10.4515, 51.1657], // Germany
+  '344': [114.1694, 22.3193], // Hong Kong
+  '360': [113.9213, -0.7893], // Indonesia
+  '368': [43.6793, 33.2232], // Iraq
+  '392': [138.2529, 36.2048], // Japan
+  '410': [127.7669, 35.9078], // South Korea
+  '458': [101.9758, 4.2105], // Malaysia
+  '528': [5.2913, 52.1326], // Netherlands
+  '643': [105.3188, 61.5240], // Russia
+  '682': [45.0792, 23.8859], // Saudi Arabia
+  '702': [103.8198, 1.3521], // Singapore
+  '704': [108.2772, 14.0583], // Vietnam
+  '784': [53.8478, 23.4241], // UAE
+  '826': [-3.4359, 55.3781], // UK
+  '842': [-95.7129, 37.0902], // USA
+};
+const INDIA_COORDS: [number, number] = [78.9629, 20.5937];
 
 const formatMoney = (value: number | undefined | null) => {
   if (value === null || value === undefined || isNaN(value)) return "N/A";
@@ -167,6 +189,9 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
   );
 };
 export default function Dashboard() {
+  const [flowMode, setFlowMode] = useState<'off' | 'exports' | 'imports'>('off');
+  const TOP_EXPORTS = ['842', '784', '528', '156', '702']; // USA, UAE, Netherlands, China, Singapore
+  const TOP_IMPORTS = ['156', '643', '784', '842', '682']; // China, Russia, UAE, USA, Saudi Arabia
 
   const [selectedCountry, setSelectedCountry] = useState<{name: string, code: string} | null>(null);
   const [isMapEnlarged, setIsMapEnlarged] = useState(false);
@@ -415,8 +440,15 @@ export default function Dashboard() {
               onClick={(e) => e.stopPropagation()} 
               style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: 'clamp(300px, 95vw, 1200px)', height: 'clamp(300px, 90vh, 800px)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', display: 'flex', flexDirection: 'column' }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>Enlarged Global Trade Heatmap</h3>
+                
+                <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.25rem', borderRadius: '20px', border: `1px solid ${FADED_INK}` }}>
+                  <button onClick={() => setFlowMode('off')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'off' ? FADED_INK : 'transparent', color: flowMode === 'off' ? '#fff' : FADED_INK, transition: 'all 0.3s' }}>Off</button>
+                  <button onClick={() => setFlowMode('exports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'exports' ? MINTED_BRASS : 'transparent', color: flowMode === 'exports' ? NIGHT_SLATE : MINTED_BRASS, transition: 'all 0.3s' }}>Exports</button>
+                  <button onClick={() => setFlowMode('imports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'imports' ? '#00E5FF' : 'transparent', color: flowMode === 'imports' ? NIGHT_SLATE : '#00E5FF', transition: 'all 0.3s' }}>Imports</button>
+                </div>
+
                 <button onClick={() => setIsMapEnlarged(false)} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={24}/></button>
               </div>
               <div style={{ flex: 1, position: 'relative' }}>
@@ -463,6 +495,36 @@ export default function Dashboard() {
                             })
                           }
                         </Geographies>
+                        {flowMode === 'exports' && TOP_EXPORTS.map((code) => {
+                          const coords = COUNTRY_COORDS[code];
+                          if (!coords) return null;
+                          return (
+                            <MapLine
+                              key={`export-${code}`}
+                              from={INDIA_COORDS}
+                              to={coords}
+                              stroke={MINTED_BRASS}
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              className={styles.flowLineOut}
+                            />
+                          );
+                        })}
+                        {flowMode === 'imports' && TOP_IMPORTS.map((code) => {
+                          const coords = COUNTRY_COORDS[code];
+                          if (!coords) return null;
+                          return (
+                            <MapLine
+                              key={`import-${code}`}
+                              from={coords}
+                              to={INDIA_COORDS}
+                              stroke="#00E5FF" // Neon Cyan
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              className={styles.flowLineIn}
+                            />
+                          );
+                        })}
                       </ComposableMap>
                   </>
                 )}

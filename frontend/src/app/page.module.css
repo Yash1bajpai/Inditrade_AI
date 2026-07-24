@@ -649,3 +649,24 @@
   font-size: 1.5rem;
   margin: 0;
 }
+@keyframes flowDashOut {
+  from { stroke-dashoffset: 40; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes flowDashIn {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 40; }
+}
+
+.flowLineOut {
+  stroke-dasharray: 4 6;
+  animation: flowDashOut 1.5s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(200, 169, 126, 0.8));
+}
+
+.flowLineIn {
+  stroke-dasharray: 4 6;
+  animation: flowDashIn 1.5s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.8));
+}
