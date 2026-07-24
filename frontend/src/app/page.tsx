@@ -14,13 +14,13 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.15, delayChildren: 0.1 }
+    transition: { staggerChildren: 0.05, delayChildren: 0 }
   }
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 12 } }
+  hidden: { opacity: 0, y: 15 },
+  visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 120, damping: 14 } }
 };
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/$/, "");
 const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
@@ -128,7 +128,7 @@ const AnimatedMoney = ({ value }: { value: number | undefined | null }) => {
     <CountUp 
       start={0} 
       end={displayVal} 
-      duration={2} 
+      duration={1} 
       decimals={isBillion ? 2 : 0} 
       prefix={prefix} 
       suffix={suffix} 
@@ -568,7 +568,6 @@ export default function Dashboard() {
                               strokeLinecap="round"
                               markerEnd="url(#arrow-export)"
                               className={styles.animatedPath}
-                              style={{ filter: `drop-shadow(0 0 4px rgba(255, 159, 67, 0.8))` }}
                             />
                           );
                         })}
@@ -585,7 +584,6 @@ export default function Dashboard() {
                               strokeLinecap="round"
                               markerEnd="url(#arrow-import)"
                               className={styles.animatedPath}
-                              style={{ filter: `drop-shadow(0 0 4px rgba(0, 229, 255, 0.8))` }}
                             />
                           );
                         })}

@@ -220,6 +220,15 @@
         containerEl.classList.add('open');
         setTimeout(() => { if (inputEl) inputEl.focus(); }, 300);
       }
+      
+      if (messages.length === 0) {
+        messages.push({ 
+          role: 'ai', 
+          content: 'Hi, I am IndiTrade AI. I can help you analyze trade data, interpret anomalies, and forecast trends. Ask me a question!',
+          typewriter: true 
+        });
+        renderMessages();
+      }
     },
     
     close() {
