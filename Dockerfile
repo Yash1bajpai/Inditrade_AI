@@ -1,0 +1,36 @@
+# Use official Python lightweight image
+FROM python:3.10-slim
+
+# Install system dependencies needed for downloading and extracting data
+RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Download data and models from GitHub Release
+ARG DATA_RELEASE_URL=https://github.com/Yash1bajpai/Inditrade_AI/releases/download/data-v1/inditrade-data.zip
+RUN curl -L ${DATA_RELEASE_URL} -o /tmp/data.zip && \
+    unzip -o /tmp/data.zip -d /app && \
+    rm /tmp/data.zip
+
+# Copy application source code
+COPY src/ src/
+COPY config/ config/
+
+# Ensure necessary directories exist
+RUN mkdir -p data/raw logs
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Healthcheck to monitor container health
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+# Start the FastAPI server
+CMD ["uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

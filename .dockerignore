@@ -1,0 +1,16 @@
+.git
+.env
+.env.local
+.env.example
+frontend/
+node_modules/
+data/raw/dgft_notifications/pdfs/
+*.pdf
+__pycache__/
+*.pyc
+logs/
+notebooks/
+venv/
+.venv/
+*.md
+.github/
