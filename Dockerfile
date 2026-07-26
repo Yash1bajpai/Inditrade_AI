@@ -24,9 +24,11 @@ RUN curl -L ${DATA_RELEASE_URL} -o /tmp/data.zip && \
     mv /tmp/data_extracted/*.onnx /app/models/ 2>/dev/null || true && \
     mv /tmp/data_extracted/*.json /app/models/ 2>/dev/null || true
 
-# Copy application source code
+# Copy application source code and tracked data files
 COPY src/ src/
 COPY config/ config/
+COPY data/processed/flagged_trade_anomalies.csv /app/data/processed/
+COPY data/processed/node2vec_trade_embeddings.parquet /app/data/processed/
 
 # Ensure necessary directories exist
 RUN mkdir -p data/raw logs

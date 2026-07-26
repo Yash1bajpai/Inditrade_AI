@@ -26,6 +26,8 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/flagged_trade_anomalies.csv
+!data/processed/node2vec_trade_embeddings.parquet
 data/cache/*
 !data/cache/.gitkeep
 !data/cache/*_meta.json

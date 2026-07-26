@@ -26,7 +26,7 @@ let API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://inditrade-backend.on
 if (!API_BASE.endsWith('/api')) {
   API_BASE += '/api';
 }
-const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
+const geoUrl = "/countries-110m.json";
 const MINTED_BRASS = "#C8A97E";
 const CRIMSON_WAX = "#9E3E3E";
 const NIGHT_SLATE = "#1A1C21";
