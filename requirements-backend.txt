@@ -1,0 +1,28 @@
+# Core Data Science & Numerical Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Machine Learning & Deep Learning (Backend only)
+scikit-learn>=1.3.0
+xgboost>=2.0.0
+
+# Configuration, Utilities & Logging
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
+pydantic>=2.4.0
+joblib>=1.3.0
+tqdm>=4.66.0
+loguru>=0.7.2
+
+# Network & Asynchronous I/O
+requests>=2.31.0
+urllib3>=2.0.0
+aiohttp>=3.8.5
+
+# Backend Web & Database
+fastapi>=0.100.0
+uvicorn>=0.23.0
+supabase>=2.3.0
+qdrant-client>=1.6.0
+groq>=0.4.0
+pyarrow>=14.0.0
