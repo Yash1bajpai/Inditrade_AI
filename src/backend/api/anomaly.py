@@ -32,13 +32,14 @@ async def detect_anomaly(req: AnomalyRequest):
 
     try:
         import pandas as pd
+        # Use the exact features the Isolation Forest model was trained on
+        # Since we only get usd_inr and crude_price from frontend, we use dummy/derived values
         df = pd.DataFrame([{
-            "INR=X": req.usd_inr,
-            "CL=F": req.crude_price,
-            "lag_1y_export": 0,
-            "lag_1y_import": 0,
-            "rolling_3y_mean_export": 0,
-            "policy_event_flag": 0
+            "brent_crude_yoy_pct": 0.0,
+            "primaryValue_yoy_growth_rate": 0.0,
+            "unit_value": req.crude_price, # Rough proxy
+            "value_vs_3y_mean": 0.0,
+            "wgt_vs_3y_mean": 0.0
         }])
 
         prediction = anomaly_model['model'].predict(df)[0]

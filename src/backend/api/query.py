@@ -90,7 +90,7 @@ async def query_policy(req: QueryRequest):
         return fallback_query(req.question, context, citation_str)
 
 def fallback_query(question, context, citation_str=""):
-    groq_api_key = os.getenv("GROQ_API_KEY1")
+    groq_api_key = os.getenv("GROQ_API_KEY", os.getenv("GROQ_API_KEY1"))
     if not groq_api_key or len(groq_api_key) < 10:
         return {"answer": "Error: Both Hugging Face and Groq Fallback APIs are unavailable.", "source": "Error", "citation": ""}
 
