@@ -46,7 +46,10 @@ def init_qdrant():
     try:
         from qdrant_client import QdrantClient
 
-        client = QdrantClient(path="data/cache/qdrant_index")
+        if len(qdrant_url) > 30 and "your_qdrant" not in qdrant_url and "iocdpqfxoavhjcvhwuevlp" not in qdrant_url:
+            client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
+        else:
+            client = QdrantClient(path="data/cache/qdrant_index")
 
         client.get_collections()
         logger.info("Successfully connected to genuine Qdrant instance!")

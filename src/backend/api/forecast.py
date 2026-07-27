@@ -119,6 +119,8 @@ async def get_global_history(partner_code: Optional[str] = None, commodity_code:
         if df.empty:
             return {"history": []}
             
+        df = df[df['flowCode'] == 'X']
+            
         yearly_vol = df.groupby("period")["primaryValue"].sum().reset_index().sort_values(by="period")
         recent = yearly_vol.tail(4)
         return {"history": [{"year": str(int(r["period"])), "value": float(r["primaryValue"] / 1e9)} for _, r in recent.iterrows()]}

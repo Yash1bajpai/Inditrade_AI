@@ -364,25 +364,7 @@ export default function Dashboard() {
     };
   }, []);
   
-  // Year Breakdown Drawer States
-  const [isYearDrawerOpen, setIsYearDrawerOpen] = useState(false);
-  const [yearDrawerYear] = useState<number>(2024);
-  const [yearDrawerTab, setYearDrawerTab] = useState<'partner'|'commodity'>('partner');
-  const [yearDrawerData, setYearDrawerData] = useState<{code:string, name:string, value_billions:number}[]>([]);
-  const [isLoadingYearData, setIsLoadingYearData] = useState(false);
 
-  useEffect(() => {
-    if (!isYearDrawerOpen) return;
-    let ignore = false;
-    Promise.resolve().then(() => {
-      if (!ignore) setIsLoadingYearData(true);
-    });
-    fetch(`${API_BASE}/forecast/year_breakdown?year=${yearDrawerYear}&group_by=${yearDrawerTab}`)
-      .then(res => res.json())
-      .then(data => { if (!ignore) { setYearDrawerData(data || []); setIsLoadingYearData(false); } })
-      .catch(err => { if (!ignore) { console.error(err); setIsLoadingYearData(false); } });
-    return () => { ignore = true; };
-  }, [isYearDrawerOpen, yearDrawerYear, yearDrawerTab]);
 
   
   useEffect(() => {
@@ -810,7 +792,7 @@ export default function Dashboard() {
                       <td style={{ padding: '1rem' }}>{row.partner}</td>
                       <td style={{ padding: '1rem' }}>{row.commodity}</td>
                       <td style={{ padding: '1rem', color: row.reason_code === 'no_baseline' ? FADED_INK : CRIMSON_WAX }}>{row.reason_code === 'no_baseline' ? 'Insufficient baseline (not a true anomaly)' : row.reason}</td>
-                      <td style={{ padding: '1rem', color: row.anomaly_score < -0.1 ? CRIMSON_WAX : MINTED_BRASS }}>
+                      <td style={{ padding: '1rem', color: row.anomaly_score > 0.05 ? CRIMSON_WAX : MINTED_BRASS }}>
                         {row.anomaly_score ? row.anomaly_score.toFixed(3) : "N/A"}
                       </td>
                     </tr>
@@ -929,26 +911,7 @@ export default function Dashboard() {
       {}
       <AnimatePresence>
         <div id="vanijya-chat-root"></div>
-        {isYearDrawerOpen && (
-          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'clamp(300px, 90vw, 400px)', backgroundColor: CARD_SURFACE, borderLeft: `1px solid ${MINTED_BRASS}`, zIndex: 1100, display: 'flex', flexDirection: 'column', boxShadow: '-5px 0 25px rgba(0,0,0,0.5)', fontFamily: 'inherit' }}>
-             <div style={{ padding: '1.5rem', borderBottom: `1px solid ${MINTED_BRASS}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-               <h3 style={{ margin: 0, color: MINTED_BRASS, fontFamily: "'Playfair Display', serif" }}>{yearDrawerYear} Trade Breakdown</h3>
-               <button onClick={() => setIsYearDrawerOpen(false)} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }}><X size={20}/></button>
-             </div>
-             <div style={{ display: 'flex', padding: '1rem', gap: '1rem', borderBottom: `1px solid ${FADED_INK}` }}>
-               <button onClick={() => setYearDrawerTab('partner')} style={{ flex: 1, padding: '0.5rem', background: yearDrawerTab === 'partner' ? 'rgba(200, 169, 126, 0.1)' : 'transparent', color: yearDrawerTab === 'partner' ? MINTED_BRASS : FADED_INK, border: `1px solid ${yearDrawerTab === 'partner' ? MINTED_BRASS : FADED_INK}`, borderRadius: '4px', cursor: 'pointer' }}>By Country</button>
-               <button onClick={() => setYearDrawerTab('commodity')} style={{ flex: 1, padding: '0.5rem', background: yearDrawerTab === 'commodity' ? 'rgba(200, 169, 126, 0.1)' : 'transparent', color: yearDrawerTab === 'commodity' ? MINTED_BRASS : FADED_INK, border: `1px solid ${yearDrawerTab === 'commodity' ? MINTED_BRASS : FADED_INK}`, borderRadius: '4px', cursor: 'pointer' }}>By Commodity</button>
-             </div>
-             <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {isLoadingYearData ? <div style={{ color: FADED_INK, textAlign: 'center', marginTop: '2rem' }}>Loading...</div> : yearDrawerData.map((d, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: NIGHT_SLATE, border: `1px solid ${FADED_INK}`, borderRadius: '4px' }}>
-                    <span style={{ color: '#e2e8f0', fontSize: '0.9rem' }}>{d.name}</span>
-                    <span style={{ color: MINTED_BRASS, fontWeight: 'bold' }}>{formatMoney(d.value_billions)}</span>
-                  </div>
-                ))}
-             </div>
-          </div>
-        )}
+
       </AnimatePresence>
         </main>
       </div>
