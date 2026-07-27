@@ -189,7 +189,7 @@
   z-index: 50;
 }
 
-.sidebar {
+.sidebarPanel {
   width: 400px;
   min-width: 300px;
   max-width: 800px;
@@ -205,7 +205,7 @@
   direction: rtl;
 }
 
-.sidebar > * {
+.sidebarPanel > * {
   direction: ltr;
 }
 
@@ -682,6 +682,7 @@
 @media (max-width: 768px) {
   .container {
     padding: 1rem;
+    grid-template-columns: 1fr;
   }
   .grid {
     grid-template-columns: 1fr;
@@ -698,8 +699,10 @@
     grid-template-columns: 1fr;
   }
   .sidebar {
-    width: 100vw !important;
-    min-width: 100vw;
+    width: 100%;
+    min-width: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
   }
   .fab {
     bottom: 1rem;
