@@ -2,10 +2,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2 } from 'lucide-react';
-import { LineChart, Line, ScatterChart, Scatter, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
-import { ComposableMap, Geographies, Geography, Sphere, Graticule, Line as MapLine } from 'react-simple-maps';
+import { LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
+import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
 import { Tooltip as ReactTooltip } from "react-tooltip";
-import { scaleLinear } from 'd3-scale';
 import { geoMercator } from 'd3-geo';
 import CountUp from 'react-countup';
 import styles from './page.module.css';
@@ -145,6 +144,7 @@ const SkeletonLoader = () => (
     style={{ height: '100%', width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '0px' }}
   />
 );
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const TypewriterMessage = ({ content }: { content: string }) => {
   const [displayed, setDisplayed] = useState('');
   useEffect(() => {
@@ -164,14 +164,17 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     if (!originalCountry) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHistoryData([]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDomains([]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
       return;
     }
     setLoading(true);
     fetch(`${API_BASE}/forecast/country_series?partner_code=${encodeURIComponent(originalCountry)}`)
-      .then(res => res.json())
+      .then(res => { if (!res.ok) throw new Error("API failed"); return res.json(); })
       .then(data => { 
         setHistoryData(data.yearly || []); 
         setDomains(data.top_commodities || []);
@@ -209,7 +212,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
+                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: number, name: string) => [formatMoney(Number(v)), name]} />
                   <Bar dataKey="import_billions" name="Imports" fill={CRIMSON_WAX} barSize={20} />
                   <Bar dataKey="export_billions" name="Exports" fill="#4a90e2" barSize={20} />
                   <Line type="monotone" dataKey="value_billions" name="Total Trade" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
@@ -219,7 +222,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
+                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: number, name: string) => [formatMoney(Number(v)), name]} />
                   <Line type="monotone" dataKey="value_billions" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
                 </LineChart>
               )}
@@ -346,7 +349,7 @@ export default function Dashboard() {
         if (window.VanijyaChat) {
           window.VanijyaChat.mount(document.getElementById('vanijya-chat-root'), {
             apiBase: API_BASE,
-            chatEndpoint: '/query/' as any
+            chatEndpoint: '/query/'
           });
         }
       };
@@ -366,10 +369,11 @@ export default function Dashboard() {
   
 
 
-  
+  const predictAbortController = useRef<AbortController | null>(null);
+
   useEffect(() => {
     fetch(`${API_BASE}/forecast/valid_combinations`)
-      .then(res => res.json())
+      .then(res => { if (!res.ok) throw new Error("API failed"); return res.json(); })
       .then(data => {
         if (data && data.partners) {
           setPartnerList(data.partners);
@@ -385,6 +389,7 @@ export default function Dashboard() {
     setSuggestedCommodities([]);
     try {
       const res = await fetch(`${API_BASE}/forecast/partner_signature?partner_code=${p}`);
+      if (!res.ok) throw new Error("Failed to load partner signature");
       const data = await res.json();
       if (data && data.length > 0) {
         setCommodityCode(data[0].code);
@@ -406,10 +411,17 @@ export default function Dashboard() {
       if (isNaN(parsedUsdInr) || isNaN(parsedCrude) || isNaN(parsedYear)) {
         throw new Error("Invalid input values");
       }
+      if (predictAbortController.current) {
+        predictAbortController.current.abort();
+      }
+      const abortController = new AbortController();
+      predictAbortController.current = abortController;
+
       const res = await fetch(`${API_BASE}/forecast/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usd_inr: parsedUsdInr, crude_price: parsedCrude, year: parsedYear, partner_code: partnerCode, commodity_code: commodityCode })
+        body: JSON.stringify({ usd_inr: parsedUsdInr, crude_price: parsedCrude, year: parsedYear, partner_code: partnerCode, commodity_code: commodityCode }),
+        signal: abortController.signal
       });
       const data = await res.json();
       
@@ -448,13 +460,17 @@ export default function Dashboard() {
         { year: `${parsedYear} (Pred)`, value: formattedBillions }
       ]);
     } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log("Forecast request aborted");
+        return;
+      }
       console.error("Forecast failed:", error);
       setForecastError(error instanceof Error ? error.message : "Forecast failed");
     } finally {
       setIsPredicting(false);
     }
   };
-  const colorScale = scaleLinear<string>().domain([0, 50, 100]).range([NIGHT_SLATE, MINTED_BRASS, CRIMSON_WAX]);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
@@ -468,10 +484,10 @@ export default function Dashboard() {
       <aside className={styles.sidebar}>
         <div className={styles.sidebarLogo}>IndiTrade AI</div>
         <nav className={styles.sidebarNav}>
-          <div className={`${styles.sidebarNavItem} ${styles.active}`}><TrendingUp size={18} /> Dashboard</div>
-          <div className={styles.sidebarNavItem}><AlertTriangle size={18} /> Anomalies</div>
-          <div className={styles.sidebarNavItem}><MapIcon size={18} /> Trade Network</div>
-          <div className={styles.sidebarNavItem} onClick={() => window.VanijyaChat?.open()}><MessageSquare size={18} /> Chatbot</div>
+          <a href="#dashboard" className={`${styles.sidebarNavItem} ${styles.active}`} aria-label="Navigate to Dashboard"><TrendingUp size={18} /> Dashboard</a>
+          <a href="#anomalies" className={styles.sidebarNavItem} aria-label="Navigate to Anomalies"><AlertTriangle size={18} /> Anomalies</a>
+          <a href="#network" className={styles.sidebarNavItem} aria-label="Navigate to Trade Network"><MapIcon size={18} /> Trade Network</a>
+          <button className={styles.sidebarNavItem} onClick={() => window.VanijyaChat?.open()} aria-label="Open AI Chatbot" style={{ background: 'transparent', border: 'none', color: 'inherit', font: 'inherit', width: '100%', textAlign: 'left', cursor: 'pointer' }}><MessageSquare size={18} /> Chatbot</button>
         </nav>
       </aside>
 
@@ -625,11 +641,11 @@ export default function Dashboard() {
               </div>
               <div className={styles.kpiCard}>
                 <span className={styles.kpiLabel}>USD/INR Rate</span>
-                <input type="number" value={usdInr} onChange={(e) => setUsdInr(e.target.value)} className={styles.chatInput} step="0.1" />
+                <input type="number" value={usdInr} onChange={(e) => setUsdInr(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
               </div>
               <div className={styles.kpiCard}>
                 <span className={styles.kpiLabel}>Crude Oil ($/bbl)</span>
-                <input type="number" value={crudePrice} onChange={(e) => setCrudePrice(e.target.value)} className={styles.chatInput} step="0.1" />
+                <input type="number" value={crudePrice} onChange={(e) => setCrudePrice(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
               </div>
               <div className={styles.kpiCard} style={{ justifyContent: 'flex-end', background: 'transparent', border: 'none' }}>
                 <button onClick={handlePredict} disabled={isPredicting} className={styles.chatButton} style={{ width: '100%', padding: '1rem', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.1rem', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -639,7 +655,7 @@ export default function Dashboard() {
             </div>
 
             <div className={styles.grid}>
-              <motion.section variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
+              <motion.section id="dashboard" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
                 <div className={styles.sectionHeader}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <TrendingUp size={20} color={MINTED_BRASS} />
@@ -691,8 +707,8 @@ export default function Dashboard() {
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                       <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                      <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
-                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: any) => {
+                      <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: number, name: string) => [formatMoney(Number(v)), name]} />
+                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: { cx?: number, cy?: number, payload?: { is_prediction?: boolean } }) => {
                         const { cx, cy, payload, key } = props;
                         const isPred = payload?.year?.includes('Pred');
                         return (
@@ -724,7 +740,7 @@ export default function Dashboard() {
               </div>
             </div>
           </motion.section>
-          <motion.section variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
+          <motion.section id="anomalies" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <AlertTriangle size={20} color={CRIMSON_WAX} />
@@ -801,7 +817,7 @@ export default function Dashboard() {
               </table>
             </div>
           </motion.section>
-          <motion.section variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
+          <motion.section id="network" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <MapIcon size={20} color={MINTED_BRASS} />
@@ -894,7 +910,7 @@ export default function Dashboard() {
                         }
                         return null;
                       }} />
-                      <Scatter data={networkData.filter(d => d.x !== null && d.y !== null)} fill={MINTED_BRASS} fillOpacity={0.7} onClick={(e: any) => setSelectedCountry({ name: e.payload?.country_name || "Unknown", code: e.payload?.original_country || "" })} style={{ cursor: 'pointer' }} />
+                      <Scatter data={networkData.filter(d => d.x !== null && d.y !== null)} fill={MINTED_BRASS} fillOpacity={0.7} onClick={(e: { payload?: { country_name?: string, original_country?: string } }) => setSelectedCountry({ name: e.payload?.country_name || "Unknown", code: e.payload?.original_country || "" })} style={{ cursor: 'pointer' }} />
                     </ScatterChart>
                   </ResponsiveContainer>
                 )}
