@@ -1,19 +1,37 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, Request, HTTPException
+from pydantic import BaseModel, Field
 import logging
 import os
 import requests
 import asyncio
+import time
 from src.backend.database import qdrant
 
 logger = logging.getLogger("api.query")
 router = APIRouter()
 
+# Simple in-memory rate limiter
+RATE_LIMIT = 10
+RATE_LIMIT_WINDOW = 60
+ip_requests = {}
+
 class QueryRequest(BaseModel):
-    question: str
+    question: str = Field(..., max_length=500, description="The query string (max 500 chars).")
 
 @router.post("/")
-async def query_policy(req: QueryRequest):
+async def query_policy(req: QueryRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    current_time = time.time()
+    
+    # Rate Limiting Logic
+    if client_ip not in ip_requests:
+        ip_requests[client_ip] = []
+    ip_requests[client_ip] = [t for t in ip_requests[client_ip] if current_time - t < RATE_LIMIT_WINDOW]
+    
+    if len(ip_requests[client_ip]) >= RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
+    
+    ip_requests[client_ip].append(current_time)
 
     context = ""
     citation_str = "Knowledge Base Error"
@@ -38,7 +56,8 @@ async def query_policy(req: QueryRequest):
                     return qdrant.search(
                         collection_name="trade_policy_compliance",
                         query_vector=query_vector,
-                        limit=3
+                        limit=3,
+                        query_text=query.question
                     )
                 
                 results = await asyncio.to_thread(qdrant_search)
@@ -129,9 +148,13 @@ async def fallback_query(question, context, citation_str=""):
             )
             return chat_completion.choices[0].message.content
             
-        answer = await asyncio.to_thread(run_groq)
-        return {"answer": answer, "source": "", "citation": ""}
-    except Exception as e:
-        logger.error(f"Groq fallback failed: {e}")
-        return {"answer": "Both primary and fallback APIs failed.", "source": "Error"}
+        answer = await asyncio.to_thread(run_groq)        
+        return {
+            "answer": answer,
+            "source": "Groq",
+            "citation": citation_str
+        }
 
+    except Exception as e:
+        logger.error(f"Error processing query: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error while processing the request.")

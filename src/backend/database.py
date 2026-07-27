@@ -14,10 +14,47 @@ class MockSupabase:
     def table(self, table_name):
         return self
 
+import json
+
 class MockQdrantRetriever:
-    def search(self, query, top_k=3, **kwargs):
-        logger.warning(f"MockRetriever called for query. Returning empty context.")
-        return []
+    def __init__(self):
+        self.documents = []
+        try:
+            if os.path.exists("data/processed/policy_qa_dataset.jsonl"):
+                with open("data/processed/policy_qa_dataset.jsonl", "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            self.documents.append(json.loads(line))
+        except Exception as e:
+            logger.error(f"Failed to load local QA dataset: {e}")
+
+    def search(self, collection_name, query_vector=None, limit=3, **kwargs):
+        if not self.documents:
+            return []
+        
+        query_text = kwargs.get("query_text", "")
+        if not query_text:
+            return []
+
+        query_words = set(query_text.lower().split())
+        scored_docs = []
+        for doc in self.documents:
+            text = (doc.get("question", "") + " " + doc.get("answer", "")).lower()
+            score = sum(1 for w in query_words if w in text)
+            if score > 0:
+                scored_docs.append((score, doc))
+        
+        scored_docs.sort(key=lambda x: x[0], reverse=True)
+        
+        class DummyHit:
+            def __init__(self, doc):
+                self.payload = {
+                    "text": f"Q: {doc.get('question', '')}\nA: {doc.get('answer', '')}",
+                    "title": "Local QA Dataset",
+                    "doc_type": "FAQ"
+                }
+        
+        return [DummyHit(doc) for score, doc in scored_docs[:limit]]
 
 def init_supabase():
     supabase_url = os.getenv("SUPABASE_URL", "")

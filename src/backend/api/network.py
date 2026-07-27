@@ -24,8 +24,8 @@ def load_network_data():
                 df = df[df['node_type'] == 'partner'].copy()
 
             try:
-                anomaly_df = pd.read_csv("data/processed/flagged_trade_anomalies.csv")
-                vol_map = anomaly_df.groupby("partnerDesc")["primaryValue"].sum().to_dict()
+                feature_df = pd.read_parquet("data/processed/trade_features.parquet")
+                vol_map = feature_df.groupby("partnerDesc")["primaryValue"].sum().to_dict()
             except Exception:
                 vol_map = {}
 
@@ -98,7 +98,11 @@ async def get_country_history(country: str):
 
         df = pd.read_parquet("data/processed/trade_features.parquet")
 
-        country_df = df[df['partnerDesc'] == country]
+        if country.isdigit():
+            country_df = df[df['partnerCode'].astype(str) == country]
+        else:
+            country_df = df[df['partnerDesc'] == country]
+            
         if country_df.empty:
             return {"history": []}
 

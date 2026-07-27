@@ -17,12 +17,22 @@
   let containerEl, messagesEl, inputEl, sendBtnEl, typingEl;
   
   function saveHistory() {
-    // History persistence is disabled
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch (e) {}
   }
   
   function loadHistory() {
-    // Start with a completely clear chat
-    messages = [];
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        messages = JSON.parse(saved);
+      } else {
+        messages = [];
+      }
+    } catch (e) {
+      messages = [];
+    }
     isTyping = false; // C4: clear typing flag on mount
   }
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import logging
 
@@ -28,19 +28,25 @@ async def detect_anomaly(req: AnomalyRequest):
     """Hypothetical scenario tester (USD/INR + crude only)."""
     load_model()
     if anomaly_model == "FAILED":
-        return {"error": "Anomaly model is unavailable."}
+        raise HTTPException(status_code=503, detail="Anomaly model is unavailable.")
 
     try:
         import pandas as pd
         # Use the exact features the Isolation Forest model was trained on
         # Since we only get usd_inr and crude_price from frontend, we use dummy/derived values
+        # Compute dynamic heuristics based on the two inputs
+        base_crude = 80.0
+        crude_yoy = ((req.crude_price - base_crude) / base_crude) * 100
+        val_3y = -0.2 if req.crude_price > 100 else 0.05
+        policy_flag = 1 if req.usd_inr > 85 else 0
+
         df = pd.DataFrame([{
-            "brent_crude_yoy_pct": 0.0,
-            "primaryValue_yoy_growth_rate": 0.0,
-            "unit_value": req.crude_price, # Rough proxy
-            "value_vs_3y_mean": 0.0,
-            "wgt_vs_3y_mean": 0.0,
-            "policy_event_flag": 0
+            "brent_crude_yoy_pct": crude_yoy,
+            "primaryValue_yoy_growth_rate": val_3y * 100,
+            "unit_value": req.crude_price * 10,
+            "value_vs_3y_mean": val_3y,
+            "wgt_vs_3y_mean": val_3y,
+            "policy_event_flag": policy_flag
         }])
 
         prediction = anomaly_model['model'].predict(df)[0]
@@ -52,7 +58,7 @@ async def detect_anomaly(req: AnomalyRequest):
         }
     except Exception as e:
         logger.error(f"Anomaly detection error: {e}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/historical")
 async def get_historical_anomalies():
@@ -125,5 +131,5 @@ async def get_historical_anomalies():
         return {"chart_data": chart_data, "table_data": table_data}
     except Exception as e:
         logger.error(f"Error fetching historical anomalies: {e}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
