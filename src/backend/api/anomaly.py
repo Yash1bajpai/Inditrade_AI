@@ -39,7 +39,8 @@ async def detect_anomaly(req: AnomalyRequest):
             "primaryValue_yoy_growth_rate": 0.0,
             "unit_value": req.crude_price, # Rough proxy
             "value_vs_3y_mean": 0.0,
-            "wgt_vs_3y_mean": 0.0
+            "wgt_vs_3y_mean": 0.0,
+            "policy_event_flag": 0
         }])
 
         prediction = anomaly_model['model'].predict(df)[0]
