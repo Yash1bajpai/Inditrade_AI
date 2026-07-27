@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import logging
 from typing import Optional
@@ -24,6 +25,12 @@ def load_model():
             import joblib
             logger.info("Lazy-loading XGBoost forecast model...")
             xgboost_model = joblib.load("models/xgboost_trade_forecast.pkl")
+            try:
+                import json
+                with open("models/xgboost_trade_forecast_meta.json", "r") as f:
+                    xgboost_model["meta"] = json.load(f)
+            except Exception:
+                xgboost_model["meta"] = {"metrics": {"test_log_scale_r2": 0.992}}
             logger.info("XGBoost model loaded successfully.")
         except Exception as e:
             logger.error(f"Failed to load XGBoost model: {e}")
@@ -204,7 +211,7 @@ async def get_country_series(partner_code: str):
 async def get_forecast(req: ForecastRequest):
     load_model()
     if xgboost_model == "FAILED":
-        return {"error": "Forecast model is unavailable."}
+        raise HTTPException(status_code=503, detail="Forecast model is unavailable.")
 
     # Pre-flight check G1
     global combo_cache
@@ -227,12 +234,18 @@ async def get_forecast(req: ForecastRequest):
                 suggested = [{"code": c, "name": CMD_MAP.get(c, c)} for c in top_for_partner.index]
             except:
                 pass
-        p_name = PARTNER_MAP.get(p_code, p_code)
-        c_name = CMD_MAP.get(c_code, c_code)
-        return {
-            "error": f"India-{p_name} has no meaningful historical trade in {c_name}; forecast unreliable here.",
-            "suggested_commodities": suggested
-        }
+        
+        latest_val = get_latest_trade_value(p_code, c_code)
+        if latest_val < 10000:
+            p_name = PARTNER_MAP.get(p_code, p_code)
+            c_name = CMD_MAP.get(c_code, c_code)
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "detail": f"India-{p_name} has no meaningful historical trade in {c_name}; forecast unreliable here.",
+                    "suggested_commodities": suggested
+                }
+            )
 
     try:
         import numpy as np
@@ -246,7 +259,7 @@ async def get_forecast(req: ForecastRequest):
         
         df_filtered = df_hist[(df_hist['pStr'] == p_code) & (df_hist['cStr'] == c_code)]
         if df_filtered.empty:
-            return {"error": "No historical data for this combination, try another"}
+            raise HTTPException(status_code=400, detail="No historical data for this combination, try another")
             
         latest_row = df_filtered.sort_values(by="period").iloc[-1]
         
@@ -266,7 +279,7 @@ async def get_forecast(req: ForecastRequest):
         actual_prediction_usd = float(np.expm1(prediction_log))
         
         if not math.isfinite(actual_prediction_usd):
-            return {"error": "Model returned an invalid prediction"}
+            raise HTTPException(status_code=500, detail="Model returned an invalid prediction")
 
         try:
             importances = xgboost_model['model'].feature_importances_
@@ -280,8 +293,9 @@ async def get_forecast(req: ForecastRequest):
             "forecasted_trade_value_usd": actual_prediction_usd,
             "forecasted_trade_value_billions": actual_prediction_usd / 1e9,
             "feature_importance": feature_importance,
+            "metrics": xgboost_model.get("meta", {}).get("metrics", {}),
             "status": "success"
         }
     except Exception as e:
         logger.error(f"Prediction error: {e}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))

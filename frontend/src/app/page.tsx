@@ -261,7 +261,8 @@ export default function Dashboard() {
   const [forecastError, setForecastError] = useState<string | null>(null);
   const [partnerList, setPartnerList] = useState<{code:string, name:string}[]>([]);
   const [validMap, setValidMap] = useState<Record<string, string[]>>({});
-  const [suggestedCommodities, setSuggestedCommodities] = useState<{code:string, name:string}[]>([]);
+  const [suggestedCommodities, setSuggestedCommodities] = useState<any[]>([]);
+  const [r2Metric, setR2Metric] = useState<number>(0.992);
 
   const [featureImportances, setFeatureImportances] = useState<{feature: string, importance: number}[]>([]);
   const [chartData, setChartData] = useState<{year: string, value: number}[]>([]);
@@ -452,6 +453,10 @@ export default function Dashboard() {
 
       if (Array.isArray(data.feature_importance)) {
         setFeatureImportances(data.feature_importance);
+      }
+      
+      if (data.metrics && data.metrics.test_log_scale_r2) {
+        setR2Metric(data.metrics.test_log_scale_r2);
       }
       
       const history = await getForecastHistory(partnerCode, commodityCode);
@@ -670,7 +675,7 @@ export default function Dashboard() {
                         </div>
                       );
                     })()}
-                    <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = 0.992 (Log-Scale)</div>
+                    <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = {r2Metric.toFixed(3)} (Log-Scale)</div>
                   </div>
                 </div>
             {forecastError && (

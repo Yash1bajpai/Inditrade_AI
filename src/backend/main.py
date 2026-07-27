@@ -28,8 +28,26 @@ app.include_router(network.router, prefix="/api/network", tags=["Network"])
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    """Endpoint for UptimeRobot monitoring"""
-    return {"status": "ok", "service": "IndiTrade AI Backend"}
+    """Endpoint for UptimeRobot monitoring and readiness probe"""
+    import os
+    from src.backend.database import qdrant
+    
+    status = "ok"
+    details = []
+    
+    if qdrant is None:
+        status = "degraded"
+        details.append("Qdrant not initialized")
+        
+    if not os.path.exists("data/processed/trade_features.parquet"):
+        status = "degraded"
+        details.append("Trade features data missing")
+        
+    if not os.path.exists("models/xgboost_trade_forecast.joblib"):
+        status = "degraded"
+        details.append("Forecast model missing")
+        
+    return {"status": status, "service": "IndiTrade AI Backend", "details": details}
 
 if __name__ == "__main__":
     import uvicorn
