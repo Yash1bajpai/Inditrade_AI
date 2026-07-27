@@ -482,193 +482,199 @@ export default function Dashboard() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
   };
   return (
-    <main className={styles.container}>
-      <AnimatePresence>
-        {selectedCountry && <DrillDownModal key="drilldown" country={selectedCountry.name} originalCountry={selectedCountry.code} onClose={() => setSelectedCountry(null)} />}
-        
-        {isMapEnlarged && (
-          <div key="enlarged-map" onClick={() => setIsMapEnlarged(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              onClick={(e) => e.stopPropagation()} 
-              style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: 'clamp(300px, 95vw, 1200px)', height: 'clamp(300px, 90vh, 800px)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', display: 'flex', flexDirection: 'column' }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>Enlarged Global Trade Heatmap</h3>
-                
-                <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.25rem', borderRadius: '20px', border: `1px solid ${FADED_INK}` }}>
-                  <button onClick={() => setFlowMode('off')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'off' ? FADED_INK : 'transparent', color: flowMode === 'off' ? '#fff' : FADED_INK, transition: 'all 0.3s' }}>Off</button>
-                  <button onClick={() => setFlowMode('exports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'exports' ? '#FF9F43' : 'transparent', color: flowMode === 'exports' ? NIGHT_SLATE : '#FF9F43', transition: 'all 0.3s' }}>Exports</button>
-                  <button onClick={() => setFlowMode('imports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'imports' ? '#00E5FF' : 'transparent', color: flowMode === 'imports' ? NIGHT_SLATE : '#00E5FF', transition: 'all 0.3s' }}>Imports</button>
-                </div>
+    <div className={styles.container}>
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarLogo}>IndiTrade AI</div>
+        <nav className={styles.sidebarNav}>
+          <div className={`${styles.sidebarNavItem} ${styles.active}`}><TrendingUp size={18} /> Dashboard</div>
+          <div className={styles.sidebarNavItem}><AlertTriangle size={18} /> Anomalies</div>
+          <div className={styles.sidebarNavItem}><MapIcon size={18} /> Trade Network</div>
+          <div className={styles.sidebarNavItem} onClick={() => window.VanijyaChat?.open()}><MessageSquare size={18} /> Chatbot</div>
+        </nav>
+      </aside>
 
-                <button onClick={() => setIsMapEnlarged(false)} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={24}/></button>
-              </div>
-              <div style={{ flex: 1, position: 'relative' }}>
-                {mounted && (
-                  <>
-                    <ReactTooltip id="map-tooltip" />
-                    <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
-                        <defs>
-                          <marker id="arrow-export" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#FF9F43" />
-                          </marker>
-                          <marker id="arrow-import" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#00E5FF" />
-                          </marker>
-                        </defs>
-                        <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
-                        <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
-                        <Geographies geography={geoUrl}>
-                          {({ geographies }) =>
-                            geographies.map((geo) => {
-                              const nodeData = networkData.find(d => d.country_name === geo.properties.name);
-                              const val = nodeData?.val;
-                              let color = '#2C303A';
-                              if (val) {
-                                color = `rgba(200, 169, 126, ${val / 100})`;
+      <div className={styles.mainWrapper}>
+        <header className={styles.topHeader}>
+          <div className={styles.headerTitle}>Global Trade Intelligence</div>
+          <div className={styles.headerControls}>
+             <div className={styles.subtleRing} style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: MINTED_BRASS }}></div>
+              System Online
+            </div>
+          </div>
+        </header>
+
+        <main className={styles.mainContent}>
+          <AnimatePresence>
+            {selectedCountry && <DrillDownModal key="drilldown" country={selectedCountry.name} originalCountry={selectedCountry.code} onClose={() => setSelectedCountry(null)} />}
+            
+            {isMapEnlarged && (
+              <div key="enlarged-map" onClick={() => setIsMapEnlarged(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  onClick={(e) => e.stopPropagation()} 
+                  style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: 'clamp(300px, 95vw, 1200px)', height: 'clamp(300px, 90vh, 800px)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', display: 'flex', flexDirection: 'column' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>Enlarged Global Trade Heatmap</h3>
+                    
+                    <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.25rem', borderRadius: '20px', border: `1px solid ${FADED_INK}` }}>
+                      <button onClick={() => setFlowMode('off')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'off' ? FADED_INK : 'transparent', color: flowMode === 'off' ? '#fff' : FADED_INK, transition: 'all 0.3s' }}>Off</button>
+                      <button onClick={() => setFlowMode('exports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'exports' ? '#FF9F43' : 'transparent', color: flowMode === 'exports' ? NIGHT_SLATE : '#FF9F43', transition: 'all 0.3s' }}>Exports</button>
+                      <button onClick={() => setFlowMode('imports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'imports' ? '#00E5FF' : 'transparent', color: flowMode === 'imports' ? NIGHT_SLATE : '#00E5FF', transition: 'all 0.3s' }}>Imports</button>
+                    </div>
+
+                    <button onClick={() => setIsMapEnlarged(false)} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={24}/></button>
+                  </div>
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    {mounted && (
+                      <>
+                        <ReactTooltip id="map-tooltip" />
+                        <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                            <defs>
+                              <marker id="arrow-export" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#FF9F43" />
+                              </marker>
+                              <marker id="arrow-import" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#00E5FF" />
+                              </marker>
+                            </defs>
+                            <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
+                            <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
+                            <Geographies geography={geoUrl}>
+                              {({ geographies }) =>
+                                geographies.map((geo) => {
+                                  const nodeData = networkData.find(d => d.country_name === geo.properties.name);
+                                  const val = nodeData?.val;
+                                  let color = '#2C303A';
+                                  if (val) {
+                                    color = `rgba(200, 169, 126, ${val / 100})`;
+                                  }
+                                  const isSelected = selectedCountry?.name === geo.properties.name;
+                                  return (
+                                    <Geography
+                                      key={geo.rsmKey}
+                                      geography={geo}
+                                      data-tooltip-id="map-tooltip"
+                                      data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
+                                      fill={isSelected ? MINTED_BRASS : color}
+                                      stroke={NIGHT_SLATE}
+                                      strokeWidth={0.5}
+                                      onClick={(e) => { 
+                                        e.stopPropagation();
+                                        let geoCode = parseInt(geo.id).toString();
+                                        if (geoCode === "840") geoCode = "842"; // USA Comtrade override
+                                        const partner = partnerList.find(p => p.code === geoCode);
+                                        if (partner) {
+                                          setSelectedCountry({ name: geo.properties.name, code: geoCode });
+                                        } else {
+                                          setSelectedCountry({ name: geo.properties.name, code: "" });
+                                        }
+
+                                      }}
+                                      style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
+                                    />
+                                  );
+                                })
                               }
-                              const isSelected = selectedCountry?.name === geo.properties.name;
+                            </Geographies>
+                            {flowMode === 'exports' && TOP_EXPORTS.map((code) => {
+                              const coords = COUNTRY_COORDS[code];
+                              if (!coords) return null;
                               return (
-                                <Geography
-                                  key={geo.rsmKey}
-                                  geography={geo}
-                                  data-tooltip-id="map-tooltip"
-                                  data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
-                                  fill={isSelected ? MINTED_BRASS : color}
-                                  stroke={NIGHT_SLATE}
-                                  strokeWidth={0.5}
-                                  onClick={(e) => { 
-                                    e.stopPropagation();
-                                    let geoCode = parseInt(geo.id).toString();
-                                    if (geoCode === "840") geoCode = "842"; // USA Comtrade override
-                                    const partner = partnerList.find(p => p.code === geoCode);
-                                    if (partner) {
-                                      setSelectedCountry({ name: geo.properties.name, code: geoCode });
-                                    } else {
-                                      setSelectedCountry({ name: geo.properties.name, code: "" });
-                                    }
-
-                                  }}
-                                  style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
+                                <path
+                                  key={`export-${code}`}
+                                  d={drawCurve(INDIA_COORDS, coords, 0.3)}
+                                  fill="none"
+                                  stroke="#FF9F43"
+                                  strokeWidth={2}
+                                  strokeLinecap="round"
+                                  markerEnd="url(#arrow-export)"
+                                  className={styles.animatedPath}
                                 />
                               );
-                            })
-                          }
-                        </Geographies>
-                        {flowMode === 'exports' && TOP_EXPORTS.map((code) => {
-                          const coords = COUNTRY_COORDS[code];
-                          if (!coords) return null;
-                          return (
-                            <path
-                              key={`export-${code}`}
-                              d={drawCurve(INDIA_COORDS, coords, 0.3)}
-                              fill="none"
-                              stroke="#FF9F43"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              markerEnd="url(#arrow-export)"
-                              className={styles.animatedPath}
-                            />
-                          );
-                        })}
-                        {flowMode === 'imports' && TOP_IMPORTS.map((code) => {
-                          const coords = COUNTRY_COORDS[code];
-                          if (!coords) return null;
-                          return (
-                            <path
-                              key={`import-${code}`}
-                              d={drawCurve(coords, INDIA_COORDS, 0.3)}
-                              fill="none"
-                              stroke="#00E5FF"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              markerEnd="url(#arrow-import)"
-                              className={styles.animatedPath}
-                            />
-                          );
-                        })}
-                      </ComposableMap>
-                  </>
-                )}
+                            })}
+                            {flowMode === 'imports' && TOP_IMPORTS.map((code) => {
+                              const coords = COUNTRY_COORDS[code];
+                              if (!coords) return null;
+                              return (
+                                <path
+                                  key={`import-${code}`}
+                                  d={drawCurve(coords, INDIA_COORDS, 0.3)}
+                                  fill="none"
+                                  stroke="#00E5FF"
+                                  strokeWidth={2}
+                                  strokeLinecap="round"
+                                  markerEnd="url(#arrow-import)"
+                                  className={styles.animatedPath}
+                                />
+                              );
+                            })}
+                          </ComposableMap>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-      <motion.div variants={containerVariants} initial="hidden" animate="visible">
-        <motion.header variants={itemVariants} className={styles.header}>
-          <div>
-            <h1 className={`${styles.title} gradient-text`}>IndiTrade AI</h1>
-            <p className={styles.subtitle}>Intelligent Foreign Trade Policy & Forecasting</p>
-          </div>
-          <div className={styles.subtleRing} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: MINTED_BRASS }}></div>
-            Institutional Core Online
-          </div>
-        </motion.header>
-        <div className={styles.grid}>
-          <motion.section variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
-            <div className={styles.sectionHeader}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <TrendingUp size={20} color={MINTED_BRASS} />
-                <h2 className={styles.sectionTitle}>XGBoost Bilateral Trade Forecaster</h2>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                {(() => {
-                  const latestChartPoint = chartData.length > 0 ? chartData[chartData.length - 1] : null;
-                  return (
-                    <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>
-                      Latest: <AnimatedMoney value={latestChartPoint ? latestChartPoint.value : null} />
-                    </div>
-                  );
-                })()}
-                <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = 0.992 (Log-Scale)</div>
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              <div className={styles.inputGroup}>
-                <label className={styles.inputLabel}>Partner</label>
+            )}
+          </AnimatePresence>
+          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+            
+            <div className={styles.kpiRow}>
+              <div className={styles.kpiCard}>
+                <span className={styles.kpiLabel}>Partner</span>
                 <select value={partnerCode} onChange={handlePartnerChange} className={styles.chatInput}>
                   {partnerList.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
                 </select>
               </div>
-              <div className={styles.inputGroup}>
-                <label className={styles.inputLabel}>Commodity</label>
-                <select 
-                  value={commodityCode} 
-                  onChange={(e) => { setCommodityCode(e.target.value); setForecastError(null); setSuggestedCommodities([]); }} 
-                  className={styles.chatInput}
-                  disabled={!validMap[partnerCode] || validMap[partnerCode].length === 0}
-                >
-                  {validMap[partnerCode]?.length > 0 ? (
-                    validMap[partnerCode].map(c => <option key={c} value={c}>{c} — {CMD_MAP[c] || c}</option>)
-                  ) : (
-                    <option value="">No trade data for this partner</option>
-                  )}
+              <div className={styles.kpiCard}>
+                <span className={styles.kpiLabel}>Commodity</span>
+                <select value={commodityCode} onChange={(e) => { setCommodityCode(e.target.value); setForecastError(null); setSuggestedCommodities([]); }} className={styles.chatInput} disabled={!validMap[partnerCode] || validMap[partnerCode].length === 0}>
+                  {validMap[partnerCode]?.length > 0 ? validMap[partnerCode].map(c => <option key={c} value={c}>{c} — {CMD_MAP[c] || c}</option>) : <option value="">No trade data</option>}
                 </select>
               </div>
-              <div className={styles.inputGroup}>
-                <label className={styles.inputLabel}>Forecast Year</label>
+              <div className={styles.kpiCard}>
+                <span className={styles.kpiLabel}>Forecast Year</span>
                 <select value={forecastYear} onChange={(e) => setForecastYear(e.target.value)} className={styles.chatInput}>
-                  <option value="2025">2025</option>
-                  <option value="2026">2026</option>
+                  <option value="2025">2025</option><option value="2026">2026</option>
                 </select>
               </div>
-              <div className={styles.inputGroup}>
-                <label className={styles.inputLabel}>USD/INR Rate</label>
+              <div className={styles.kpiCard}>
+                <span className={styles.kpiLabel}>USD/INR Rate</span>
                 <input type="number" value={usdInr} onChange={(e) => setUsdInr(e.target.value)} className={styles.chatInput} step="0.1" />
               </div>
-              <div className={styles.inputGroup}>
-                <label className={styles.inputLabel}>Crude Oil ($/bbl)</label>
+              <div className={styles.kpiCard}>
+                <span className={styles.kpiLabel}>Crude Oil ($/bbl)</span>
                 <input type="number" value={crudePrice} onChange={(e) => setCrudePrice(e.target.value)} className={styles.chatInput} step="0.1" />
               </div>
+              <div className={styles.kpiCard} style={{ justifyContent: 'flex-end', background: 'transparent', border: 'none' }}>
+                <button onClick={handlePredict} disabled={isPredicting} className={styles.chatButton} style={{ width: '100%', padding: '1rem', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.1rem', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                  {isPredicting ? 'Running AI Model...' : 'Generate AI Forecast'}
+                </button>
+              </div>
             </div>
-            <button onClick={handlePredict} disabled={isPredicting} className={styles.chatButton} style={{ width: '100%', padding: '0.75rem', marginTop: '1rem', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.1rem' }}>
-              {isPredicting ? 'Running Model...' : 'Generate AI Forecast'}
-            </button>
+
+            <div className={styles.grid}>
+              <motion.section variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
+                <div className={styles.sectionHeader}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <TrendingUp size={20} color={MINTED_BRASS} />
+                    <h2 className={styles.sectionTitle}>XGBoost Bilateral Trade Forecaster</h2>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    {(() => {
+                      const latestChartPoint = chartData.length > 0 ? chartData[chartData.length - 1] : null;
+                      return (
+                        <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>
+                          Latest: <AnimatedMoney value={latestChartPoint ? latestChartPoint.value : null} />
+                        </div>
+                      );
+                    })()}
+                    <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = 0.992 (Log-Scale)</div>
+                  </div>
+                </div>
             {forecastError && (
               <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: `1px solid ${CRIMSON_WAX}`, color: CRIMSON_WAX, borderRadius: '4px' }}>
                 <div style={{ marginBottom: '0.5rem' }}>Forecast Error: {forecastError}</div>
@@ -944,6 +950,8 @@ export default function Dashboard() {
           </div>
         )}
       </AnimatePresence>
-    </main>
+        </main>
+      </div>
+    </div>
   );
 }
