@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2 } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2, Menu } from 'lucide-react';
 import { LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
 import { Tooltip as ReactTooltip } from "react-tooltip";
@@ -212,7 +212,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: number, name: string) => [formatMoney(Number(v)), name]} />
+                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
                   <Bar dataKey="import_billions" name="Imports" fill={CRIMSON_WAX} barSize={20} />
                   <Bar dataKey="export_billions" name="Exports" fill="#4a90e2" barSize={20} />
                   <Line type="monotone" dataKey="value_billions" name="Total Trade" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
@@ -222,7 +222,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: number, name: string) => [formatMoney(Number(v)), name]} />
+                  <Tooltip contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
                   <Line type="monotone" dataKey="value_billions" stroke={MINTED_BRASS} strokeWidth={3} dot={{ fill: CARD_SURFACE, stroke: MINTED_BRASS, strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
                 </LineChart>
               )}
@@ -248,8 +248,10 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
 };
 export default function Dashboard() {
   const [flowMode, setFlowMode] = useState<'off' | 'exports' | 'imports'>('off');
-  const TOP_EXPORTS = ['842', '784', '528', '156', '702']; // USA, UAE, Netherlands, China, Singapore
-  const TOP_IMPORTS = ['156', '643', '784', '842', '682']; // China, Russia, UAE, USA, Saudi Arabia
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'anomalies' | 'network'>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [topExports, setTopExports] = useState<string[]>([]);
+  const [topImports, setTopImports] = useState<string[]>([]);
 
   const [selectedCountry, setSelectedCountry] = useState<{name: string, code: string} | null>(null);
   const [isMapEnlarged, setIsMapEnlarged] = useState(false);
@@ -310,7 +312,12 @@ export default function Dashboard() {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();
       })
-      .then(data => { setNetworkData(data.nodes || []); setIsLoadingNetwork(false); })
+      .then(data => { 
+        setNetworkData(data.nodes || []); 
+        setTopExports(data.top_exports || []);
+        setTopImports(data.top_imports || []);
+        setIsLoadingNetwork(false); 
+      })
       .catch(err => { if (err.name !== 'AbortError') { console.error(err); setIsLoadingNetwork(false); }});
     return () => abortController.abort();
   }, []);
@@ -486,19 +493,31 @@ export default function Dashboard() {
   };
   return (
     <div className={styles.container}>
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarLogo}>IndiTrade AI</div>
+      <aside className={`${styles.sidebar} ${isSidebarOpen ? styles.open : ''}`}>
+        <div className={styles.sidebarLogo}>
+          IndiTrade AI
+          <button className={styles.mobileCloseBtn} onClick={() => setIsSidebarOpen(false)} aria-label="Close menu">
+            <X size={20} />
+          </button>
+        </div>
         <nav className={styles.sidebarNav}>
-          <a href="#dashboard" className={`${styles.sidebarNavItem} ${styles.active}`} aria-label="Navigate to Dashboard"><TrendingUp size={18} /> Dashboard</a>
-          <a href="#anomalies" className={styles.sidebarNavItem} aria-label="Navigate to Anomalies"><AlertTriangle size={18} /> Anomalies</a>
-          <a href="#network" className={styles.sidebarNavItem} aria-label="Navigate to Trade Network"><MapIcon size={18} /> Trade Network</a>
-          <button className={styles.sidebarNavItem} onClick={() => window.VanijyaChat?.open()} aria-label="Open AI Chatbot" style={{ background: 'transparent', border: 'none', color: 'inherit', font: 'inherit', width: '100%', textAlign: 'left', cursor: 'pointer' }}><MessageSquare size={18} /> Chatbot</button>
+          <a onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'dashboard' ? styles.active : ''}`} aria-label="Navigate to Dashboard"><TrendingUp size={18} /> Dashboard</a>
+          <a onClick={(e) => { e.preventDefault(); setActiveTab('anomalies'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'anomalies' ? styles.active : ''}`} aria-label="Navigate to Anomalies"><AlertTriangle size={18} /> Anomalies</a>
+          <a onClick={(e) => { e.preventDefault(); setActiveTab('network'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'network' ? styles.active : ''}`} aria-label="Navigate to Trade Network"><MapIcon size={18} /> Trade Network</a>
+          <button className={styles.sidebarNavItem} onClick={() => { setIsSidebarOpen(false); window.VanijyaChat?.open(); }} aria-label="Open AI Chatbot" style={{ background: 'transparent', border: 'none', color: 'inherit', font: 'inherit', width: '100%', textAlign: 'left', cursor: 'pointer' }}><MessageSquare size={18} /> Antigravity Chat</button>
         </nav>
       </aside>
 
+      {isSidebarOpen && <div className={styles.overlay} onClick={() => setIsSidebarOpen(false)} />}
+
       <div className={styles.mainWrapper}>
         <header className={styles.topHeader}>
-          <div className={styles.headerTitle}>Global Trade Intelligence</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button className={styles.menuToggle} onClick={() => setIsSidebarOpen(true)} aria-label="Open menu">
+              <Menu size={24} color={MINTED_BRASS} />
+            </button>
+            <div className={styles.headerTitle}>Global Trade Intelligence</div>
+          </div>
           <div className={styles.headerControls}>
              <div className={styles.subtleRing} style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: MINTED_BRASS }}></div>
@@ -583,7 +602,7 @@ export default function Dashboard() {
                                 })
                               }
                             </Geographies>
-                            {flowMode === 'exports' && TOP_EXPORTS.map((code) => {
+                            {flowMode === 'exports' && topExports.map((code) => {
                               const coords = COUNTRY_COORDS[code];
                               if (!coords) return null;
                               return (
@@ -599,7 +618,7 @@ export default function Dashboard() {
                                 />
                               );
                             })}
-                            {flowMode === 'imports' && TOP_IMPORTS.map((code) => {
+                            {flowMode === 'imports' && topImports.map((code) => {
                               const coords = COUNTRY_COORDS[code];
                               if (!coords) return null;
                               return (
@@ -660,7 +679,8 @@ export default function Dashboard() {
             </div>
 
             <div className={styles.grid}>
-              <motion.section id="dashboard" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
+              {activeTab === 'dashboard' && (
+                <motion.section id="dashboard" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
                 <div className={styles.sectionHeader}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <TrendingUp size={20} color={MINTED_BRASS} />
@@ -712,8 +732,8 @@ export default function Dashboard() {
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                       <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
-                      <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: number, name: string) => [formatMoney(Number(v)), name]} />
-                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: { cx?: number, cy?: number, payload?: { is_prediction?: boolean } }) => {
+                      <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
+                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: any) => {
                         const { cx, cy, payload, key } = props;
                         const isPred = payload?.year?.includes('Pred');
                         return (
@@ -745,6 +765,8 @@ export default function Dashboard() {
               </div>
             </div>
           </motion.section>
+              )}
+              {activeTab === 'anomalies' && (
           <motion.section id="anomalies" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -822,6 +844,8 @@ export default function Dashboard() {
               </table>
             </div>
           </motion.section>
+              )}
+              {activeTab === 'network' && (
           <motion.section id="network" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -922,7 +946,8 @@ export default function Dashboard() {
               </div>
             </div>
           </motion.section>
-        </div>
+              )}
+            </div>
       </motion.div>
       {}
       <button className={styles.fab} onClick={() => window.VanijyaChat?.open()}>

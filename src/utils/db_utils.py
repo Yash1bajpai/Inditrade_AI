@@ -3,11 +3,15 @@ import sqlite3
 from datetime import datetime
 
 def connect_to_graph_db(db_path=".agents/graph_memory.sqlite"):
-    """Connect to the SQLite graph memory database."""
+    """Connect to the SQLite graph memory database.
+
+    Returns (db, cursor, now_iso). All three are None if the database is missing,
+    so callers unpacking three values do not raise on the failure path.
+    """
     if not os.path.exists(db_path):
         print(f"Database not found at {db_path}")
-        return None, None
-        
+        return None, None, None
+
     db = sqlite3.connect(db_path)
     cursor = db.cursor()
     now_iso = datetime.now().isoformat() + "Z"

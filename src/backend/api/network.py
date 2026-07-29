@@ -6,9 +6,11 @@ logger = logging.getLogger("api.network")
 router = APIRouter()
 
 network_data = None
+top_exports = []
+top_imports = []
 
 def load_network_data():
-    global network_data
+    global network_data, top_exports, top_imports
     if network_data is None:
         try:
             import pandas as pd
@@ -26,8 +28,23 @@ def load_network_data():
             try:
                 feature_df = pd.read_parquet("data/processed/trade_features.parquet")
                 vol_map = feature_df.groupby("partnerDesc")["primaryValue"].sum().to_dict()
-            except Exception:
+                
+                # Calculate dynamic top exports and imports
+                # X = Exports, M = Imports
+                if 'flowCode' in feature_df.columns:
+                    # We get the top 5 partnerCodes (as strings)
+                    top_ex = feature_df[feature_df['flowCode'] == 'X'].groupby('partnerCode')['primaryValue'].sum().nlargest(5).index.astype(str).tolist()
+                    top_im = feature_df[feature_df['flowCode'] == 'M'].groupby('partnerCode')['primaryValue'].sum().nlargest(5).index.astype(str).tolist()
+                    top_exports = top_ex
+                    top_imports = top_im
+                else:
+                    top_exports = []
+                    top_imports = []
+            except Exception as e:
+                logger.warning(f"Failed to load trade_features or calculate exports/imports: {e}")
                 vol_map = {}
+                top_exports = []
+                top_imports = []
 
             import numpy as np
             has_embeddings = 'embedding_vector' in df.columns
@@ -85,7 +102,7 @@ def load_network_data():
 @router.get("/")
 async def get_network():
     load_network_data()
-    return {"nodes": network_data}
+    return {"nodes": network_data, "top_exports": top_exports, "top_imports": top_imports}
 
 @router.get("/history/{country}")
 async def get_country_history(country: str):
