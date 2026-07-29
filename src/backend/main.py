@@ -26,7 +26,7 @@ app.include_router(query.router, prefix="/api/query", tags=["Query (LLM)"])
 app.include_router(anomaly.router, prefix="/api/anomaly", tags=["Anomaly"])
 app.include_router(network.router, prefix="/api/network", tags=["Network"])
 
-@app.get("/health", tags=["Health"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
 def health_check():
     """Endpoint for UptimeRobot monitoring and readiness probe"""
     import os
