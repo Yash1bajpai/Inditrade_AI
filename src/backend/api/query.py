@@ -57,7 +57,7 @@ async def query_policy(req: QueryRequest, request: Request):
                         collection_name="trade_policy_compliance",
                         query_vector=query_vector,
                         limit=3,
-                        query_text=query.question
+                        query_text=req.question
                     )
                 
                 results = await asyncio.to_thread(qdrant_search)
