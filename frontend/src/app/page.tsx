@@ -254,8 +254,7 @@ export default function Dashboard() {
   const [topImports, setTopImports] = useState<any[]>([]);
 
   const [selectedCountry, setSelectedCountry] = useState<{name: string, code: string} | null>(null);
-  const [isMapEnlarged, setIsMapEnlarged] = useState(false);
-  const [usdInr, setUsdInr] = useState('83.50');
+    const [usdInr, setUsdInr] = useState('83.50');
   const [crudePrice, setCrudePrice] = useState('80.00');
   const [forecastYear, setForecastYear] = useState('2025');
   const [partnerCode, setPartnerCode] = useState('156');
@@ -530,131 +529,7 @@ export default function Dashboard() {
           <AnimatePresence>
             {selectedCountry && <DrillDownModal key="drilldown" country={selectedCountry.name} originalCountry={selectedCountry.code} onClose={() => setSelectedCountry(null)} />}
             
-            {isMapEnlarged && (
-              <div key="enlarged-map" onClick={() => setIsMapEnlarged(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  onClick={(e) => e.stopPropagation()} 
-                  style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: 'clamp(300px, 95vw, 1200px)', height: 'clamp(300px, 90vh, 800px)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', display: 'flex', flexDirection: 'column' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>Enlarged Global Trade Heatmap</h3>
-                    
-                    <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.25rem', borderRadius: '20px', border: `1px solid ${FADED_INK}` }}>
-                      <button onClick={() => setFlowMode('off')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'off' ? FADED_INK : 'transparent', color: flowMode === 'off' ? '#fff' : FADED_INK, transition: 'all 0.3s' }}>Off</button>
-                      <button onClick={() => setFlowMode('exports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'exports' ? '#FF9F43' : 'transparent', color: flowMode === 'exports' ? NIGHT_SLATE : '#FF9F43', transition: 'all 0.3s' }}>Exports</button>
-                      <button onClick={() => setFlowMode('imports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'imports' ? '#00E5FF' : 'transparent', color: flowMode === 'imports' ? NIGHT_SLATE : '#00E5FF', transition: 'all 0.3s' }}>Imports</button>
-                    </div>
-
-                    <button onClick={() => setIsMapEnlarged(false)} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={24}/></button>
-                  </div>
-                  <div style={{ flex: 1, position: 'relative' }}>
-                    {mounted && (
-                      <>
-                        <ReactTooltip id="map-tooltip" />
-                        <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
-                            <defs>
-                              <marker id="arrow-export" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#FF9F43" />
-                              </marker>
-                              <marker id="arrow-import" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#00E5FF" />
-                              </marker>
-                            </defs>
-                            <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
-                            <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
-                            <Geographies geography={geoUrl}>
-                              {({ geographies }) =>
-                                geographies.map((geo) => {
-                                  const nodeData = networkData.find(d => d.country_name === geo.properties.name);
-                                  const val = nodeData?.val;
-                                  let color = '#2C303A';
-                                  if (val) {
-                                    color = `rgba(200, 169, 126, ${val / 100})`;
-                                  }
-                                  const isSelected = selectedCountry?.name === geo.properties.name;
-                                  return (
-                                    <Geography
-                                      key={geo.rsmKey}
-                                      geography={geo}
-                                      data-tooltip-id="map-tooltip"
-                                      data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
-                                      fill={isSelected ? MINTED_BRASS : color}
-                                      stroke={NIGHT_SLATE}
-                                      strokeWidth={0.5}
-                                      onClick={(e) => { 
-                                        e.stopPropagation();
-                                        let geoCode = parseInt(geo.id).toString();
-                                        if (geoCode === "840") geoCode = "842"; // USA Comtrade override
-                                        const partner = partnerList.find(p => p.code === geoCode);
-                                        if (partner) {
-                                          setSelectedCountry({ name: geo.properties.name, code: geoCode });
-                                        } else {
-                                          setSelectedCountry({ name: geo.properties.name, code: "" });
-                                        }
-
-                                      }}
-                                      style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
-                                    />
-                                  );
-                                })
-                              }
-                            </Geographies>
-                            {flowMode === 'exports' && topExports.map((item) => {
-                              const coords = COUNTRY_COORDS[item.code];
-                              if (!coords) return null;
-                              return (
-                                <path
-                                  key={`export-${item.code}`}
-                                  d={drawCurve(INDIA_COORDS, coords, 0.3)}
-                                  fill="none"
-                                  stroke="#FF9F43"
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  markerEnd="url(#arrow-export)"
-                                  className={styles.animatedPath}
-                                />
-                              );
-                            })}
-                            {flowMode === 'imports' && topImports.map((item) => {
-                              const coords = COUNTRY_COORDS[item.code];
-                              if (!coords) return null;
-                              return (
-                                <path
-                                  key={`import-${item.code}`}
-                                  d={drawCurve(coords, INDIA_COORDS, 0.3)}
-                                  fill="none"
-                                  stroke="#00E5FF"
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  markerEnd="url(#arrow-import)"
-                                  className={styles.animatedPath}
-                                />
-                              );
-                            })}
-                          </ComposableMap>
-                          {flowMode !== 'off' && (
-                            <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'rgba(11, 14, 20, 0.85)', padding: '1rem', borderRadius: '8px', border: `1px solid ${flowMode === 'exports' ? '#FF9F43' : '#00E5FF'}`, width: '250px', backdropFilter: 'blur(4px)' }}>
-                              <h4 style={{ margin: '0 0 0.75rem 0', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Top 5 {flowMode === 'exports' ? 'Destinations' : 'Sources'}</h4>
-                              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                {(flowMode === 'exports' ? topExports : topImports).map((item: any, idx: number) => (
-                                  <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#fff' }}>
-                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={item.name}>{item.name}</span>
-                                    <span style={{ fontFamily: 'monospace', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF' }}>${(item.amount / 1e9).toFixed(1)}B</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                      </>
-                    )}
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
+            </AnimatePresence>
           <motion.div variants={containerVariants} initial="hidden" animate="visible">
             
             {activeTab === 'dashboard' && (
@@ -867,99 +742,118 @@ export default function Dashboard() {
                 <MapIcon size={20} color={MINTED_BRASS} />
                 <h2 className={styles.sectionTitle}>Global Trade Heatmap & Network Embeddings</h2>
               </div>
-              <button 
-                onClick={() => setIsMapEnlarged(true)} 
-                style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}
-              >
-                <Maximize2 size={16} /> Enlarge Map
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.25rem', borderRadius: '20px', border: `1px solid ${FADED_INK}` }}>
+                      <button onClick={() => setFlowMode('off')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'off' ? FADED_INK : 'transparent', color: flowMode === 'off' ? '#fff' : FADED_INK, transition: 'all 0.3s' }}>Off</button>
+                      <button onClick={() => setFlowMode('exports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'exports' ? '#FF9F43' : 'transparent', color: flowMode === 'exports' ? NIGHT_SLATE : '#FF9F43', transition: 'all 0.3s' }}>Exports</button>
+                      <button onClick={() => setFlowMode('imports')} style={{ padding: '0.25rem 1rem', borderRadius: '15px', border: 'none', cursor: 'pointer', fontSize: '0.85rem', background: flowMode === 'imports' ? '#00E5FF' : 'transparent', color: flowMode === 'imports' ? NIGHT_SLATE : '#00E5FF', transition: 'all 0.3s' }}>Imports</button>
+                    </div>
             </div>
             <p style={{ fontSize: '0.85rem', color: FADED_INK, marginBottom: '1.5rem' }}>
               Choropleth mapping of node volumes and 2D PCA projection of Node2Vec random walks over the global trade graph.
             </p>
-            <div className={styles.mapGrid}>
-              <div className={styles.chartContainer} style={{ height: '300px', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}`, overflow: 'hidden', position: 'relative' }}>
-                {mounted && (
-                  <>
-                    <ReactTooltip id="map-tooltip" />
-                    <ComposableMap projection="geoMercator" projectionConfig={{ scale: 120, center: [0, 20] }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
-                    <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
-                    <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
-                    <Geographies geography={geoUrl}>
-                      {({ geographies }) =>
-                        geographies.map((geo) => {
-                          const nodeData = networkData.find(d => d.country_name === geo.properties.name);
-                          const val = nodeData?.val;
-                          let color = '#2C303A';
-                          if (val) {
-                            color = `rgba(200, 169, 126, ${val / 100})`;
-                          }
-                          const isSelected = selectedCountry?.name === geo.properties.name;
-                          return (
-                            <Geography
-                              key={geo.rsmKey}
-                              geography={geo}
-                              data-tooltip-id="map-tooltip"
-                              data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
-                              fill={isSelected ? MINTED_BRASS : color}
-                              stroke={NIGHT_SLATE}
-                              strokeWidth={0.5}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                let geoCode = parseInt(geo.id).toString();
-                                if (geoCode === "840") geoCode = "842"; // USA Comtrade override
-                                const partner = partnerList.find(p => p.code === geoCode);
-                                if (partner) {
-                                  setSelectedCountry({ name: geo.properties.name, code: geoCode });
-                                } else {
-                                  setSelectedCountry({ name: geo.properties.name, code: "" });
-                                }
-                              }}
-                              style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
-                            />
-                          );
-                        })
-                      }
-                    </Geographies>
-                  </ComposableMap>
-                  </>
-                )}
-                {}
-                <div style={{ position: 'absolute', bottom: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '0.65rem', color: FADED_INK, textTransform: 'uppercase' }}>Flagged Anomaly Value</span>
-                  <div style={{ width: '100px', height: '6px', background: `linear-gradient(to right, ${NIGHT_SLATE}, ${MINTED_BRASS}, ${CRIMSON_WAX})`, border: `1px solid ${FADED_INK}` }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: FADED_INK }}>
-                    <span>Low</span><span>High</span>
-                  </div>
-                </div>
-              </div>
-              {}
-              <div className={styles.chartContainer} style={{ height: '300px', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}` }}>
-                {isLoadingNetwork ? <SkeletonLoader /> : mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                      <XAxis type="number" dataKey="x" hide />
-                      <YAxis type="number" dataKey="y" hide />
-                      <ZAxis type="number" dataKey="val" range={[50, 400]} />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: CARD_SURFACE, border: 'none', borderRadius: '4px' }} content={({ payload }) => {
-                        if (payload && payload.length) {
-                          const data = payload[0].payload;
-                          return (
-                            <div style={{ backgroundColor: CARD_SURFACE, padding: '10px', border: `1px solid ${MINTED_BRASS}`, fontSize: '0.85rem' }}>
-                              <strong style={{ color: MINTED_BRASS }}>{data.country_name}</strong>
-                              <br/>
-                              Anomaly Value: ${(data.trade_volume / 1e9).toFixed(2)}B
+            <div style={{ marginTop: "1.5rem" }}>
+<div style={{ height: '600px', position: 'relative' }}>
+                    {mounted && (
+                      <>
+                        <ReactTooltip id="map-tooltip" />
+                        <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                            <defs>
+                              <marker id="arrow-export" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#FF9F43" />
+                              </marker>
+                              <marker id="arrow-import" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#00E5FF" />
+                              </marker>
+                            </defs>
+                            <Sphere stroke="rgba(255,255,255,0.1)" strokeWidth={0.5} id="sphere" fill="transparent" />
+                            <Graticule stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
+                            <Geographies geography={geoUrl}>
+                              {({ geographies }) =>
+                                geographies.map((geo) => {
+                                  const nodeData = networkData.find(d => d.country_name === geo.properties.name);
+                                  const val = nodeData?.val;
+                                  let color = '#2C303A';
+                                  if (val) {
+                                    color = `rgba(200, 169, 126, ${val / 100})`;
+                                  }
+                                  const isSelected = selectedCountry?.name === geo.properties.name;
+                                  return (
+                                    <Geography
+                                      key={geo.rsmKey}
+                                      geography={geo}
+                                      data-tooltip-id="map-tooltip"
+                                      data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
+                                      fill={isSelected ? MINTED_BRASS : color}
+                                      stroke={NIGHT_SLATE}
+                                      strokeWidth={0.5}
+                                      onClick={(e) => { 
+                                        e.stopPropagation();
+                                        let geoCode = parseInt(geo.id).toString();
+                                        if (geoCode === "840") geoCode = "842"; // USA Comtrade override
+                                        const partner = partnerList.find(p => p.code === geoCode);
+                                        if (partner) {
+                                          setSelectedCountry({ name: geo.properties.name, code: geoCode });
+                                        } else {
+                                          setSelectedCountry({ name: geo.properties.name, code: "" });
+                                        }
+
+                                      }}
+                                      style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
+                                    />
+                                  );
+                                })
+                              }
+                            </Geographies>
+                            {flowMode === 'exports' && topExports.map((item) => {
+                              const coords = COUNTRY_COORDS[item.code];
+                              if (!coords) return null;
+                              return (
+                                <path
+                                  key={`export-${item.code}`}
+                                  d={drawCurve(INDIA_COORDS, coords, 0.3)}
+                                  fill="none"
+                                  stroke="#FF9F43"
+                                  strokeWidth={2}
+                                  strokeLinecap="round"
+                                  markerEnd="url(#arrow-export)"
+                                  className={styles.animatedPath}
+                                />
+                              );
+                            })}
+                            {flowMode === 'imports' && topImports.map((item) => {
+                              const coords = COUNTRY_COORDS[item.code];
+                              if (!coords) return null;
+                              return (
+                                <path
+                                  key={`import-${item.code}`}
+                                  d={drawCurve(coords, INDIA_COORDS, 0.3)}
+                                  fill="none"
+                                  stroke="#00E5FF"
+                                  strokeWidth={2}
+                                  strokeLinecap="round"
+                                  markerEnd="url(#arrow-import)"
+                                  className={styles.animatedPath}
+                                />
+                              );
+                            })}
+                          </ComposableMap>
+                          {flowMode !== 'off' && (
+                            <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'rgba(11, 14, 20, 0.85)', padding: '1rem', borderRadius: '8px', border: `1px solid ${flowMode === 'exports' ? '#FF9F43' : '#00E5FF'}`, width: '250px', backdropFilter: 'blur(4px)' }}>
+                              <h4 style={{ margin: '0 0 0.75rem 0', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Top 5 {flowMode === 'exports' ? 'Destinations' : 'Sources'}</h4>
+                              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {(flowMode === 'exports' ? topExports : topImports).map((item: any, idx: number) => (
+                                  <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#fff' }}>
+                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={item.name}>{item.name}</span>
+                                    <span style={{ fontFamily: 'monospace', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF' }}>${(item.amount / 1e9).toFixed(1)}B</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
-                          );
-                        }
-                        return null;
-                      }} />
-                      <Scatter data={networkData.filter(d => d.x !== null && d.y !== null)} fill={MINTED_BRASS} fillOpacity={0.7} onClick={(e: { payload?: { country_name?: string, original_country?: string } }) => setSelectedCountry({ name: e.payload?.country_name || "Unknown", code: e.payload?.original_country || "" })} style={{ cursor: 'pointer' }} />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
+                          )}
+                      </>
+                    )}
+                  </div>
+</div>
           </motion.section>
               )}
             </div>
