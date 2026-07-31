@@ -15,6 +15,19 @@ RATE_LIMIT = 10
 RATE_LIMIT_WINDOW = 60
 ip_requests = {}
 
+
+def log_chat_to_supabase(session_id, user_message, bot_response):
+    try:
+        from src.backend.database import supabase
+        if hasattr(supabase, 'table'):
+            supabase.table('chat_history').insert({
+                'session_id': session_id,
+                'user_message': user_message,
+                'bot_response': bot_response
+            }).execute()
+    except Exception as e:
+        logger.error(f"Failed to log chat to Supabase: {e}")
+
 class QueryRequest(BaseModel):
     question: str = Field(..., max_length=500, description="The query string (max 500 chars).")
 
@@ -105,25 +118,32 @@ async def query_policy(req: QueryRequest, request: Request):
 
         if response.status_code == 503:
             logger.warning("HF API 503 Cold Start Detected. Falling back to Groq API...")
-            return await fallback_query(req.question, context, citation_str)
+            res = await fallback_query(req.question, context, citation_str, client_ip)
+            return res
 
         response.raise_for_status()
         data = response.json()
         answer = data[0].get("generated_text", "").split("### Answer:\n")[-1]
 
-        return {"answer": answer, "source": "Hugging Face", "citation": citation_str}
+        res = {"answer": answer, "source": "Hugging Face", "citation": citation_str}
+        log_chat_to_supabase(client_ip, req.question, res["answer"])
+        return res
 
     except requests.exceptions.Timeout:
         logger.warning("HF API Timeout. Falling back to Groq API...")
-        return await fallback_query(req.question, context, citation_str)
+        res = await fallback_query(req.question, context, citation_str, client_ip)
+        return res
     except Exception as e:
         logger.warning(f"HF API Failed ({e}). Falling back to Groq API...")
-        return await fallback_query(req.question, context, citation_str)
+        res = await fallback_query(req.question, context, citation_str, client_ip)
+        return res
 
-async def fallback_query(question, context, citation_str=""):
+async def fallback_query(question, context, citation_str="", client_ip="anonymous"):
     groq_api_key = os.getenv("GROQ_API_KEY", os.getenv("GROQ_API_KEY1"))
     if not groq_api_key or len(groq_api_key) < 10:
-        return {"answer": "Error: Both Hugging Face and Groq Fallback APIs are unavailable.", "source": "Error", "citation": ""}
+        res = {"answer": "Error: Both Hugging Face and Groq Fallback APIs are unavailable.", "source": "Error", "citation": ""}
+        log_chat_to_supabase(client_ip, question, res["answer"])
+        return res
 
     try:
         import groq
@@ -149,11 +169,13 @@ async def fallback_query(question, context, citation_str=""):
             return chat_completion.choices[0].message.content
             
         answer = await asyncio.to_thread(run_groq)        
-        return {
+        res = {
             "answer": answer,
             "source": "Groq",
             "citation": citation_str
         }
+        log_chat_to_supabase(client_ip, question, res["answer"])
+        return res
 
     except Exception as e:
         logger.error(f"Error processing query: {e}")
