@@ -838,9 +838,9 @@ export default function Dashboard() {
                             })}
                           </ComposableMap>
                           {flowMode !== 'off' && (
-                            <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(11, 14, 20, 0.85)', padding: '1rem', borderRadius: '8px', border: `1px solid ${flowMode === 'exports' ? '#FF9F43' : '#00E5FF'}`, width: '250px', backdropFilter: 'blur(4px)' }}>
-                              <h4 style={{ margin: '0 0 0.75rem 0', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Top 5 {flowMode === 'exports' ? 'Destinations' : 'Sources'}</h4>
-                              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <motion.div drag dragMomentum={false} whileDrag={{ scale: 1.02, cursor: "grabbing" }} style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(11, 14, 20, 0.85)', padding: '1rem', borderRadius: '8px', border: `1px solid ${flowMode === 'exports' ? '#FF9F43' : '#00E5FF'}`, width: '250px', backdropFilter: 'blur(4px)', cursor: 'grab', zIndex: 10 }}>
+                              <h4 style={{ margin: '0 0 0.75rem 0', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', pointerEvents: 'none' }}>Top 5 {flowMode === 'exports' ? 'Destinations' : 'Sources'}</h4>
+                              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', pointerEvents: 'none' }}>
                                 {(flowMode === 'exports' ? topExports : topImports).map((item: any, idx: number) => (
                                   <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#fff' }}>
                                     <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={item.name}>{item.name}</span>
@@ -848,7 +848,7 @@ export default function Dashboard() {
                                   </li>
                                 ))}
                               </ul>
-                            </div>
+                            </motion.div>
                           )}
                       </>
                     )}
