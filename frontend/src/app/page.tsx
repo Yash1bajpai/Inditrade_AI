@@ -752,7 +752,7 @@ export default function Dashboard() {
               Choropleth mapping of node volumes and 2D PCA projection of Node2Vec random walks over the global trade graph.
             </p>
             <div style={{ marginTop: "1.5rem" }}>
-<div style={{ height: '600px', position: 'relative', overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+<div style={{ aspectRatio: '16/9', width: '100%', position: 'relative', overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}>
                     {mounted && (
                       <>
                         <ReactTooltip id="map-tooltip" />
