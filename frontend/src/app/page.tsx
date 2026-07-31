@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2, Menu, Github, Linkedin, Mail } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2, Menu, Code, User, Mail } from 'lucide-react';
 import { LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
 import { Tooltip as ReactTooltip } from "react-tooltip";
@@ -1014,8 +1014,8 @@ export default function Dashboard() {
             <div className={styles.footerRight}>
               <p>Built by <strong>Yash Bajpai</strong></p>
               <div className={styles.socialLinks}>
-                <a href="https://github.com/Yash1bajpai" target="_blank" rel="noopener noreferrer"><Github size={16}/> GitHub</a>
-                <a href="https://linkedin.com/in/yash-bajpai" target="_blank" rel="noopener noreferrer"><Linkedin size={16}/> LinkedIn</a>
+                <a href="https://github.com/Yash1bajpai" target="_blank" rel="noopener noreferrer"><Code size={16}/> GitHub</a>
+                <a href="https://linkedin.com/in/yash-bajpai" target="_blank" rel="noopener noreferrer"><User size={16}/> LinkedIn</a>
                 <a href="mailto:your-email@example.com"><Mail size={16}/> Email</a>
               </div>
             </div>
