@@ -756,7 +756,7 @@ export default function Dashboard() {
                     {mounted && (
                       <>
                         <ReactTooltip id="map-tooltip" />
-                        <ComposableMap projection="geoMercator" projectionConfig={{ scale: 150 }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                        <ComposableMap projection="geoMercator" projectionConfig={{ scale: 120, center: [0, 20] }} width={800} height={450} style={{ width: '100%', height: 'auto', display: 'block' }}>
                             <defs>
                               <marker id="arrow-export" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
                                 <path d="M 0 0 L 10 5 L 0 10 z" fill="#FF9F43" />
@@ -838,7 +838,7 @@ export default function Dashboard() {
                             })}
                           </ComposableMap>
                           {flowMode !== 'off' && (
-                            <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'rgba(11, 14, 20, 0.85)', padding: '1rem', borderRadius: '8px', border: `1px solid ${flowMode === 'exports' ? '#FF9F43' : '#00E5FF'}`, width: '250px', backdropFilter: 'blur(4px)' }}>
+                            <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(11, 14, 20, 0.85)', padding: '1rem', borderRadius: '8px', border: `1px solid ${flowMode === 'exports' ? '#FF9F43' : '#00E5FF'}`, width: '250px', backdropFilter: 'blur(4px)' }}>
                               <h4 style={{ margin: '0 0 0.75rem 0', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Top 5 {flowMode === 'exports' ? 'Destinations' : 'Sources'}</h4>
                               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                 {(flowMode === 'exports' ? topExports : topImports).map((item: any, idx: number) => (
