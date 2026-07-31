@@ -32,11 +32,15 @@ def load_network_data():
                 # Calculate dynamic top exports and imports
                 # X = Exports, M = Imports
                 if 'flowCode' in feature_df.columns:
-                    # We get the top 5 partnerCodes (as strings)
-                    top_ex = feature_df[feature_df['flowCode'] == 'X'].groupby('partnerCode')['primaryValue'].sum().nlargest(5).index.astype(str).tolist()
-                    top_im = feature_df[feature_df['flowCode'] == 'M'].groupby('partnerCode')['primaryValue'].sum().nlargest(5).index.astype(str).tolist()
-                    top_exports = top_ex
-                    top_imports = top_im
+                    ex_series = feature_df[feature_df['flowCode'] == 'X'].groupby('partnerCode')['primaryValue'].sum().nlargest(5)
+                    im_series = feature_df[feature_df['flowCode'] == 'M'].groupby('partnerCode')['primaryValue'].sum().nlargest(5)
+                    
+                    # Create dictionaries with code, name, and amount
+                    # We can lookup name from partnerDesc in feature_df
+                    desc_map = feature_df.drop_duplicates('partnerCode').set_index('partnerCode')['partnerDesc'].to_dict()
+                    
+                    top_exports = [{"code": str(k), "name": desc_map.get(k, str(k)), "amount": float(v)} for k, v in ex_series.items()]
+                    top_imports = [{"code": str(k), "name": desc_map.get(k, str(k)), "amount": float(v)} for k, v in im_series.items()]
                 else:
                     top_exports = []
                     top_imports = []
