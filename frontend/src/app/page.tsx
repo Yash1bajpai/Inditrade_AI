@@ -964,42 +964,21 @@ export default function Dashboard() {
           <div className={styles.dataSourcesContainer}>
             <p className={styles.sourceTag}>TRANSPARENT SOURCING</p>
             <h2 className={styles.sourceTitle}>Data Sources</h2>
-            <p className={styles.sourceSubtitle}>Every prediction is grounded in reference-grade macro data from government agencies.</p>
+            <p className={styles.sourceSubtitle}>Every prediction and response is grounded in empirical global trade volumes and official Indian trade policies.</p>
             
             <div className={styles.sourceGrid}>
               <div className={styles.sourceCard}>
-                <div className={styles.sourceIcon} style={{ background: '#1e3a8a' }}>US</div>
+                <div className={styles.sourceIcon} style={{ background: '#1e3a8a' }}>UN</div>
                 <div>
-                  <h4>FRED (Federal Reserve)</h4>
-                  <p>Reference grade API for USA macro indicators.</p>
+                  <h4>UN Comtrade</h4>
+                  <p>Global trade physical volumes, import/export network flows, and historical anomaly data.</p>
                 </div>
               </div>
               <div className={styles.sourceCard}>
-                <div className={styles.sourceIcon} style={{ background: '#1d4ed8' }}>IN</div>
+                <div className={styles.sourceIcon} style={{ background: '#047857' }}>IN</div>
                 <div>
-                  <h4>MoSPI & FRED</h4>
-                  <p>Official quarterly GDP series & macro indicators.</p>
-                </div>
-              </div>
-              <div className={styles.sourceCard}>
-                <div className={styles.sourceIcon} style={{ background: '#2563eb' }}>GL</div>
-                <div>
-                  <h4>World Bank</h4>
-                  <p>Annual GDP statistics and population data.</p>
-                </div>
-              </div>
-              <div className={styles.sourceCard}>
-                <div className={styles.sourceIcon} style={{ background: '#3b82f6' }}>DE</div>
-                <div>
-                  <h4>Bundesbank</h4>
-                  <p>German specific economic indicators & sentiment.</p>
-                </div>
-              </div>
-              <div className={styles.sourceCard}>
-                <div className={styles.sourceIcon} style={{ background: '#60a5fa' }}>JP</div>
-                <div>
-                  <h4>Bank of Japan</h4>
-                  <p>Japan macro statistics and rates.</p>
+                  <h4>DGFT (India)</h4>
+                  <p>Directorate General of Foreign Trade official policies, tariff notices, and regulations.</p>
                 </div>
               </div>
             </div>
