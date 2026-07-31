@@ -644,39 +644,41 @@ export default function Dashboard() {
           </AnimatePresence>
           <motion.div variants={containerVariants} initial="hidden" animate="visible">
             
-            <div className={styles.kpiRow}>
-              <div className={styles.kpiCard}>
-                <span className={styles.kpiLabel}>Partner</span>
-                <select value={partnerCode} onChange={handlePartnerChange} className={styles.chatInput}>
-                  {partnerList.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
-                </select>
+            {activeTab === 'dashboard' && (
+              <div className={styles.kpiRow}>
+                <div className={styles.kpiCard}>
+                  <span className={styles.kpiLabel}>Partner</span>
+                  <select value={partnerCode} onChange={handlePartnerChange} className={styles.chatInput}>
+                    {partnerList.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div className={styles.kpiCard}>
+                  <span className={styles.kpiLabel}>Commodity</span>
+                  <select value={commodityCode} onChange={(e) => { setCommodityCode(e.target.value); setForecastError(null); setSuggestedCommodities([]); }} className={styles.chatInput} disabled={!validMap[partnerCode] || validMap[partnerCode].length === 0}>
+                    {validMap[partnerCode]?.length > 0 ? validMap[partnerCode].map(c => <option key={c} value={c}>{c} — {CMD_MAP[c] || c}</option>) : <option value="">No trade data</option>}
+                  </select>
+                </div>
+                <div className={styles.kpiCard}>
+                  <span className={styles.kpiLabel}>Forecast Year</span>
+                  <select value={forecastYear} onChange={(e) => setForecastYear(e.target.value)} className={styles.chatInput}>
+                    <option value="2025">2025</option><option value="2026">2026</option>
+                  </select>
+                </div>
+                <div className={styles.kpiCard}>
+                  <span className={styles.kpiLabel}>USD/INR Rate</span>
+                  <input type="number" value={usdInr} onChange={(e) => setUsdInr(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
+                </div>
+                <div className={styles.kpiCard}>
+                  <span className={styles.kpiLabel}>Crude Oil ($/bbl)</span>
+                  <input type="number" value={crudePrice} onChange={(e) => setCrudePrice(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
+                </div>
+                <div className={styles.kpiCard} style={{ justifyContent: 'flex-end', background: 'transparent', border: 'none' }}>
+                  <button onClick={handlePredict} disabled={isPredicting} className={styles.chatButton} style={{ width: '100%', padding: '1rem', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.1rem', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                    {isPredicting ? 'Running AI Model...' : 'Generate AI Forecast'}
+                  </button>
+                </div>
               </div>
-              <div className={styles.kpiCard}>
-                <span className={styles.kpiLabel}>Commodity</span>
-                <select value={commodityCode} onChange={(e) => { setCommodityCode(e.target.value); setForecastError(null); setSuggestedCommodities([]); }} className={styles.chatInput} disabled={!validMap[partnerCode] || validMap[partnerCode].length === 0}>
-                  {validMap[partnerCode]?.length > 0 ? validMap[partnerCode].map(c => <option key={c} value={c}>{c} — {CMD_MAP[c] || c}</option>) : <option value="">No trade data</option>}
-                </select>
-              </div>
-              <div className={styles.kpiCard}>
-                <span className={styles.kpiLabel}>Forecast Year</span>
-                <select value={forecastYear} onChange={(e) => setForecastYear(e.target.value)} className={styles.chatInput}>
-                  <option value="2025">2025</option><option value="2026">2026</option>
-                </select>
-              </div>
-              <div className={styles.kpiCard}>
-                <span className={styles.kpiLabel}>USD/INR Rate</span>
-                <input type="number" value={usdInr} onChange={(e) => setUsdInr(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
-              </div>
-              <div className={styles.kpiCard}>
-                <span className={styles.kpiLabel}>Crude Oil ($/bbl)</span>
-                <input type="number" value={crudePrice} onChange={(e) => setCrudePrice(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
-              </div>
-              <div className={styles.kpiCard} style={{ justifyContent: 'flex-end', background: 'transparent', border: 'none' }}>
-                <button onClick={handlePredict} disabled={isPredicting} className={styles.chatButton} style={{ width: '100%', padding: '1rem', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.1rem', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
-                  {isPredicting ? 'Running AI Model...' : 'Generate AI Forecast'}
-                </button>
-              </div>
-            </div>
+            )}
 
             <div className={styles.grid}>
               {activeTab === 'dashboard' && (
