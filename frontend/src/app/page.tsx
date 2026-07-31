@@ -250,8 +250,8 @@ export default function Dashboard() {
   const [flowMode, setFlowMode] = useState<'off' | 'exports' | 'imports'>('off');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'anomalies' | 'network'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [topExports, setTopExports] = useState<string[]>([]);
-  const [topImports, setTopImports] = useState<string[]>([]);
+  const [topExports, setTopExports] = useState<any[]>([]);
+  const [topImports, setTopImports] = useState<any[]>([]);
 
   const [selectedCountry, setSelectedCountry] = useState<{name: string, code: string} | null>(null);
   const [isMapEnlarged, setIsMapEnlarged] = useState(false);
@@ -602,12 +602,12 @@ export default function Dashboard() {
                                 })
                               }
                             </Geographies>
-                            {flowMode === 'exports' && topExports.map((code) => {
-                              const coords = COUNTRY_COORDS[code];
+                            {flowMode === 'exports' && topExports.map((item) => {
+                              const coords = COUNTRY_COORDS[item.code];
                               if (!coords) return null;
                               return (
                                 <path
-                                  key={`export-${code}`}
+                                  key={`export-${item.code}`}
                                   d={drawCurve(INDIA_COORDS, coords, 0.3)}
                                   fill="none"
                                   stroke="#FF9F43"
@@ -618,12 +618,12 @@ export default function Dashboard() {
                                 />
                               );
                             })}
-                            {flowMode === 'imports' && topImports.map((code) => {
-                              const coords = COUNTRY_COORDS[code];
+                            {flowMode === 'imports' && topImports.map((item) => {
+                              const coords = COUNTRY_COORDS[item.code];
                               if (!coords) return null;
                               return (
                                 <path
-                                  key={`import-${code}`}
+                                  key={`import-${item.code}`}
                                   d={drawCurve(coords, INDIA_COORDS, 0.3)}
                                   fill="none"
                                   stroke="#00E5FF"
@@ -635,6 +635,19 @@ export default function Dashboard() {
                               );
                             })}
                           </ComposableMap>
+                          {flowMode !== 'off' && (
+                            <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'rgba(11, 14, 20, 0.85)', padding: '1rem', borderRadius: '8px', border: `1px solid ${flowMode === 'exports' ? '#FF9F43' : '#00E5FF'}`, width: '250px', backdropFilter: 'blur(4px)' }}>
+                              <h4 style={{ margin: '0 0 0.75rem 0', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Top 5 {flowMode === 'exports' ? 'Destinations' : 'Sources'}</h4>
+                              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {(flowMode === 'exports' ? topExports : topImports).map((item: any, idx: number) => (
+                                  <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#fff' }}>
+                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={item.name}>{item.name}</span>
+                                    <span style={{ fontFamily: 'monospace', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF' }}>${(item.amount / 1e9).toFixed(1)}B</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                       </>
                     )}
                   </div>
