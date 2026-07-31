@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2, Menu } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2, Menu, Github, Linkedin, Mail } from 'lucide-react';
 import { LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
 import { Tooltip as ReactTooltip } from "react-tooltip";
@@ -504,7 +504,7 @@ export default function Dashboard() {
           <a onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'dashboard' ? styles.active : ''}`} aria-label="Navigate to Dashboard"><TrendingUp size={18} /> Dashboard</a>
           <a onClick={(e) => { e.preventDefault(); setActiveTab('anomalies'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'anomalies' ? styles.active : ''}`} aria-label="Navigate to Anomalies"><AlertTriangle size={18} /> Anomalies</a>
           <a onClick={(e) => { e.preventDefault(); setActiveTab('network'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'network' ? styles.active : ''}`} aria-label="Navigate to Trade Network"><MapIcon size={18} /> Trade Network</a>
-          <button className={styles.sidebarNavItem} onClick={() => { setIsSidebarOpen(false); window.VanijyaChat?.open(); }} aria-label="Open AI Chatbot" style={{ background: 'transparent', border: 'none', color: 'inherit', font: 'inherit', width: '100%', textAlign: 'left', cursor: 'pointer' }}><MessageSquare size={18} /> Antigravity Chat</button>
+          <button className={styles.sidebarNavItem} onClick={() => { setIsSidebarOpen(false); window.VanijyaChat?.open(); }} aria-label="Open AI Chatbot" style={{ background: 'transparent', border: 'none', color: 'inherit', font: 'inherit', width: '100%', textAlign: 'left', cursor: 'pointer' }}><MessageSquare size={18} /> Vanijya AI</button>
         </nav>
       </aside>
 
@@ -959,6 +959,68 @@ export default function Dashboard() {
         <div id="vanijya-chat-root"></div>
 
       </AnimatePresence>
+        {/* Data Sources & Footer */}
+        <div className={styles.footerSection}>
+          <div className={styles.dataSourcesContainer}>
+            <p className={styles.sourceTag}>TRANSPARENT SOURCING</p>
+            <h2 className={styles.sourceTitle}>Data Sources</h2>
+            <p className={styles.sourceSubtitle}>Every prediction is grounded in reference-grade macro data from government agencies.</p>
+            
+            <div className={styles.sourceGrid}>
+              <div className={styles.sourceCard}>
+                <div className={styles.sourceIcon} style={{ background: '#1e3a8a' }}>US</div>
+                <div>
+                  <h4>FRED (Federal Reserve)</h4>
+                  <p>Reference grade API for USA macro indicators.</p>
+                </div>
+              </div>
+              <div className={styles.sourceCard}>
+                <div className={styles.sourceIcon} style={{ background: '#1d4ed8' }}>IN</div>
+                <div>
+                  <h4>MoSPI & FRED</h4>
+                  <p>Official quarterly GDP series & macro indicators.</p>
+                </div>
+              </div>
+              <div className={styles.sourceCard}>
+                <div className={styles.sourceIcon} style={{ background: '#2563eb' }}>GL</div>
+                <div>
+                  <h4>World Bank</h4>
+                  <p>Annual GDP statistics and population data.</p>
+                </div>
+              </div>
+              <div className={styles.sourceCard}>
+                <div className={styles.sourceIcon} style={{ background: '#3b82f6' }}>DE</div>
+                <div>
+                  <h4>Bundesbank</h4>
+                  <p>German specific economic indicators & sentiment.</p>
+                </div>
+              </div>
+              <div className={styles.sourceCard}>
+                <div className={styles.sourceIcon} style={{ background: '#60a5fa' }}>JP</div>
+                <div>
+                  <h4>Bank of Japan</h4>
+                  <p>Japan macro statistics and rates.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.footer}>
+            <div className={styles.footerLeft}>
+              <h3>Vanijya AI</h3>
+              <p>Global Trade Ensemble Architecture</p>
+              <span>© 2026 Yash Bajpai. All rights reserved.</span>
+            </div>
+            <div className={styles.footerRight}>
+              <p>Built by <strong>Yash Bajpai</strong></p>
+              <div className={styles.socialLinks}>
+                <a href="https://github.com/Yash1bajpai" target="_blank" rel="noopener noreferrer"><Github size={16}/> GitHub</a>
+                <a href="https://linkedin.com/in/yash-bajpai" target="_blank" rel="noopener noreferrer"><Linkedin size={16}/> LinkedIn</a>
+                <a href="mailto:your-email@example.com"><Mail size={16}/> Email</a>
+              </div>
+            </div>
+          </div>
+        </div>
         </main>
       </div>
     </div>

@@ -5,7 +5,7 @@ import os
 import requests
 import asyncio
 import time
-from src.backend.database import qdrant
+from src.backend.database import qdrant, supabase
 
 logger = logging.getLogger("api.query")
 router = APIRouter()
