@@ -32,7 +32,7 @@ const NIGHT_SLATE = "#1A1C21";
 const FADED_INK = "#4A4F5C";
 const CARD_SURFACE = "#23262D";
 
-const proj = geoMercator().scale(150).translate([400, 225]);
+const proj = geoMercator().scale(120).center([0, 20]).translate([400, 225]);
 
 declare global {
   interface Window {
