@@ -48,6 +48,10 @@ async def query_policy(req: QueryRequest, request: Request):
 
     context = ""
     citation_str = "Knowledge Base Error"
+    # Tracks whether the answer is actually backed by retrieved policy documents.
+    # Without this, an ungrounded LLM answer is indistinguishable from a grounded
+    # one in the response body.
+    grounded = False
     try:
         if qdrant and hasattr(qdrant, 'search'):
 
@@ -93,9 +97,11 @@ async def query_policy(req: QueryRequest, request: Request):
 
                 context = "\n".join(contexts)
                 citation_str = " | ".join(set(citations)) if citations else ""
+                grounded = bool(context.strip())
     except Exception as e:
         logger.warning(f"RAG Retrieval failed or mocked: {e}")
         citation_str = ""
+        grounded = False
 
     prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant. Provide your answer in concise bullet points. Be extremely clear, short, and use well-structured formatting.\n\n### Context:\n{context}\n\n### Question:\n{req.question}\n\n### Answer:\n"
 
@@ -118,32 +124,36 @@ async def query_policy(req: QueryRequest, request: Request):
 
         if response.status_code == 503:
             logger.warning("HF API 503 Cold Start Detected. Falling back to Groq API...")
-            res = await fallback_query(req.question, context, citation_str, client_ip)
+            res = await fallback_query(req.question, context, citation_str, client_ip, grounded)
             return res
 
         response.raise_for_status()
         data = response.json()
         answer = data[0].get("generated_text", "").split("### Answer:\n")[-1]
 
-        res = {"answer": answer, "source": "Hugging Face", "citation": citation_str}
+        res = {"answer": answer, "source": "Hugging Face", "citation": citation_str, "grounded": grounded}
         log_chat_to_supabase(client_ip, req.question, res["answer"])
         return res
 
     except requests.exceptions.Timeout:
         logger.warning("HF API Timeout. Falling back to Groq API...")
-        res = await fallback_query(req.question, context, citation_str, client_ip)
+        res = await fallback_query(req.question, context, citation_str, client_ip, grounded)
         return res
     except Exception as e:
         logger.warning(f"HF API Failed ({e}). Falling back to Groq API...")
-        res = await fallback_query(req.question, context, citation_str, client_ip)
+        res = await fallback_query(req.question, context, citation_str, client_ip, grounded)
         return res
 
-async def fallback_query(question, context, citation_str="", client_ip="anonymous"):
+async def fallback_query(question, context, citation_str="", client_ip="anonymous", grounded=False):
     groq_api_key = os.getenv("GROQ_API_KEY", os.getenv("GROQ_API_KEY1"))
     if not groq_api_key or len(groq_api_key) < 10:
-        res = {"answer": "Error: Both Hugging Face and Groq Fallback APIs are unavailable.", "source": "Error", "citation": ""}
-        log_chat_to_supabase(client_ip, question, res["answer"])
-        return res
+        # Both upstreams are unusable. This is a server-side dependency failure,
+        # so signal it with 503 rather than a 200 carrying an error string that
+        # clients would have to parse out of the answer field.
+        msg = "Both Hugging Face and Groq Fallback APIs are unavailable."
+        logger.error(msg)
+        log_chat_to_supabase(client_ip, question, f"Error: {msg}")
+        raise HTTPException(status_code=503, detail=msg)
 
     try:
         import groq
@@ -165,6 +175,7 @@ async def fallback_query(question, context, citation_str="", client_ip="anonymou
                     {"role": "user", "content": question}
                 ],
                 model="llama-3.1-8b-instant",
+                timeout=30.0,
             )
             return chat_completion.choices[0].message.content
             
@@ -172,11 +183,14 @@ async def fallback_query(question, context, citation_str="", client_ip="anonymou
         res = {
             "answer": answer,
             "source": "Groq",
-            "citation": citation_str
+            "citation": citation_str,
+            "grounded": grounded
         }
         log_chat_to_supabase(client_ip, question, res["answer"])
         return res
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing query: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error while processing the request.")
+        raise HTTPException(status_code=502, detail="Upstream language model request failed.")

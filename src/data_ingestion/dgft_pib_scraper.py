@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from src.utils.scraping_utils import fetch_table_rows
+from src.utils.scraping_utils import fetch_table_rows, fetch_page_soup
 from datetime import datetime
 
 PIB_DIR = os.path.join("data", "raw", "pib_releases")
@@ -151,7 +151,11 @@ def scrape_dgft_notifications():
                         count += 1
 
             if count == 0:
-                links = soup.find_all("a", href=True)
+                # Table parse yielded nothing — fall back to scanning raw anchors.
+                # This needs its own fetch: fetch_table_rows() returns only <tr>
+                # elements and discards the document, so there is no soup in scope.
+                soup = fetch_page_soup(t['Url'], headers=HEADERS)
+                links = soup.find_all("a", href=True) if soup else []
                 for link in links:
                     href = link["href"]
                     text = link.text.strip()

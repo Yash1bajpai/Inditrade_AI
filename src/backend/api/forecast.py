@@ -29,8 +29,12 @@ def load_model():
                 import json
                 with open("models/xgboost_trade_forecast_meta.json", "r") as f:
                     xgboost_model["meta"] = json.load(f)
-            except Exception:
-                xgboost_model["meta"] = {"metrics": {"test_log_scale_r2": 0.992}}
+            except Exception as e:
+                # Do NOT fabricate a metric here. An absent meta file means the
+                # metrics are genuinely unknown; returning a hardcoded R² would
+                # show the UI a score that no training run actually produced.
+                logger.warning(f"Model meta JSON unavailable ({e}); metrics will be empty.")
+                xgboost_model["meta"] = {"metrics": {}}
             logger.info("XGBoost model loaded successfully.")
         except Exception as e:
             logger.error(f"Failed to load XGBoost model: {e}")
@@ -83,6 +87,43 @@ async def get_valid_combinations():
         logger.error(f"Failed to build valid combinations: {e}")
         return {"partners": [], "map": {}}
 
+def get_latest_trade_value(partner_code: str, commodity_code: str) -> float:
+    """
+    Returns the most recent recorded trade value (USD) for a (partner, commodity)
+    pair, or 0.0 when the pair has no history at all.
+
+    Used by the POST / pre-flight check to distinguish "this pair is genuinely
+    untraded, refuse to forecast" from "this pair is thin but real". Returning
+    0.0 on any failure is deliberate: a missing parquet or an unknown pair should
+    both route into the HTTP 400 explanation path, never a 500.
+    """
+    try:
+        df = pd.read_parquet("data/processed/trade_features.parquet")
+    except Exception as e:
+        logger.warning(f"get_latest_trade_value: could not read trade features: {e}")
+        return 0.0
+
+    try:
+        p_code = str(partner_code).split('.')[0]
+        c_code = str(commodity_code).split('.')[0].zfill(2)
+
+        pStr = df['partnerCode'].apply(lambda x: str(x).split('.')[0])
+        cStr = df['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
+
+        matched = df[(pStr == p_code) & (cStr == c_code)]
+        if matched.empty:
+            return 0.0
+
+        latest_period = matched['period'].max()
+        latest_value = matched[matched['period'] == latest_period]['primaryValue'].sum()
+
+        if pd.isna(latest_value) or not math.isfinite(float(latest_value)):
+            return 0.0
+        return float(latest_value)
+    except Exception as e:
+        logger.warning(f"get_latest_trade_value({partner_code}, {commodity_code}) failed: {e}")
+        return 0.0
+
 def resolve_partner_code(code: str) -> str:
     c = str(code).split('.')[0]
     if not c.isdigit():
@@ -118,6 +159,13 @@ async def get_partner_signature(partner_code: str):
 async def get_global_history(partner_code: Optional[str] = None, commodity_code: Optional[str] = None):
     try:
         df = pd.read_parquet("data/processed/trade_features.parquet")
+    except Exception as e:
+        # Distinguish "the dataset is missing/unreadable" (a server fault) from
+        # "the query matched no rows" (a valid empty result).
+        logger.error(f"history: trade features parquet unavailable: {e}")
+        raise HTTPException(status_code=503, detail="Historical trade dataset is unavailable.")
+
+    try:
         if partner_code:
             df = df[df['partnerCode'].astype(str).str.split('.').str[0] == str(partner_code).split('.')[0]]
         if commodity_code:
@@ -132,10 +180,28 @@ async def get_global_history(partner_code: Optional[str] = None, commodity_code:
         recent = yearly_vol.tail(4)
         return {"history": [{"year": str(int(r["period"])), "value": float(r["primaryValue"] / 1e9)} for _, r in recent.iterrows()]}
     except Exception as e:
+        logger.error(f"history: failed to aggregate: {e}")
         return {"history": []}
+
+MIN_DATA_YEAR = 1990
+MAX_DATA_YEAR = 2100
+VALID_GROUP_BY = ("partner", "commodity")
 
 @router.get("/year_breakdown")
 async def get_year_breakdown(year: int, group_by: str, partner_code: Optional[str] = None, commodity_code: Optional[str] = None):
+    # Reject bad input explicitly instead of returning [] — an empty list is
+    # indistinguishable from "valid query, no matching rows".
+    if not (MIN_DATA_YEAR <= year <= MAX_DATA_YEAR):
+        raise HTTPException(
+            status_code=422,
+            detail=f"year must be between {MIN_DATA_YEAR} and {MAX_DATA_YEAR}; got {year}."
+        )
+    if group_by not in VALID_GROUP_BY:
+        raise HTTPException(
+            status_code=422,
+            detail=f"group_by must be one of {list(VALID_GROUP_BY)}; got {group_by!r}."
+        )
+
     try:
         df = pd.read_parquet("data/processed/trade_features.parquet")
         df = df[df['period'] == year]
@@ -152,10 +218,8 @@ async def get_year_breakdown(year: int, group_by: str, partner_code: Optional[st
             
         if group_by == 'partner':
             group_col, map_dict = 'pStr', PARTNER_MAP
-        elif group_by == 'commodity':
-            group_col, map_dict = 'cStr', CMD_MAP
         else:
-            return []
+            group_col, map_dict = 'cStr', CMD_MAP
             
         agg = df.groupby(group_col)['primaryValue'].sum().reset_index()
         agg = agg.sort_values(by='primaryValue', ascending=False).head(10)
@@ -232,8 +296,8 @@ async def get_forecast(req: ForecastRequest):
                 df_filt = df[(df['pStr'] == p_code) & (df['cStr'].isin(valid_cmds))]
                 top_for_partner = df_filt.groupby('cStr')['primaryValue'].sum().sort_values(ascending=False).head(3)
                 suggested = [{"code": c, "name": CMD_MAP.get(c, c)} for c in top_for_partner.index]
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Could not build commodity suggestions for partner {p_code}: {e}")
         
         latest_val = get_latest_trade_value(p_code, c_code)
         if latest_val < 10000:
@@ -267,8 +331,12 @@ async def get_forecast(req: ForecastRequest):
             if feat in latest_row:
                 val = latest_row[feat]
                 if pd.notna(val):
-                    try: input_data[feat] = float(val)
-                    except: pass
+                    try:
+                        input_data[feat] = float(val)
+                    except (TypeError, ValueError):
+                        logger.warning(
+                            f"Feature '{feat}' has non-numeric value {val!r}; defaulting to 0.0"
+                        )
 
         if "usdinr_mean" in input_data: input_data["usdinr_mean"] = float(req.usd_inr)
         if "brent_crude_mean" in input_data: input_data["brent_crude_mean"] = float(req.crude_price)
@@ -285,7 +353,8 @@ async def get_forecast(req: ForecastRequest):
             importances = xgboost_model['model'].feature_importances_
             feat_imp = sorted(zip(expected_features, importances), key=lambda x: x[1], reverse=True)[:5]
             feature_importance = [{"feature": f, "importance": float(i)} for f, i in feat_imp]
-        except:
+        except Exception as e:
+            logger.warning(f"Could not extract feature importances: {e}")
             feature_importance = []
 
         return {

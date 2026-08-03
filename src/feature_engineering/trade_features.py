@@ -37,7 +37,6 @@ M49_PARTNER_MAP = {
     "360": {"desc": "Indonesia", "iso": "IDN"},
     "410": {"desc": "South Korea", "iso": "KOR"},
     "036": {"desc": "Australia", "iso": "AUS"},
-    "36": {"desc": "Australia", "iso": "AUS"},
     "276": {"desc": "Germany", "iso": "DEU"},
     "392": {"desc": "Japan", "iso": "JPN"},
     "756": {"desc": "Switzerland", "iso": "CHE"},
@@ -46,7 +45,6 @@ M49_PARTNER_MAP = {
     "643": {"desc": "Russian Federation", "iso": "RUS"},
     "528": {"desc": "Netherlands", "iso": "NLD"},
     "056": {"desc": "Belgium", "iso": "BEL"},
-    "56": {"desc": "Belgium", "iso": "BEL"},
     "250": {"desc": "France", "iso": "FRA"},
     "704": {"desc": "Vietnam", "iso": "VNM"}
 }

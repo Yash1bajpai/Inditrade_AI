@@ -2,7 +2,11 @@ import json
 import os
 import re
 import random
+import sys
 from collections import Counter
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from src.utils.file_io import write_jsonl
 
 def check_coherence(ans: str) -> list:
     reasons = []
@@ -173,9 +177,9 @@ def run_coherence_regeneration():
         else:
             updated_rows.append(row)
 
-    with open(dataset_path, "w", encoding="utf-8") as f:
-        for r in updated_rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    # Atomic write: a mid-write crash on a plain "w" would truncate the dataset
+    # irrecoverably. write_jsonl() writes a temp file then os.replace()s it.
+    write_jsonl(dataset_path, updated_rows)
 
     print(f"Total DGFT_OCR answers flagged by coherence check: {len(flagged_entries) + deleted_count}")
     print(f"Successfully regenerated with clean synthesized answer: {regenerated_count}")
