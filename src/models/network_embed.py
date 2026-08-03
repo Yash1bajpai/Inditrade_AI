@@ -96,11 +96,15 @@ def main():
         p=1.0,
         q=0.5,
         workers=4,
-        quiet=False
+        quiet=False,
+        seed=42
     )
 
     print("[*] Fitting Word2Vec skip-gram model on trade network random walks...")
-    model = node2vec.fit(window=10, min_count=1, batch_words=4)
+    # workers=1 + fixed seed is the only combination gensim guarantees to be
+    # reproducible; with multiple workers the walk-consumption order is
+    # non-deterministic regardless of seed.
+    model = node2vec.fit(window=10, min_count=1, batch_words=4, seed=42, workers=1)
 
     print("[*] Extracting 64-dimensional structural trade embeddings...")
     embedding_rows = []

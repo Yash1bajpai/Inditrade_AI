@@ -11,14 +11,47 @@ class AnomalyRequest(BaseModel):
 
 anomaly_model = None
 
+# The six features the Isolation Forest was trained on, in order. Declared here
+# so the loaded pickle can be validated at load time rather than blowing up
+# inside predict() with an opaque feature-count error.
+ANOMALY_FEATURES = [
+    "brent_crude_yoy_pct",
+    "primaryValue_yoy_growth_rate",
+    "unit_value",
+    "value_vs_3y_mean",
+    "wgt_vs_3y_mean",
+    "policy_event_flag",
+]
+
 def load_model():
     global anomaly_model
     if anomaly_model is None:
         try:
             import joblib
             logger.info("Lazy-loading Isolation Forest anomaly model...")
-            anomaly_model = joblib.load("models/isolation_forest_anomalies.pkl")
-            logger.info("Anomaly model loaded successfully.")
+            loaded = joblib.load("models/isolation_forest_anomalies.pkl")
+
+            # Validate the schema up front. The request handler indexes
+            # loaded['model'], so a bare estimator pickle would raise TypeError
+            # on every request instead of failing once, loudly, here.
+            if not isinstance(loaded, dict):
+                raise TypeError(
+                    f"expected a dict-wrapped pickle with a 'model' key, got {type(loaded).__name__}"
+                )
+            if "model" not in loaded:
+                raise KeyError("pickle dict is missing the 'model' key")
+            if not hasattr(loaded["model"], "predict"):
+                raise TypeError("loaded['model'] has no predict() method")
+
+            n_expected = getattr(loaded["model"], "n_features_in_", None)
+            if n_expected is not None and n_expected != len(ANOMALY_FEATURES):
+                raise ValueError(
+                    f"model expects {n_expected} features but the API supplies "
+                    f"{len(ANOMALY_FEATURES)}: {ANOMALY_FEATURES}"
+                )
+
+            anomaly_model = loaded
+            logger.info("Anomaly model loaded and schema-validated successfully.")
         except Exception as e:
             logger.error(f"Failed to load Anomaly model: {e}")
             anomaly_model = "FAILED"

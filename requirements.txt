@@ -47,6 +47,7 @@ vectorbt>=0.25.0
 # Testing & Code Quality
 pytest>=7.4.0
 pytest-asyncio>=0.21.1
+httpx>=0.24.0
 black>=23.7.0
 flake8>=6.1.0
 

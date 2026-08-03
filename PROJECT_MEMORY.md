@@ -21,13 +21,13 @@ The frontend was recently migrated from a monolithic single-page React app to **
 ## 3. API Endpoints & Contracts (Backend)
 The FastAPI backend (`src/backend/api/forecast.py`) exposes several endpoints that the frontend heavily relies on.
 *   **CORS Configurations**: Allowed origins must explicitly permit both `http://localhost:3000` and `http://127.0.0.1:3000` to prevent browser blockages on client-side requests.
-*   `GET /forecast/valid_combinations`: Returns `{ "partners": [...], "map": { "partnerCode": ["cmdCode1", ...] } }`. Used to strictly filter which commodities can be forecasted for which partner.
-*   `GET /forecast/history?partner_code={code}&commodity_code={code}`: Returns historical trend for a specific partner/commodity combo.
-*   `GET /forecast/year_breakdown?year={year}&group_by={partner|commodity}`: Returns aggregated data for a specific year.
-*   `GET /forecast/country_series?partner_code={code}`: Returns historical yearly trade data (`import_billions`, `export_billions`, `value_billions`) and top commodities for a specific country.
+*   `GET /api/forecast/valid_combinations`: Returns `{ "partners": [...], "map": { "partnerCode": ["cmdCode1", ...] } }`. Used to strictly filter which commodities can be forecasted for which partner.
+*   `GET /api/forecast/history?partner_code={code}&commodity_code={code}`: Returns historical trend for a specific partner/commodity combo.
+*   `GET /api/forecast/year_breakdown?year={year}&group_by={partner|commodity}`: Returns aggregated data for a specific year.
+*   `GET /api/forecast/country_series?partner_code={code}`: Returns historical yearly trade data (`import_billions`, `export_billions`, `value_billions`) and top commodities for a specific country.
     *   *Locked Constraint:* Always pass the numeric M49 code (e.g., `"643"`) to this endpoint, NOT the country name (e.g., `"Russia"`). The backend uses `resolve_partner_code` as a fallback, but the frontend heatmap `onClick` is wired to pass the code.
-*   `GET /forecast/partner_signature?partner_code={code}`: Returns the top traded commodities for a partner. Used on the frontend to auto-select the #1 commodity when a user changes the partner dropdown.
-*   `POST /forecast/`: Runs the XGBoost prediction.
+*   `GET /api/forecast/partner_signature?partner_code={code}`: Returns the top traded commodities for a partner. Used on the frontend to auto-select the #1 commodity when a user changes the partner dropdown.
+*   `POST /api/forecast/`: Runs the XGBoost prediction.
     *   *Locked Constraint (Defense-in-depth):* Before running the model, the backend validates if the `(partner_code, commodity_code)` pair actually exists in historical data. If invalid, it returns a 400 error with a `suggested_commodities` array. The frontend catches this and renders clickable chips to auto-correct the user's input.
 
 ## 4. UI/UX Rules & Locked Behaviors

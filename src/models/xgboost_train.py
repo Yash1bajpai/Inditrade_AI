@@ -144,7 +144,11 @@ def main():
 
     print("\n[*] Training final production XGBRegressor on chronological Train set (<=2021)...")
     final_model = xgb.XGBRegressor(**best_params)
-    final_model.fit(X_train, y_log_train, eval_set=[(X_test, y_log_test)], verbose=False)
+    # No eval_set here on purpose. Passing the >=2022 holdout would leak it into
+    # early stopping and therefore into model selection, inflating the R²/MAE
+    # reported below. Hyperparameters already come from TimeSeriesSplit CV on the
+    # train set only; the holdout must stay untouched until final scoring.
+    final_model.fit(X_train, y_log_train, verbose=False)
 
     preds_log_test = final_model.predict(X_test)
     preds_dollar_test = np.expm1(np.maximum(preds_log_test, 0))

@@ -70,7 +70,8 @@ class HybridPolicyRetriever:
             collection_name=self.collection_name,
             query=query_vector,
             query_filter=query_filter,
-            limit=top_k
+            limit=top_k,
+            timeout=20
         ).points
 
         dense_hits = []

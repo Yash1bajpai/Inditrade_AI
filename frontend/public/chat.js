@@ -76,7 +76,11 @@
       if (msg.source && msg.role === 'ai') {
         const src = document.createElement('div');
         src.className = 'vanijya-source';
-        src.textContent = `Source: ${msg.source} ${msg.citation ? ' | ' + msg.citation : ''}`;
+        let label = `Source: ${msg.source}${msg.citation ? ' | ' + msg.citation : ''}`;
+        // grounded === false means the RAG retrieval returned nothing, so the
+        // answer came from the model's own weights rather than policy documents.
+        if (msg.grounded === false) label += ' | ungrounded (no policy docs retrieved)';
+        src.textContent = label;
         content.appendChild(src);
       }
       
@@ -118,16 +122,41 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: text })
       });
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      if (!res.ok) {
+        // The backend now returns 503 when both the HF and Groq upstreams are
+        // unavailable, and 502 when the upstream call itself fails. Surface the
+        // server's own detail message instead of a generic connection error.
+        let detail = `HTTP error! status: ${res.status}`;
+        try {
+          const errBody = await res.json();
+          if (errBody && errBody.detail) detail = errBody.detail;
+        } catch (parseErr) { /* non-JSON error body; keep the status text */ }
+        throw new Error(detail);
+      }
       const data = await res.json();
-      
-      const aiMsg = { role: 'ai', content: data.answer, source: data.source, citation: data.citation, sent: true, answered: true, typewriter: true };
+
+      const aiMsg = {
+        role: 'ai',
+        content: data.answer,
+        source: data.source,
+        citation: data.citation,
+        grounded: data.grounded,
+        sent: true,
+        answered: true,
+        typewriter: true
+      };
       userMsg.answered = true; // both are valid now
       messages.push(aiMsg);
       saveHistory(); // C4: persist
       
     } catch (e) {
-      const errorMsg = { role: 'ai', content: 'Failed to connect to the backend server.', source: 'Error', sent: true, answered: true };
+      const errorMsg = {
+        role: 'ai',
+        content: e && e.message ? e.message : 'Failed to connect to the backend server.',
+        source: 'Error',
+        sent: true,
+        answered: true
+      };
       userMsg.answered = true;
       messages.push(errorMsg);
       // We don't save errors to history typically, but per instruction, if answered=true we can.

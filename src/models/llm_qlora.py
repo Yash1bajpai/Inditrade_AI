@@ -19,6 +19,7 @@ Full run:
 import os
 import sys
 import json
+import random
 import argparse
 from datetime import datetime
 
@@ -66,6 +67,13 @@ def load_qa_dataset(path, max_samples=None):
     if max_samples:
         records = records[:max_samples]
         print(f"[*] DRY RUN: limited to first {max_samples} samples")
+
+    # Shuffle before splitting. The JSONL arrives in ingestion order, so a raw
+    # tail slice would make the validation set consist only of the last documents
+    # ingested (one doc_type, one date range) rather than a representative sample.
+    # Fixed seed keeps the split reproducible across runs.
+    records = list(records)
+    random.Random(42).shuffle(records)
 
     split_idx = int(len(records) * 0.95)
     train_records = records[:split_idx]

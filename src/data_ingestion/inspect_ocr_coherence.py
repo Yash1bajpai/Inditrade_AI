@@ -26,7 +26,8 @@ def check_coherence(ans: str) -> list:
     return reasons
 
 def run_inspection():
-    qa = [json.loads(l) for l in open("data/processed/policy_qa_dataset.jsonl", encoding="utf-8") if l.strip()]
+    with open("data/processed/policy_qa_dataset.jsonl", encoding="utf-8") as f:
+        qa = [json.loads(l) for l in f if l.strip()]
     ocr = [r for r in qa if r.get("doc_type") == "DGFT_OCR"]
     print(f"Total DGFT_OCR entries: {len(ocr)}")
 

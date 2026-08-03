@@ -39,7 +39,7 @@ def fetch_and_verify_all(start_date="2005-01-01", end_date=None):
         print(f"[*] Fetching {name:<14} ({ticker})...", end=" ", flush=True)
         try:
 
-            df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+            df = yf.download(ticker, start=start_date, end=end_date, progress=False, timeout=30)
 
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)

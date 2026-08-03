@@ -87,3 +87,6 @@ models/llm_output/
 # Personal Agent Tools
 src/utils/*graph*.py
 graph_summary.txt
+
+# Local scratch copies of reference docs (e.g. ref_readme.md.bak)
+*.bak
