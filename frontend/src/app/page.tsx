@@ -510,20 +510,14 @@ export default function Dashboard() {
       {isSidebarOpen && <div className={styles.overlay} onClick={() => setIsSidebarOpen(false)} />}
 
       <div className={styles.mainWrapper}>
-        <header className={styles.topHeader}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button className={styles.menuToggle} onClick={() => setIsSidebarOpen(true)} aria-label="Open menu">
-              <Menu size={24} color={MINTED_BRASS} />
-            </button>
-            <div className={styles.headerTitle}>Global Trade Intelligence</div>
-          </div>
-          <div className={styles.headerControls}>
-             <div className={styles.subtleRing} style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: MINTED_BRASS }}></div>
-              System Online
+        <header className={styles.header}>
+            <div className={styles.logoContainer}>
+              <Menu className={styles.hamburger} size={24} color={FADED_INK} onClick={() => setIsSidebarOpen(true)} />
+              <div className={styles.logo}>
+                <h1>Global Trade Intelligence</h1>
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
         <main className={styles.mainContent}>
           <AnimatePresence>
@@ -790,13 +784,7 @@ export default function Dashboard() {
                                         e.stopPropagation();
                                         let geoCode = parseInt(geo.id).toString();
                                         if (geoCode === "840") geoCode = "842"; // USA Comtrade override
-                                        const partner = partnerList.find(p => p.code === geoCode);
-                                        if (partner) {
-                                          setSelectedCountry({ name: geo.properties.name, code: geoCode });
-                                        } else {
-                                          setSelectedCountry({ name: geo.properties.name, code: "" });
-                                        }
-
+                                        setSelectedCountry({ name: geo.properties.name, code: geoCode });
                                       }}
                                       style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
                                     />
@@ -853,8 +841,31 @@ export default function Dashboard() {
                       </>
                     )}
                   </div>
-</div>
-          </motion.section>
+                </div>
+                {/* Data Sources (Only shown in Trade Network) */}
+                <div className={styles.dataSourcesContainer} style={{ marginTop: '2rem', background: 'transparent' }}>
+                  <p className={styles.sourceTag} style={{ fontSize: '0.7rem' }}>TRANSPARENT SOURCING</p>
+                  <h2 className={styles.sourceTitle} style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Data Sources</h2>
+                  <p className={styles.sourceSubtitle} style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>Every prediction and response is grounded in empirical global trade volumes and official Indian trade policies.</p>
+                  
+                  <div className={styles.sourceGrid}>
+                    <div className={styles.sourceCard} style={{ padding: '1rem' }}>
+                      <div className={styles.sourceIcon} style={{ background: '#1e3a8a', width: '30px', height: '30px', fontSize: '0.8rem' }}>UN</div>
+                      <div>
+                        <h4 style={{ fontSize: '0.9rem' }}>UN Comtrade</h4>
+                        <p style={{ fontSize: '0.75rem' }}>Global trade physical volumes, import/export network flows, and historical anomaly data.</p>
+                      </div>
+                    </div>
+                    <div className={styles.sourceCard} style={{ padding: '1rem' }}>
+                      <div className={styles.sourceIcon} style={{ background: '#047857', width: '30px', height: '30px', fontSize: '0.8rem' }}>IN</div>
+                      <div>
+                        <h4 style={{ fontSize: '0.9rem' }}>DGFT (India)</h4>
+                        <p style={{ fontSize: '0.75rem' }}>Directorate General of Foreign Trade official policies, tariff notices, and regulations.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.section>
               )}
             </div>
       </motion.div>
@@ -870,29 +881,6 @@ export default function Dashboard() {
       </AnimatePresence>
         {/* Data Sources & Footer */}
         <div className={styles.footerSection}>
-          <div className={styles.dataSourcesContainer}>
-            <p className={styles.sourceTag}>TRANSPARENT SOURCING</p>
-            <h2 className={styles.sourceTitle}>Data Sources</h2>
-            <p className={styles.sourceSubtitle}>Every prediction and response is grounded in empirical global trade volumes and official Indian trade policies.</p>
-            
-            <div className={styles.sourceGrid}>
-              <div className={styles.sourceCard}>
-                <div className={styles.sourceIcon} style={{ background: '#1e3a8a' }}>UN</div>
-                <div>
-                  <h4>UN Comtrade</h4>
-                  <p>Global trade physical volumes, import/export network flows, and historical anomaly data.</p>
-                </div>
-              </div>
-              <div className={styles.sourceCard}>
-                <div className={styles.sourceIcon} style={{ background: '#047857' }}>IN</div>
-                <div>
-                  <h4>DGFT (India)</h4>
-                  <p>Directorate General of Foreign Trade official policies, tariff notices, and regulations.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className={styles.footer}>
             <div className={styles.footerLeft}>
               <h3>Vanijya AI</h3>
