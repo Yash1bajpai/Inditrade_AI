@@ -79,8 +79,6 @@ def load_network_data():
 
                 if country in vol_map:
                     vol = float(vol_map[country])
-                elif 'trade_value_usd' in row and not pd.isna(row['trade_value_usd']):
-                    vol = float(row['trade_value_usd'])
                 else:
                     vol = None
 
