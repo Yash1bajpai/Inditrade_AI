@@ -124,11 +124,52 @@ def get_latest_trade_value(partner_code: str, commodity_code: str) -> float:
         logger.warning(f"get_latest_trade_value({partner_code}, {commodity_code}) failed: {e}")
         return 0.0
 
+ALIAS_MAP = {
+    "united states of america": "842",
+    "united states": "842",
+    "usa": "842",
+    "us": "842",
+    "840": "842",
+    "russian federation": "643",
+    "russia": "643",
+    "united arab emirates": "784",
+    "uae": "784",
+    "u.a.e.": "784",
+    "united kingdom": "826",
+    "uk": "826",
+    "u.k.": "826",
+    "great britain": "826",
+    "south korea": "410",
+    "korea, republic of": "410",
+    "republic of korea": "410",
+    "korea": "410",
+    "hong kong": "344",
+    "hong kong sar": "344",
+    "china": "156",
+    "germany": "276",
+    "australia": "36",
+    "belgium": "56",
+    "indonesia": "360",
+    "iraq": "368",
+    "japan": "392",
+    "malaysia": "458",
+    "netherlands": "528",
+    "saudi arabia": "682",
+    "singapore": "702",
+    "vietnam": "704",
+}
+
 def resolve_partner_code(code: str) -> str:
-    c = str(code).split('.')[0]
+    raw = str(code).strip()
+    c = raw.split('.')[0]
+    if c in ALIAS_MAP:
+        return ALIAS_MAP[c]
+    raw_lower = raw.lower()
+    if raw_lower in ALIAS_MAP:
+        return ALIAS_MAP[raw_lower]
     if not c.isdigit():
         rev_map = {v.lower(): k for k, v in PARTNER_MAP.items()}
-        c = rev_map.get(str(code).lower(), c)
+        c = rev_map.get(raw_lower, c)
     return c
 
 @router.get("/partner_signature")
@@ -245,23 +286,20 @@ async def get_country_series(partner_code: str):
         if df.empty:
             return {"yearly": [], "top_commodities": []}
             
-        flow_col = next((c for c in df.columns if c.lower() in ['flowcode', 'tradeflow', 'flow'] or set(df[c].dropna().unique()).issubset({'M','X','Import','Export'})), None)
+        flow_col = next((c for c in df.columns if c.lower() in ['flowcode', 'tradeflow', 'flow']), None)
         
-        yearly = df.groupby("period").apply(
-            lambda x: pd.Series({
-                "value_billions": float(x["primaryValue"].sum()/1e9),
-                "import_billions": float(x[x[flow_col].isin(['M', 'Import'])]['primaryValue'].sum()/1e9) if flow_col else None,
-                "export_billions": float(x[x[flow_col].isin(['X', 'Export'])]['primaryValue'].sum()/1e9) if flow_col else None
-            })
-        ).reset_index().sort_values(by="period")
-        
-        yearly_res = []
-        for _, r in yearly.iterrows():
-            item = {"year": str(int(r["period"])), "value_billions": r["value_billions"]}
-            if flow_col and pd.notna(r["import_billions"]):
-                item["import_billions"] = r["import_billions"]
-                item["export_billions"] = r["export_billions"]
-            yearly_res.append(item)
+        yearly_rows = []
+        for period, group in df.groupby("period"):
+            tot_val = float(group["primaryValue"].sum() / 1e9)
+            item = {"year": str(int(period)), "value_billions": tot_val}
+            if flow_col:
+                imp_mask = group[flow_col].isin(['M', 'Import'])
+                exp_mask = group[flow_col].isin(['X', 'Export'])
+                item["import_billions"] = float(group[imp_mask]["primaryValue"].sum() / 1e9)
+                item["export_billions"] = float(group[exp_mask]["primaryValue"].sum() / 1e9)
+            yearly_rows.append(item)
+            
+        yearly_res = sorted(yearly_rows, key=lambda x: int(x["year"]))
             
         top = df.groupby("cStr")["primaryValue"].sum().reset_index().sort_values(by="primaryValue", ascending=False).head(5)
         top_cmds = [{"code": r["cStr"], "name": CMD_MAP.get(r["cStr"], r["cStr"]), "value_billions": float(r["primaryValue"]/1e9)} for _, r in top.iterrows()]

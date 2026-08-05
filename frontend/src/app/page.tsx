@@ -163,7 +163,8 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
   const [domains, setDomains] = useState<{code: string, name: string, value_billions: number}[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    if (!originalCountry) {
+    const queryCode = originalCountry && originalCountry !== "NaN" ? originalCountry : country;
+    if (!queryCode) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setHistoryData([]);
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -173,15 +174,24 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
       return;
     }
     setLoading(true);
-    fetch(`${API_BASE}/forecast/country_series?partner_code=${encodeURIComponent(originalCountry)}`)
+    fetch(`${API_BASE}/forecast/country_series?partner_code=${encodeURIComponent(queryCode)}`)
       .then(res => { if (!res.ok) throw new Error("API failed"); return res.json(); })
       .then(data => { 
+        if ((!data.yearly || data.yearly.length === 0) && country && country !== queryCode) {
+          return fetch(`${API_BASE}/forecast/country_series?partner_code=${encodeURIComponent(country)}`)
+            .then(r => r.json())
+            .then(d2 => {
+              setHistoryData(d2.yearly || []);
+              setDomains(d2.top_commodities || []);
+              setLoading(false);
+            });
+        }
         setHistoryData(data.yearly || []); 
         setDomains(data.top_commodities || []);
         setLoading(false); 
       })
       .catch(err => { console.error(err); setLoading(false); });
-  }, [originalCountry]);
+  }, [country, originalCountry]);
   return (
     <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
       <motion.div
@@ -194,7 +204,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
           <div>
             <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>{country} - Historical Trade</h3>
-            <span style={{ fontSize: '0.75rem', color: FADED_INK, border: `1px solid rgba(255,255,255,0.1)`, padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' }}>Yearly 2015-2024 · monthly view coming next update</span>
+            <span style={{ fontSize: '0.75rem', color: FADED_INK, border: `1px solid rgba(255,255,255,0.1)`, padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' }}>Yearly 2015-2024 · bilateral analytics</span>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={20}/></button>
         </div>
@@ -202,8 +212,9 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: FADED_INK }}>Loading history...</div>
           ) : historyData.length === 0 ? (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: FADED_INK }}>
-              {!originalCountry ? "No bilateral trade data for this country." : "No historical trade data available."}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', color: FADED_INK, textAlign: 'center', padding: '0 1rem' }}>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: '#e0e0e0' }}>No detailed 10-year trade series recorded for {country}.</p>
+              <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: FADED_INK }}>Full bilateral time-series analytics are tracked for India&apos;s primary top 18 trading partners (e.g., USA, China, UAE, Russia, Germany, UK, Japan, Saudi Arabia, etc.).</p>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
