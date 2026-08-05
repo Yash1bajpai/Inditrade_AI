@@ -522,10 +522,10 @@ export default function Dashboard() {
 
       <div className={styles.mainWrapper}>
         <header className={styles.header}>
-            <div className={styles.logoContainer}>
-              <Menu className={styles.hamburger} size={24} color={FADED_INK} onClick={() => setIsSidebarOpen(true)} />
+            <div className={styles.logoContainer} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <Menu className={styles.hamburger} size={24} color={FADED_INK} onClick={() => setIsSidebarOpen(true)} style={{ cursor: 'pointer', flexShrink: 0 }} />
               <div className={styles.logo}>
-                <h1>Global Trade Intelligence</h1>
+                <h1 style={{ margin: 0 }}>Global Trade Intelligence</h1>
               </div>
             </div>
           </header>

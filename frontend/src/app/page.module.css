@@ -169,6 +169,22 @@
   align-items: center;
 }
 
+.logoContainer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hamburger {
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+
+.hamburger:hover {
+  opacity: 0.8;
+}
+
 .title {
   font-size: 2rem;
   font-weight: 600;
