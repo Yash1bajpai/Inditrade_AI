@@ -91,6 +91,7 @@ const drawCurve = (startCoords: [number, number], endCoords: [number, number], c
 
 const formatMoney = (value: number | undefined | null) => {
   if (value === null || value === undefined || isNaN(value)) return "N/A";
+  if (value >= 1000) return `$${(value / 1000).toFixed(2)}T ($${value.toFixed(1)}B)`;
   if (value >= 1) return `$${value.toFixed(2)}B`;
   if (value > 0 && value < 1) return `$${Math.round(value * 1000)}M`;
   if (value === 0) return "$0";
@@ -790,12 +791,28 @@ export default function Dashboard() {
                               {({ geographies }) =>
                                 geographies.map((geo) => {
                                   const geoCode = parseInt(geo.id).toString();
+                                  const targetCode = geoCode === "840" ? "842" : geoCode;
                                   const isTop18 = TOP_18_CODES.has(geoCode) || TOP_18_CODES.has(geo.id) || TOP_18_NAMES.has(geo.properties.name);
-                                  const nodeData = isTop18 ? networkData.find(d => d.country_name === geo.properties.name || TOP_18_NAMES.has(d.country_name)) : null;
-                                  const val = (isTop18 && nodeData?.trade_volume) ? nodeData.val : null;
+                                  
+                                  const nodeData = isTop18 ? networkData.find(d => {
+                                    const nodeIdCode = d.id ? d.id.replace('P_', '') : '';
+                                    return (
+                                      nodeIdCode === targetCode ||
+                                      d.country_name === geo.properties.name ||
+                                      d.original_country === geo.properties.name ||
+                                      (targetCode === '842' && (d.original_country === 'USA' || d.country_name === 'United States of America')) ||
+                                      (targetCode === '643' && (d.original_country === 'Russian Federation' || d.country_name === 'Russia')) ||
+                                      (targetCode === '784' && (d.original_country === 'United Arab Emirates' || d.country_name === 'United Arab Emirates')) ||
+                                      (targetCode === '826' && (d.original_country === 'United Kingdom' || d.country_name === 'United Kingdom'))
+                                    );
+                                  }) : null;
+
+                                  const actualBillions = nodeData?.trade_volume_billions ?? (nodeData?.trade_volume ? nodeData.trade_volume / 1e9 : null);
+                                  const intensity = nodeData?.val ?? (actualBillions ? Math.max(0.25, Math.min(1.0, 0.25 + 0.75 * ((actualBillions - 150) / 1150))) : null);
+                                  
                                   let color = '#2C303A';
-                                  if (val) {
-                                    color = `rgba(200, 169, 126, ${Math.max(0.35, val / 100)})`;
+                                  if (isTop18 && actualBillions && intensity) {
+                                    color = `rgba(200, 169, 126, ${intensity.toFixed(2)})`;
                                   }
                                   const isSelected = selectedCountry?.name === geo.properties.name;
                                   return (
@@ -803,15 +820,13 @@ export default function Dashboard() {
                                       key={geo.rsmKey}
                                       geography={geo}
                                       data-tooltip-id="map-tooltip"
-                                      data-tooltip-content={`${geo.properties.name}: ${val ? formatMoney(val) : 'N/A'}`}
+                                      data-tooltip-content={`${geo.properties.name}: ${actualBillions ? formatMoney(actualBillions) : 'N/A (No 10Y Series)'}`}
                                       fill={isSelected ? MINTED_BRASS : color}
                                       stroke={NIGHT_SLATE}
                                       strokeWidth={0.5}
                                       onClick={(e) => { 
                                         e.stopPropagation();
-                                        let codeToUse = geoCode;
-                                        if (codeToUse === "840") codeToUse = "842"; // USA Comtrade override
-                                        setSelectedCountry({ name: geo.properties.name, code: codeToUse });
+                                        setSelectedCountry({ name: geo.properties.name, code: targetCode });
                                       }}
                                       style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
                                     />

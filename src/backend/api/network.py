@@ -71,6 +71,10 @@ def load_network_data():
                 "Hong Kong": "Hong Kong"
             }
 
+            vols = [v for v in vol_map.values() if v is not None and v > 0]
+            min_vol = min(vols) if vols else 150e9
+            max_vol = max(vols) if vols else 1300e9
+
             nodes = []
             for _, row in df.iterrows():
                 country = str(row.get('node_desc', 'Unknown'))
@@ -85,14 +89,18 @@ def load_network_data():
                 x_val = float(row['x']) if not pd.isna(row['x']) else None
                 y_val = float(row['y']) if not pd.isna(row['y']) else None
                 
+                vol_billions = (vol / 1e9) if vol is not None else None
+                val_intensity = (0.25 + 0.75 * ((vol - min_vol) / (max_vol - min_vol))) if (vol is not None and max_vol > min_vol) else None
+
                 nodes.append({
                     "id": str(row.get('node_id', country)),
                     "country_name": mapped_country,
                     "original_country": country,
                     "trade_volume": vol,
+                    "trade_volume_billions": vol_billions,
                     "x": x_val,
                     "y": y_val,
-                    "val": max(10, min(100, vol / 1000000000)) if vol is not None else None
+                    "val": val_intensity
                 })
 
             network_data = nodes
