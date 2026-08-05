@@ -744,41 +744,83 @@
   margin-top: 2rem;
 }
 
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 6px;
+}
+
+.chatInput {
+  font-size: 16px !important; /* Prevents iOS auto-zoom */
+  min-height: 44px;
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--card);
+  color: var(--foreground);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+
+.chatInput:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(200, 169, 126, 0.25);
+}
+
 /* Responsive Mobile Media Queries */
 @media (max-width: 768px) {
+  .mainContent {
+    padding: 1rem 0.75rem !important;
+  }
   .container {
-    padding: 1rem;
+    padding: 0.5rem;
     grid-template-columns: 1fr;
   }
   .grid {
     grid-template-columns: 1fr;
+    gap: 1.25rem;
   }
   .forecastGrid, .mapGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem;
+  }
+  .kpiRow {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
   }
   .header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem !important;
+    gap: 0.5rem;
   }
   .inputGrid {
     grid-template-columns: 1fr;
   }
-  /* .sidebar drawer styles apply to all screen sizes now */
   .fab {
     bottom: 1rem;
     right: 1rem;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 1.25rem;
     font-size: 0.9rem;
+    min-height: 48px;
+    touch-action: manipulation;
   }
   .metricValue {
     font-size: clamp(1.5rem, 5vw, 2.5rem);
   }
   .title {
-    font-size: clamp(1.5rem, 5vw, 2rem);
+    font-size: clamp(1.4rem, 5vw, 2rem);
   }
   .section {
-    padding: clamp(1rem, 3vw, 2rem);
+    padding: 1rem !important;
+    border-radius: 8px;
+  }
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.75rem;
   }
   .featureBarContainer {
     display: flex;
@@ -786,9 +828,12 @@
   }
 }
 
-@media (max-width: 375px) {
+@media (max-width: 480px) {
+  .headerTitle {
+    font-size: 0.95rem;
+  }
   .metricValue {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
   }
 }
 

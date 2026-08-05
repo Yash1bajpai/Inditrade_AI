@@ -573,9 +573,16 @@ export default function Dashboard() {
                   <input type="number" value={crudePrice} onChange={(e) => setCrudePrice(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
                 </div>
                 <div className={styles.kpiCard} style={{ justifyContent: 'flex-end', background: 'transparent', border: 'none' }}>
-                  <button onClick={handlePredict} disabled={isPredicting} className={styles.chatButton} style={{ width: '100%', padding: '1rem', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.1rem', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                  <motion.button 
+                    whileHover={{ scale: 1.02, boxShadow: '0 8px 20px rgba(200, 169, 126, 0.4)' }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handlePredict} 
+                    disabled={isPredicting} 
+                    className={styles.chatButton} 
+                    style={{ width: '100%', padding: '0.85rem 1rem', minHeight: '48px', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.05rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s ease', boxShadow: '0 4px 12px rgba(200, 169, 126, 0.25)', touchAction: 'manipulation' }}
+                  >
                     {isPredicting ? 'Running AI Model...' : 'Generate AI Forecast'}
-                  </button>
+                  </motion.button>
                 </div>
               </div>
             )}
