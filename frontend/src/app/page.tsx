@@ -120,6 +120,7 @@ export interface NetworkNode {
   country_name: string;
   original_country: string;
   trade_volume: number;
+  trade_volume_billions?: number;
   x: number;
   y: number;
   val: number;
