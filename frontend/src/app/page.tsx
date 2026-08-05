@@ -67,6 +67,13 @@ const COUNTRY_COORDS: Record<string, [number, number]> = {
   '826': [-3.4359, 55.3781], // UK
   '842': [-95.7129, 37.0902], // USA
 };
+const TOP_18_CODES = new Set(['36', '56', '156', '276', '344', '360', '368', '392', '410', '458', '528', '643', '682', '702', '704', '784', '826', '842', '840']);
+const TOP_18_NAMES = new Set([
+  'Australia', 'Belgium', 'China', 'Germany', 'Hong Kong', 'Indonesia', 'Iraq', 'Japan',
+  'South Korea', 'Malaysia', 'Netherlands', 'Russia', 'Russian Federation', 'Saudi Arabia',
+  'Singapore', 'Vietnam', 'United Arab Emirates', 'UAE', 'United Kingdom', 'UK',
+  'United States of America', 'United States', 'USA'
+]);
 const INDIA_COORDS: [number, number] = [78.9629, 20.5937];
 
 const drawCurve = (startCoords: [number, number], endCoords: [number, number], curvature: number = 0.2) => {
@@ -775,11 +782,13 @@ export default function Dashboard() {
                             <Geographies geography={geoUrl}>
                               {({ geographies }) =>
                                 geographies.map((geo) => {
-                                  const nodeData = networkData.find(d => d.country_name === geo.properties.name);
-                                  const val = nodeData?.val;
+                                  const geoCode = parseInt(geo.id).toString();
+                                  const isTop18 = TOP_18_CODES.has(geoCode) || TOP_18_CODES.has(geo.id) || TOP_18_NAMES.has(geo.properties.name);
+                                  const nodeData = isTop18 ? networkData.find(d => d.country_name === geo.properties.name || TOP_18_NAMES.has(d.country_name)) : null;
+                                  const val = (isTop18 && nodeData?.trade_volume) ? nodeData.val : null;
                                   let color = '#2C303A';
                                   if (val) {
-                                    color = `rgba(200, 169, 126, ${val / 100})`;
+                                    color = `rgba(200, 169, 126, ${Math.max(0.35, val / 100)})`;
                                   }
                                   const isSelected = selectedCountry?.name === geo.properties.name;
                                   return (
@@ -793,9 +802,9 @@ export default function Dashboard() {
                                       strokeWidth={0.5}
                                       onClick={(e) => { 
                                         e.stopPropagation();
-                                        let geoCode = parseInt(geo.id).toString();
-                                        if (geoCode === "840") geoCode = "842"; // USA Comtrade override
-                                        setSelectedCountry({ name: geo.properties.name, code: geoCode });
+                                        let codeToUse = geoCode;
+                                        if (codeToUse === "840") codeToUse = "842"; // USA Comtrade override
+                                        setSelectedCountry({ name: geo.properties.name, code: codeToUse });
                                       }}
                                       style={{ hover: { fill: MINTED_BRASS, outline: 'none', cursor: 'pointer' }, pressed: { outline: 'none' }, default: { outline: 'none' } }}
                                     />
