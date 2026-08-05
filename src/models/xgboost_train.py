@@ -76,6 +76,15 @@ def load_and_preprocess_data(data_path, sample_size=None):
     print(f"[OK] Features included ({len(feature_cols)} total): {feature_cols[:8]} ... plus {len(feature_cols)-8} more")
     return X, y_log, y_raw, feature_cols, df_clean
 
+def get_device_setting():
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return 'cuda'
+    except ImportError:
+        pass
+    return 'cpu'
+
 def objective(trial, X, y):
     """Optuna objective function using TimeSeriesSplit(5)."""
     tscv = TimeSeriesSplit(n_splits=5)
@@ -91,7 +100,7 @@ def objective(trial, X, y):
         'random_state': 42,
         'n_jobs': -1,
         'tree_method': 'hist',
-        'device': 'cuda'
+        'device': get_device_setting()
     }
 
     scores = []
@@ -136,7 +145,7 @@ def main():
     best_params['random_state'] = 42
     best_params['n_jobs'] = -1
     best_params['tree_method'] = 'hist'
-    best_params['device'] = 'cuda'
+    best_params['device'] = get_device_setting()
 
     print(f"\n[SUCCESS] Optuna Optimization Complete!")
     print(f"[BEST CV LOG-RMSE] : {study.best_value:.4f}")

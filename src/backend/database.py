@@ -14,6 +14,18 @@ class MockSupabase:
     def table(self, table_name):
         return self
 
+    def insert(self, data):
+        return self
+
+    def select(self, *args, **kwargs):
+        return self
+
+    def eq(self, *args, **kwargs):
+        return self
+
+    def execute(self):
+        return {"data": [], "error": None}
+
 import json
 
 class MockQdrantRetriever:
@@ -47,14 +59,16 @@ class MockQdrantRetriever:
         scored_docs.sort(key=lambda x: x[0], reverse=True)
         
         class DummyHit:
-            def __init__(self, doc):
+            def __init__(self, doc, score_val, idx):
+                self.id = idx
+                self.score = float(score_val)
                 self.payload = {
                     "text": f"Q: {doc.get('question', '')}\nA: {doc.get('answer', '')}",
                     "title": "Local QA Dataset",
                     "doc_type": "FAQ"
                 }
         
-        return [DummyHit(doc) for score, doc in scored_docs[:limit]]
+        return [DummyHit(doc, score, idx) for idx, (score, doc) in enumerate(scored_docs[:limit])]
 
 def init_supabase():
     supabase_url = os.getenv("SUPABASE_URL", "")

@@ -46,8 +46,7 @@ class PolicyReranker:
             return []
 
         if self.cross_encoder is not None:
-
-            pairs = [[query, doc["full_text"][:1000]] for doc in candidates]
+            pairs = [[query, (doc.get("full_text") or doc.get("text") or "")[:1000]] for doc in candidates]
             scores = self.cross_encoder.predict(pairs)
 
             for idx, score in enumerate(scores):
@@ -56,10 +55,10 @@ class PolicyReranker:
 
             reranked = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)[:top_k]
         else:
-
             query_terms = set(query.lower().split())
             for doc in candidates:
-                text_lower = doc["full_text"].lower()
+                raw_text = doc.get("full_text") or doc.get("text") or ""
+                text_lower = raw_text.lower()
                 overlap = sum(1 for t in query_terms if t in text_lower)
 
                 title_boost = 2.0 if any(t in doc.get("title", "").lower() for t in query_terms) else 0.0

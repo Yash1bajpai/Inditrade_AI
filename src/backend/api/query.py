@@ -67,6 +67,8 @@ async def query_policy(req: QueryRequest, request: Request):
             
             emb_response = await asyncio.to_thread(fetch_embeddings)
             query_vector = emb_response.json() if emb_response.status_code == 200 else [0.0]*384
+            while isinstance(query_vector, list) and len(query_vector) > 0 and isinstance(query_vector[0], list):
+                query_vector = query_vector[0]
 
             if emb_response.status_code == 200:
                 def qdrant_search():
