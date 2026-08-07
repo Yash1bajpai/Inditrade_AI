@@ -3,8 +3,7 @@
 
 # 📈 Vanijya AI | Global Trade Intelligence Engine
 
-**🌍 Live Dashboard:** [https://inditrade-ai.vercel.app/](https://inditrade-ai.vercel.app/)  
-**⚡ Live Backend API:** [https://inditrade-backend.onrender.com/health](https://inditrade-backend.onrender.com/health)
+**🌍 Live Site:** [https://inditrade-ai.vercel.app/](https://inditrade-ai.vercel.app/)
 
 [![Vanijya AI Dashboard Preview](docs/assets/dashboard_preview.png)](https://inditrade-ai.vercel.app/)
 
