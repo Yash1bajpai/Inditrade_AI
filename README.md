@@ -3,7 +3,10 @@
 
 # 📈 Vanijya AI | Global Trade Intelligence Engine
 
-**🌍 Live Dashboard:** [https://inditrade-ai.vercel.app/](https://inditrade-ai.vercel.app/)
+**🌍 Live Dashboard:** [https://inditrade-ai.vercel.app/](https://inditrade-ai.vercel.app/)  
+**⚡ Live Backend API:** [https://inditrade-backend.onrender.com/health](https://inditrade-backend.onrender.com/health)
+
+[![Vanijya AI Dashboard Preview](docs/assets/dashboard_preview.png)](https://inditrade-ai.vercel.app/)
 
 An end-to-end, full-stack macroeconomic forecasting and intelligence system designed to predict and analyze global bilateral trade flows for India across its major trade partners.
 
