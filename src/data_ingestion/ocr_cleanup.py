@@ -59,9 +59,15 @@ def run_ocr_cleanup(jsonl_path: str = "data/processed/dgft_ocr_chunks.jsonl"):
         except Exception as e:
             print(f"  [WARNING] Could not parse chunk line: {e}")
 
-    with open(jsonl_path, "w", encoding="utf-8") as out_f:
+    # Use atomic write: write to temp file then replace to prevent data loss on crash
+    import tempfile
+    tmp_path = jsonl_path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as out_f:
         for c in cleaned_chunks:
             out_f.write(json.dumps(c, ensure_ascii=True) + "\n")
+        out_f.flush()
+        os.fsync(out_f.fileno())
+    os.replace(tmp_path, jsonl_path)
 
     print(f"  ✅ Successfully cleaned and updated {len(cleaned_chunks)} OCR chunks!")
     print(f"  ✅ Total garbled/non-ASCII characters stripped across corpus: {chars_removed_total:,}")

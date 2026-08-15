@@ -95,6 +95,11 @@ def load_and_aggregate_macro(forex_dir: str = "data/raw/forex_macro") -> pd.Data
         yearly_dfs.append(agg_df)
         print(f"  ✅ Aggregated `{asset_name:<15}` -> {len(agg_df)} years (Columns: {[c for c in agg_df.columns if c != 'period']})")
 
+    if not yearly_dfs:
+        raise ValueError(
+            f"No valid macro CSV files found in {forex_dir} after QC filtering. "
+            "Cannot build feature matrix."
+        )
     df_macro_yearly = yearly_dfs[0]
     for nxt_df in yearly_dfs[1:]:
         df_macro_yearly = pd.merge(df_macro_yearly, nxt_df, on="period", how="outer")

@@ -12,11 +12,9 @@ Features:
 import os
 import re
 import requests
-import sqlite3
 import time
 import pandas as pd
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.utils.scraping_utils import fetch_table_rows, fetch_page_soup

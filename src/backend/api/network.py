@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 import logging
 import os
 
@@ -158,5 +158,5 @@ async def get_country_history(country: str):
         return {"history": history, "latest_year": int(latest_year), "domains": domains}
     except Exception as e:
         logger.error(f"Failed to fetch history for {country}: {e}")
-        return {"error": str(e), "history": []}
+        raise HTTPException(status_code=500, detail="Failed to retrieve country trade history.")
 

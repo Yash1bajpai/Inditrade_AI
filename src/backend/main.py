@@ -43,7 +43,7 @@ def health_check():
         status = "degraded"
         details.append("Trade features data missing")
         
-    if not os.path.exists("models/xgboost_trade_forecast.joblib"):
+    if not os.path.exists("models/xgboost_trade_forecast.pkl"):
         status = "degraded"
         details.append("Forecast model missing")
         

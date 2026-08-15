@@ -9,10 +9,8 @@ IndiTrade AI - DGFT Master Scraper, PDF Downloader & Text Chunk Processor
 import os
 import re
 import requests
-import sqlite3
 from urllib.parse import urljoin
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.utils.scraping_utils import fetch_table_rows
@@ -252,11 +250,16 @@ def process_pdfs_to_chunks(df_master):
                 if processed_count % 50 == 0:
                     print(f"[*] Processed {processed_count} PDF chunks...")
         except Exception as e:
-            pass
+            print(f"[ERROR] Failed to process PDF {path}: {e}")
 
-    with open(OUTPUT_JSONL, "w", encoding="utf-8") as f:
+    # Use atomic write: write to temp file then replace to prevent data loss on crash
+    tmp_path = OUTPUT_JSONL + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
         for chunk in chunks:
             f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, OUTPUT_JSONL)
 
     print(f"\n[PROCESSING COMPLETE] Total Clean Policy Chunks Created: {len(chunks)}")
     print(f"Saved Output JSONL: {OUTPUT_JSONL}")

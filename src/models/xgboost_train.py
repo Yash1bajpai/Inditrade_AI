@@ -13,7 +13,7 @@ import argparse
 import joblib
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import xgboost as xgb
@@ -198,7 +198,7 @@ def main():
     meta_path = os.path.join(args.output_dir, "xgboost_trade_forecast_meta.json")
     meta_data = {
         "model_name": "XGBoost Bilateral Trade Flow Forecast (Module A)",
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "holdout_split_year": 2022,
         "n_samples_total": int(len(X)),
         "n_samples_train_le2021": int(len(X_train)),

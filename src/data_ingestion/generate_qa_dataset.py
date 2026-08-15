@@ -218,7 +218,7 @@ def main():
                         existing_qa_count += 1
                         if "source_ref_id" in row:
                             processed_ref_ids.add(str(row["source_ref_id"]))
-                    except:
+                    except (json.JSONDecodeError, KeyError):
                         pass
         if existing_qa_count > 0:
             logger.info(f"Output file {args.output_path} already has {existing_qa_count} Q&A pairs across {len(processed_ref_ids)} unique documents. Resuming clean generation...")
