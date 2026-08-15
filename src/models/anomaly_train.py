@@ -28,7 +28,6 @@ def load_anomaly_features(data_path):
         'value_vs_3y_mean',
         'wgt_vs_3y_mean',
         'unit_value',
-        'usdinr_yoy_pct',
         'brent_crude_yoy_pct',
         'policy_event_flag'
     ]

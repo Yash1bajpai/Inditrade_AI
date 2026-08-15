@@ -89,9 +89,11 @@ async def detect_anomaly(req: AnomalyRequest):
             "is_anomaly": is_anomaly,
             "status": "success"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Anomaly detection error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred during anomaly detection.")
 
 @router.get("/historical")
 async def get_historical_anomalies():
@@ -162,7 +164,9 @@ async def get_historical_anomalies():
         chart_data = sorted(data, key=lambda x: str(x.get("date", "")))
         
         return {"chart_data": chart_data, "table_data": table_data}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching historical anomalies: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred while fetching anomaly history.")
 

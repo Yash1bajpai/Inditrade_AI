@@ -47,7 +47,7 @@ def test_cloud_hf_inference(model_id: str, hf_token: str):
 
     for idx, q in enumerate(TEST_QUESTIONS, 1):
         print(f"\n[Q{idx}] {q}")
-        prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant for IndiTrade AI. Answer accurately.\n\n### Question:\n{q}\n\n### Answer:\n"
+        prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant for IndiTrade AI. Answer the following policy question strictly based on the provided trade context, citing relevant HS codes, notification numbers, and regulatory conditions accurately.\n\n### Context:\n\n\n### Question:\n{q}\n\n### Answer:\n"
 
         payload = json.dumps({
             "inputs": prompt,
@@ -112,10 +112,10 @@ def test_local_lora_checkpoint(lora_path: str, base_model: str):
 
     for idx, q in enumerate(TEST_QUESTIONS, 1):
         print(f"\n[Q{idx}] {q}")
-        prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant for IndiTrade AI. Answer accurately.\n\n### Question:\n{q}\n\n### Answer:\n"
+        prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant for IndiTrade AI. Answer the following policy question strictly based on the provided trade context, citing relevant HS codes, notification numbers, and regulatory conditions accurately.\n\n### Context:\n\n\n### Question:\n{q}\n\n### Answer:\n"
         inputs = tokenizer([prompt], return_tensors="pt").to("cuda" if torch.cuda.is_available() else "cpu")
         with torch.no_grad():
-            outputs = model.generate(**inputs, max_new_tokens=200, temperature=0.2, top_p=0.9, use_cache=True)
+            outputs = model.generate(**inputs, max_new_tokens=200, do_sample=True, temperature=0.2, top_p=0.9, use_cache=True)
         gen_text = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
         print(f"[ANSWER] -> {gen_text}")
 

@@ -248,9 +248,14 @@ def main():
     if not articles or len(articles) == 0:
         articles = generate_loudly_logged_fallback()
 
-    with open(OUTPUT_JSONL, "w", encoding="utf-8") as f:
+    # Use atomic write: write to temp file then replace to prevent data loss on crash
+    tmp_path = OUTPUT_JSONL + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
         for item in articles:
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, OUTPUT_JSONL)
 
     print(f"\n[SCRAPING & PROCESSING COMPLETE] Total Articles Saved: {len(articles)}")
     print(f"Saved Output JSONL: {OUTPUT_JSONL}")

@@ -9,7 +9,9 @@ try:
     from huggingface_hub import HfApi
 except ImportError:
     print("Installing required packages (torch, transformers, peft)...")
-    os.system(f"{sys.executable} -m pip install -q torch transformers peft huggingface_hub")
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q",
+                           "torch", "transformers", "peft", "huggingface_hub"])
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from peft import PeftModel

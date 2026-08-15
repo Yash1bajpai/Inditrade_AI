@@ -403,6 +403,8 @@ async def get_forecast(req: ForecastRequest):
             "metrics": xgboost_model.get("meta", {}).get("metrics", {}),
             "status": "success"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Prediction error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred while generating the forecast.")

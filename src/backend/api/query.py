@@ -37,6 +37,13 @@ async def query_policy(req: QueryRequest, request: Request):
     current_time = time.time()
     
     # Rate Limiting Logic
+    # Evict stale IP entries to prevent unbounded memory growth
+    STALE_THRESHOLD = RATE_LIMIT_WINDOW * 5  # 5 minutes
+    stale_ips = [ip for ip, ts_list in ip_requests.items()
+                 if not ts_list or current_time - ts_list[-1] > STALE_THRESHOLD]
+    for ip in stale_ips:
+        del ip_requests[ip]
+
     if client_ip not in ip_requests:
         ip_requests[client_ip] = []
     ip_requests[client_ip] = [t for t in ip_requests[client_ip] if current_time - t < RATE_LIMIT_WINDOW]

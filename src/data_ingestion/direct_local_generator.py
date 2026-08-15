@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Tuple
 
 def clean_text_snippet(text: str, max_len: int = 500) -> str:
@@ -105,7 +105,7 @@ def generate_qa_for_chunk(chunk: Dict[str, Any], doc_type: str, idx_start: int =
         summary_p2 = clean_snip
 
     snippet_500 = clean_text_snippet(clean_text, 500)
-    now_iso = datetime.utcnow().isoformat() + "Z"
+    now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     model_id = "antigravity-agent-v1"
 
     qa_list = []
@@ -214,7 +214,7 @@ def run_direct_generation():
                 ref_id = str(chunk.get("notification_no", chunk.get("chunk_id", "REF")))
                 doc_type = "DGFT_POLICY"
 
-                if (doc_type, ref_id) in covered_pairs and (doc_type, str(chunk.get("chunk_id"))) in covered_pairs:
+                if (doc_type, ref_id) in covered_pairs or (doc_type, str(chunk.get("chunk_id"))) in covered_pairs:
                     continue
 
                 clean_t = chunk.get("clean_text", "")
@@ -238,6 +238,10 @@ def run_direct_generation():
                 doc_type = "PIB_PRESS_RELEASE"
 
                 if (doc_type, ref_id) in covered_pairs:
+                    continue
+
+                # Skip fabricated fallback seed data to prevent training dataset contamination
+                if chunk.get("is_fallback"):
                     continue
 
                 clean_t = chunk.get("clean_text", "")

@@ -188,7 +188,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
       .then(data => { 
         if ((!data.yearly || data.yearly.length === 0) && country && country !== queryCode) {
           return fetch(`${API_BASE}/forecast/country_series?partner_code=${encodeURIComponent(country)}`)
-            .then(r => r.json())
+            .then(r => { if (!r.ok) throw new Error("API failed"); return r.json(); })
             .then(d2 => {
               setHistoryData(d2.yearly || []);
               setDomains(d2.top_commodities || []);
@@ -299,7 +299,7 @@ export default function Dashboard() {
     setMounted(true);
   }, []);
 
-  const getForecastHistory = async (partner: string, commodity: string, signal?: AbortSignal) => {
+  const getForecastHistory = useCallback(async (partner: string, commodity: string, signal?: AbortSignal) => {
     try {
       const res = await fetch(`${API_BASE}/forecast/history?partner_code=${encodeURIComponent(partner)}&commodity_code=${encodeURIComponent(commodity)}`, { signal });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -315,7 +315,7 @@ export default function Dashboard() {
       if (err instanceof Error && err.name !== 'AbortError') console.error(err);
       return [];
     }
-  };
+  }, []);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -347,7 +347,8 @@ export default function Dashboard() {
       setChartData(history);
     });
     return () => abortController.abort();
-  }, [partnerCode, commodityCode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partnerCode, commodityCode, getForecastHistory]);
   const handleAnomalyClick = (row: AnomalyRow) => {
     const prompt = `Analyze the trade anomaly for ${row.partner} in ${row.commodity} during ${row.date}. The system flagged: ${row.reason_code === 'no_baseline' ? 'Insufficient baseline data (not a true anomaly)' : row.reason}. Severity score: ${row.anomaly_score}`;
     if (window.VanijyaChat) {
@@ -409,15 +410,20 @@ export default function Dashboard() {
       }).catch(console.error);
   }, []);
 
+  const partnerFetchRef = useRef<string>('');
+
   const handlePartnerChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const p = e.target.value;
     setPartnerCode(p);
     setForecastError(null);
     setSuggestedCommodities([]);
+    partnerFetchRef.current = p;
     try {
       const res = await fetch(`${API_BASE}/forecast/partner_signature?partner_code=${p}`);
+      if (p !== partnerFetchRef.current) return; // stale response guard
       if (!res.ok) throw new Error("Failed to load partner signature");
       const data = await res.json();
+      if (p !== partnerFetchRef.current) return; // stale response guard
       if (data && data.length > 0) {
         setCommodityCode(data[0].code);
       } else if (validMap[p] && validMap[p].length > 0) {
@@ -520,9 +526,9 @@ export default function Dashboard() {
           </button>
         </div>
         <nav className={styles.sidebarNav}>
-          <a onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'dashboard' ? styles.active : ''}`} aria-label="Navigate to Dashboard"><TrendingUp size={18} /> Dashboard</a>
-          <a onClick={(e) => { e.preventDefault(); setActiveTab('anomalies'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'anomalies' ? styles.active : ''}`} aria-label="Navigate to Anomalies"><AlertTriangle size={18} /> Anomalies</a>
-          <a onClick={(e) => { e.preventDefault(); setActiveTab('network'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'network' ? styles.active : ''}`} aria-label="Navigate to Trade Network"><MapIcon size={18} /> Trade Network</a>
+          <button onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'dashboard' ? styles.active : ''}`} aria-label="Navigate to Dashboard"><TrendingUp size={18} /> Dashboard</button>
+          <button onClick={(e) => { e.preventDefault(); setActiveTab('anomalies'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'anomalies' ? styles.active : ''}`} aria-label="Navigate to Anomalies"><AlertTriangle size={18} /> Anomalies</button>
+          <button onClick={(e) => { e.preventDefault(); setActiveTab('network'); setIsSidebarOpen(false); }} className={`${styles.sidebarNavItem} ${activeTab === 'network' ? styles.active : ''}`} aria-label="Navigate to Trade Network"><MapIcon size={18} /> Trade Network</button>
           <button className={styles.sidebarNavItem} onClick={() => { setIsSidebarOpen(false); window.VanijyaChat?.open(); }} aria-label="Open AI Chatbot" style={{ background: 'transparent', border: 'none', color: 'inherit', font: 'inherit', width: '100%', textAlign: 'left', cursor: 'pointer' }}><MessageSquare size={18} /> Vanijya AI</button>
         </nav>
       </aside>
@@ -694,7 +700,7 @@ export default function Dashboard() {
                   <ScatterChart margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis dataKey="date" stroke={FADED_INK} fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis dataKey="value" stroke={FADED_INK} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${(val / 1e9).toFixed(1)}B`} />
+                    <YAxis dataKey="anomaly_score" stroke={FADED_INK} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `${(val * 100).toFixed(0)}%`} />
                     <Tooltip 
                       cursor={{ strokeDasharray: '3 3' }} 
                       contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}` }}
@@ -935,7 +941,7 @@ export default function Dashboard() {
               <div className={styles.socialLinks}>
                 <a href="https://github.com/Yash1bajpai" target="_blank" rel="noopener noreferrer"><Code size={16}/> GitHub</a>
                 <a href="https://linkedin.com/in/yash-bajpai" target="_blank" rel="noopener noreferrer"><User size={16}/> LinkedIn</a>
-                <a href="mailto:your-email@example.com"><Mail size={16}/> Email</a>
+                <a href="mailto:bajpaiyash2707@gmail.com"><Mail size={16}/> Email</a>
               </div>
             </div>
           </div>

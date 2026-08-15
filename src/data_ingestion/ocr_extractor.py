@@ -17,15 +17,17 @@ import re
 import random
 import string
 import argparse
+import threading
 from typing import List, Dict, Tuple, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import cv2
 import numpy as np
 import pdf2image
 import pytesseract
 
-DEFAULT_TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-DEFAULT_POPPLER_BIN = r"C:\Users\Admin\AppData\Local\Microsoft\WinGet\Packages\oschwartz10612.Poppler_Microsoft.Winget.Source_8wekyb3d8bbwe\poppler-25.07.0\Library\bin"
+DEFAULT_TESSERACT_CMD = os.getenv("TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+DEFAULT_POPPLER_BIN = os.getenv("POPPLER_BIN", r"C:\Users\Admin\AppData\Local\Microsoft\WinGet\Packages\oschwartz10612.Poppler_Microsoft.Winget.Source_8wekyb3d8bbwe\poppler-25.07.0\Library\bin")
 
 if os.path.exists(DEFAULT_TESSERACT_CMD):
     pytesseract.pytesseract.tesseract_cmd = DEFAULT_TESSERACT_CMD
@@ -146,9 +148,6 @@ def find_scanned_pdfs(all_pdf_dir: str, processed_jsonl: str) -> List[str]:
             scanned_pdfs.append(p)
 
     return scanned_pdfs
-
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def run_ocr_pipeline(sample_size: int = 5, seed: int = 42, output_file: str = "data/processed/dgft_ocr_chunks.jsonl", threads: int = 8, process_all: bool = False):
     print(f"=== IndiTrade AI: Option B OCR Extraction & QC Gate Pipeline (Multi-threaded: {threads} workers) ===")

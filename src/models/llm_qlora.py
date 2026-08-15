@@ -21,7 +21,7 @@ import sys
 import json
 import random
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 import torch
 from datasets import Dataset
@@ -248,7 +248,7 @@ def main():
 
     meta = {
         "base_model": BASE_MODEL,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "n_train_samples": len(train_ds),
         "n_val_samples": len(val_ds),
         "epochs": args.epochs,
