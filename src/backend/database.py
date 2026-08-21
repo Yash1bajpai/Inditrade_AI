@@ -86,21 +86,35 @@ def init_supabase():
         logger.warning(f"Supabase connection failed ({e}). Falling back to Mock Supabase.")
         return MockSupabase()
 
+def _qdrant_url_blocked(qdrant_url: str) -> bool:
+    """True when the configured URL is a placeholder or a known-dead cluster.
+
+    Dead cluster IDs live in the comma-separated QDRANT_BLOCKED_URLS env var
+    instead of being hardcoded here.
+    """
+    blocked_fragments = [
+        fragment.strip()
+        for fragment in os.getenv("QDRANT_BLOCKED_URLS", "").split(",")
+        if fragment.strip()
+    ]
+    return (
+        len(qdrant_url) < 30
+        or "your_qdrant" in qdrant_url
+        or any(fragment in qdrant_url for fragment in blocked_fragments)
+    )
+
 def init_qdrant():
     qdrant_url = os.getenv("QDRANT_URL", "")
     qdrant_key = os.getenv("QDRANT_API_KEY", "")
 
-    if len(qdrant_url) < 30 or "your_qdrant" in qdrant_url or "iocdpqfxoavhjcvhwuevlp" in qdrant_url:
+    if _qdrant_url_blocked(qdrant_url):
          logger.warning("Qdrant connection failed (Placeholder/Dead URL Detected). Falling back to Mock Retriever.")
          return MockQdrantRetriever()
 
     try:
         from qdrant_client import QdrantClient
 
-        if len(qdrant_url) > 30 and "your_qdrant" not in qdrant_url and "iocdpqfxoavhjcvhwuevlp" not in qdrant_url:
-            client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
-        else:
-            client = QdrantClient(path="data/cache/qdrant_index")
+        client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
 
         client.get_collections()
         logger.info("Successfully connected to genuine Qdrant instance!")
