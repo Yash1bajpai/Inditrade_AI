@@ -142,23 +142,34 @@ async def query_policy(req: QueryRequest, request: Request):
         citation_str = ""
         grounded = False
 
-    prompt = f"### Instruction:\nYou are an expert Indian Foreign Trade Policy assistant. Provide your answer in concise bullet points. Be extremely clear, short, and use well-structured formatting.\n\n### Context:\n{context}\n\n### Question:\n{req.question}\n\n### Answer:\n"
-
     hf_token = os.getenv("HF_TOKEN")
-    model_id = "Yash1bajpai/Inditrade-Llama-3.2-1B-Policy-Merged"
-    api_url = f"https://router.huggingface.co/hf-inference/models/{model_id}"
+    # The legacy per-model serverless route (router.huggingface.co/hf-inference/
+    # models/<custom-model>) now returns 400 "Model not supported by provider
+    # hf-inference" for causal LMs. Use the OpenAI-compatible router endpoint
+    # with a publicly served instruct model instead.
+    model_id = "meta-llama/Llama-3.1-8B-Instruct"
+    api_url = "https://router.huggingface.co/v1/chat/completions"
 
     try:
-        logger.info(f"Querying HF Serverless API: {model_id}")
-        
+        logger.info(f"Querying HF Router API: {model_id}")
+
         def fetch_hf():
+            messages = [{"role": "system", "content": (
+                "You are an expert Indian Foreign Trade Policy assistant. "
+                "Answer only questions related to Indian trade, DGFT, import/export policy, tariffs, or customs. "
+                "Provide your answer in concise bullet points. Be extremely clear, short, and well-structured."
+            )}]
+            if context:
+                messages.append({"role": "system", "content": f"Use this retrieved policy context:\n{context}"})
+            messages.append({"role": "user", "content": req.question})
             return requests.post(
                 api_url,
                 headers={"Authorization": f"Bearer {hf_token}"},
-                json={"inputs": prompt, "parameters": {"max_new_tokens": 300, "temperature": 0.2}},
-                timeout=10
+                json={"model": model_id, "messages": messages,
+                      "max_tokens": 300, "temperature": 0.2},
+                timeout=15
             )
-            
+
         response = await asyncio.to_thread(fetch_hf)
 
         if response.status_code == 503:
@@ -168,7 +179,7 @@ async def query_policy(req: QueryRequest, request: Request):
 
         response.raise_for_status()
         data = response.json()
-        answer = data[0].get("generated_text", "").split("### Answer:\n")[-1]
+        answer = data["choices"][0]["message"]["content"].strip()
 
         res = {"answer": answer, "source": "Hugging Face", "citation": citation_str, "grounded": grounded}
         log_chat_to_supabase(client_ip, req.question, res["answer"])
