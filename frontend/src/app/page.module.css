@@ -84,6 +84,10 @@
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: 4px;
+  /* Buttons otherwise fall back to the UA's light ButtonFace, which renders
+     as a jarring white block against the dark sidebar (seen on mobile). */
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--muted-foreground);
   font-size: 0.95rem;
   cursor: pointer;
