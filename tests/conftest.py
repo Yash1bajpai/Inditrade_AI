@@ -14,6 +14,16 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
+@pytest.fixture(autouse=True)
+def reset_data_cache():
+    """Keep the mtime-based parquet/csv cache from leaking frames across tests."""
+    from src.utils import data_cache
+
+    data_cache.clear_cache()
+    yield
+    data_cache.clear_cache()
+
+
 @pytest.fixture
 def trade_df():
     """A minimal but realistic trade_features frame.

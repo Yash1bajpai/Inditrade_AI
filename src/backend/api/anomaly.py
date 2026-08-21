@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import logging
 
+from src.utils.data_cache import load_csv
+
+
 logger = logging.getLogger("api.anomaly")
 router = APIRouter()
 
@@ -57,7 +60,7 @@ def load_model():
             anomaly_model = "FAILED"
 
 @router.post("/")
-async def detect_anomaly(req: AnomalyRequest):
+def detect_anomaly(req: AnomalyRequest):
     """Hypothetical scenario tester (USD/INR + crude only)."""
     load_model()
     if anomaly_model == "FAILED":
@@ -96,7 +99,7 @@ async def detect_anomaly(req: AnomalyRequest):
         raise HTTPException(status_code=500, detail="An internal error occurred during anomaly detection.")
 
 @router.get("/historical")
-async def get_historical_anomalies():
+def get_historical_anomalies():
     try:
         import pandas as pd
         import os
@@ -104,7 +107,7 @@ async def get_historical_anomalies():
         if not os.path.exists(filepath):
             return {"data": []}
 
-        df = pd.read_csv(filepath)
+        df = load_csv(filepath)
 
         if "anomaly_score" in df.columns:
             df = df.sort_values(by="anomaly_score", ascending=False)

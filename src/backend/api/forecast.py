@@ -6,6 +6,8 @@ from typing import Optional
 import math
 import pandas as pd
 
+from src.utils.data_cache import load_parquet
+
 logger = logging.getLogger("api.forecast")
 router = APIRouter()
 
@@ -46,13 +48,13 @@ CMD_MAP = {'01': 'Live Animals', '02': 'Meat', '03': 'Fish', '04': 'Dairy', '05'
 combo_cache = None
 
 @router.get("/valid_combinations")
-async def get_valid_combinations():
+def get_valid_combinations():
     global combo_cache
     if combo_cache is not None:
         return combo_cache
         
     try:
-        df = pd.read_parquet("data/processed/trade_features.parquet")
+        df = load_parquet("data/processed/trade_features.parquet")
         MIN_COMBO_TOTAL_USD = 50_000_000
         MIN_COMBO_YEARS = 3
         
@@ -98,7 +100,7 @@ def get_latest_trade_value(partner_code: str, commodity_code: str) -> float:
     both route into the HTTP 400 explanation path, never a 500.
     """
     try:
-        df = pd.read_parquet("data/processed/trade_features.parquet")
+        df = load_parquet("data/processed/trade_features.parquet")
     except Exception as e:
         logger.warning(f"get_latest_trade_value: could not read trade features: {e}")
         return 0.0
@@ -173,10 +175,10 @@ def resolve_partner_code(code: str) -> str:
     return c
 
 @router.get("/partner_signature")
-async def get_partner_signature(partner_code: str):
+def get_partner_signature(partner_code: str):
     try:
         p_code_str = resolve_partner_code(partner_code)
-        df = pd.read_parquet("data/processed/trade_features.parquet")
+        df = load_parquet("data/processed/trade_features.parquet")
         df['pStr'] = df['partnerCode'].apply(lambda x: str(x).split('.')[0])
         df['cStr'] = df['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
         
@@ -197,9 +199,9 @@ async def get_partner_signature(partner_code: str):
         return []
 
 @router.get("/history")
-async def get_global_history(partner_code: Optional[str] = None, commodity_code: Optional[str] = None):
+def get_global_history(partner_code: Optional[str] = None, commodity_code: Optional[str] = None):
     try:
-        df = pd.read_parquet("data/processed/trade_features.parquet")
+        df = load_parquet("data/processed/trade_features.parquet")
     except Exception as e:
         # Distinguish "the dataset is missing/unreadable" (a server fault) from
         # "the query matched no rows" (a valid empty result).
@@ -229,7 +231,7 @@ MAX_DATA_YEAR = 2100
 VALID_GROUP_BY = ("partner", "commodity")
 
 @router.get("/year_breakdown")
-async def get_year_breakdown(year: int, group_by: str, partner_code: Optional[str] = None, commodity_code: Optional[str] = None):
+def get_year_breakdown(year: int, group_by: str, partner_code: Optional[str] = None, commodity_code: Optional[str] = None):
     # Reject bad input explicitly instead of returning [] — an empty list is
     # indistinguishable from "valid query, no matching rows".
     if not (MIN_DATA_YEAR <= year <= MAX_DATA_YEAR):
@@ -244,7 +246,7 @@ async def get_year_breakdown(year: int, group_by: str, partner_code: Optional[st
         )
 
     try:
-        df = pd.read_parquet("data/processed/trade_features.parquet")
+        df = load_parquet("data/processed/trade_features.parquet")
         df = df[df['period'] == year]
         if partner_code:
             p_code_str = resolve_partner_code(partner_code)
@@ -275,10 +277,10 @@ async def get_year_breakdown(year: int, group_by: str, partner_code: Optional[st
         return []
 
 @router.get("/country_series")
-async def get_country_series(partner_code: str):
+def get_country_series(partner_code: str):
     try:
         p_code_str = resolve_partner_code(partner_code)
-        df = pd.read_parquet("data/processed/trade_features.parquet")
+        df = load_parquet("data/processed/trade_features.parquet")
         df['pStr'] = df['partnerCode'].apply(lambda x: str(x).split('.')[0])
         df['cStr'] = df['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
         
@@ -310,7 +312,7 @@ async def get_country_series(partner_code: str):
         return {"yearly": [], "top_commodities": []}
 
 @router.post("/")
-async def get_forecast(req: ForecastRequest):
+def get_forecast(req: ForecastRequest):
     load_model()
     if xgboost_model == "FAILED":
         raise HTTPException(status_code=503, detail="Forecast model is unavailable.")
@@ -318,7 +320,7 @@ async def get_forecast(req: ForecastRequest):
     # Pre-flight check G1
     global combo_cache
     if combo_cache is None:
-        await get_valid_combinations()
+        get_valid_combinations()
         
     p_code = str(req.partner_code).split('.')[0]
     c_code = str(req.commodity_code).split('.')[0].zfill(2)
@@ -328,7 +330,7 @@ async def get_forecast(req: ForecastRequest):
         if p_code in combo_cache.get("map", {}):
             valid_cmds = combo_cache["map"][p_code]
             try:
-                df = pd.read_parquet("data/processed/trade_features.parquet")
+                df = load_parquet("data/processed/trade_features.parquet")
                 df['pStr'] = df['partnerCode'].apply(lambda x: str(x).split('.')[0])
                 df['cStr'] = df['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
                 df_filt = df[(df['pStr'] == p_code) & (df['cStr'].isin(valid_cmds))]
@@ -355,7 +357,7 @@ async def get_forecast(req: ForecastRequest):
         expected_features = xgboost_model['features']
         input_data = {feat: 0.0 for feat in expected_features}
 
-        df_hist = pd.read_parquet("data/processed/trade_features.parquet")
+        df_hist = load_parquet("data/processed/trade_features.parquet")
         df_hist['pStr'] = df_hist['partnerCode'].apply(lambda x: str(x).split('.')[0])
         df_hist['cStr'] = df_hist['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
         

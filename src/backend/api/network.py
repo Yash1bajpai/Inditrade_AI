@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 import logging
 import os
 
+from src.utils.data_cache import load_parquet
+
 logger = logging.getLogger("api.network")
 router = APIRouter()
 
@@ -20,13 +22,13 @@ def load_network_data():
                 network_data = []
                 return
 
-            df = pd.read_parquet(filepath)
+            df = load_parquet(filepath)
 
             if 'node_type' in df.columns:
                 df = df[df['node_type'] == 'partner'].copy()
 
             try:
-                feature_df = pd.read_parquet("data/processed/trade_features.parquet")
+                feature_df = load_parquet("data/processed/trade_features.parquet")
                 vol_map = feature_df.groupby("partnerDesc")["primaryValue"].sum().to_dict()
                 
                 # Calculate dynamic top exports and imports
@@ -110,12 +112,12 @@ def load_network_data():
             network_data = []
 
 @router.get("/")
-async def get_network():
+def get_network():
     load_network_data()
     return {"nodes": network_data, "top_exports": top_exports, "top_imports": top_imports}
 
 @router.get("/history/{country}")
-async def get_country_history(country: str):
+def get_country_history(country: str):
     """
     Returns the real 10-year historical trade volume for a specific country
     to populate the Drill-Down Modal in the UI.
@@ -123,7 +125,7 @@ async def get_country_history(country: str):
     try:
         import pandas as pd
 
-        df = pd.read_parquet("data/processed/trade_features.parquet")
+        df = load_parquet("data/processed/trade_features.parquet")
 
         if country.isdigit():
             country_df = df[df['partnerCode'].astype(str) == country]

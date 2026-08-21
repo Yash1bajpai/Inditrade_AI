@@ -31,9 +31,39 @@ def log_chat_to_supabase(session_id, user_message, bot_response):
 class QueryRequest(BaseModel):
     question: str = Field(..., max_length=500, description="The query string (max 500 chars).")
 
+def _resolve_client_ip(request: Request) -> str:
+    """Client IP for rate limiting.
+
+    Direct connections use request.client.host. Behind a reverse proxy that
+    overwrites X-Forwarded-For (Render does), set TRUST_PROXY=true so the
+    limiter keys on the real client instead of the proxy IP — otherwise every
+    visitor shares one bucket.
+    """
+    if os.getenv("TRUST_PROXY", "").lower() in ("1", "true", "yes"):
+        forwarded = request.headers.get("x-forwarded-for", "")
+        first_hop = forwarded.split(",")[0].strip() if forwarded else ""
+        if first_hop:
+            return first_hop
+    return request.client.host if request.client else "unknown"
+
+def _enforce_access_key(request: Request):
+    """Optional shared-secret gate for the LLM endpoint.
+
+    Set API_ACCESS_KEY in the environment to require clients to send a
+    matching X-API-Key header. When the variable is unset the endpoint stays
+    open, preserving current demo behaviour.
+    """
+    expected = os.getenv("API_ACCESS_KEY", "")
+    if not expected:
+        return
+    provided = request.headers.get("x-api-key", "")
+    if provided != expected:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-API-Key header.")
+
 @router.post("/")
 async def query_policy(req: QueryRequest, request: Request):
-    client_ip = request.client.host if request.client else "unknown"
+    _enforce_access_key(request)
+    client_ip = _resolve_client_ip(request)
     current_time = time.time()
     
     # Rate Limiting Logic
