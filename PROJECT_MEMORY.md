@@ -14,8 +14,8 @@ This document serves as the core graph memory and context for AI assistants (lik
 ## 2. Core Architecture & Routing (Frontend)
 The frontend was recently migrated from a monolithic single-page React app to **Next.js App Router**:
 *   `frontend/src/app/layout.tsx`: Server-side root layout. Boilerplate Geist font loader removed to prevent internet-dependent build failures.
-*   `frontend/src/components/ClientShell.tsx`: A `"use client"` wrapper injected into `layout.tsx`. It manages persistent UI elements like the top navigation bar and the **Vanijya Chatbot**.
-    *   *Locked Constraint:* The Vanijya chat root (`<div id="vanijya-chat-root">`) and its `useEffect` singleton logic **MUST** live in `ClientShell.tsx`, not in page routes. This ensures the chat persists across navigation without unmounting.
+*   `frontend/src/app/page.tsx`: The main dashboard containing the Globe Heatmap, Country Drill-Down Drawer, Anomaly scatter charts, the Forecast Panel, and the **Vanijya Chatbot** root (`<div id="vanijya-chat-root">` with its `useEffect` singleton logic).
+    *   *Locked Constraint:* The Vanijya chat root must remain in `page.tsx` (the only page route) and must keep its explicit DOM injection so it works with the Chat endpoints.
 *   `frontend/src/app/page.tsx`: The main dashboard containing the Globe Heatmap, Country Drill-Down Drawer, Anomaly scatter charts, and the Forecast Panel.
 
 ## 3. API Endpoints & Contracts (Backend)
@@ -44,6 +44,6 @@ The FastAPI backend (`src/backend/api/forecast.py`) exposes several endpoints th
 *   To generate Excel exports for the user (Imports vs. Exports lists), the raw `trade_features.parquet` file is processed by splitting `flowCode == 'M'` (Imports) and `flowCode == 'X'` (Exports), grouping by the raw `partnerDesc` to guarantee 100% name coverage without relying on the limited top-18 `PARTNER_MAP`.
 
 ## DO NOT DO:
-*   Do not retrain the XGBoost model. It is static and relies on the current 2015-2024 yearly baseline.
+*   Do not retrain the XGBoost model manually. It is refreshed automatically by the monthly GitHub Actions workflow (`retrain_models.yml`) using the 2015-2024 baseline; manual retraining risks diverging the deployed artifact from the CI-produced one.
 *   Do not touch the `vanijya` chat initialization logic in `page.tsx` or `ClientShell.tsx` (it injects DOM elements explicitly to ensure it runs well with the Chat endpoints).
 *   Do not replace native standard CSS with Tailwind without explicit instruction.

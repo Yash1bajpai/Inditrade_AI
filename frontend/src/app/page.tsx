@@ -153,20 +153,6 @@ const SkeletonLoader = () => (
     style={{ height: '100%', width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '0px' }}
   />
 );
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const TypewriterMessage = ({ content }: { content: string }) => {
-  const [displayed, setDisplayed] = useState('');
-  useEffect(() => {
-    let i = 0;
-    const interval = setInterval(() => {
-      setDisplayed(content.substring(0, i));
-      i++;
-      if (i > content.length) clearInterval(interval);
-    }, 15);
-    return () => clearInterval(interval);
-  }, [content]);
-  return <span>{displayed}</span>;
-};
 const DrillDownModal = ({ country, originalCountry, onClose }: { country: string, originalCountry: string, onClose: () => void }) => {
   const [historyData, setHistoryData] = useState<{year: string, value_billions: number, import_billions?: number, export_billions?: number}[]>([]);
   const [domains, setDomains] = useState<{code: string, name: string, value_billions: number}[]>([]);

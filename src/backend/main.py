@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import os
 
 from src.backend.api import forecast, query, anomaly, network
 
@@ -13,9 +14,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Comma-separated CORS_ALLOWED_ORIGINS env overrides the defaults (e.g. for
+# preview deployments); falls back to the known production/dev origins.
+_extra_origins = [o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "https://inditrade.vercel.app", "https://inditrade-ai.vercel.app"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://inditrade.vercel.app",
+        "https://inditrade-ai.vercel.app",
+        *_extra_origins,
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

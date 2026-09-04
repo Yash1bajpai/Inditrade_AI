@@ -12,13 +12,8 @@ torch>=2.0.0
 
 # Indian Market & Financial Data APIs
 yfinance>=0.2.30
-jugaad-data>=0.27
-nsetools>=1.0.11
 
 # Indian Broker SDKs (Execution Layer)
-kiteconnect>=4.2.0
-smartapi-python>=1.3.0
-upstox-python-sdk>=1.0.0
 
 # Timezone & Scheduling
 pytz>=2023.3
@@ -42,7 +37,6 @@ websockets>=11.0.3
 matplotlib>=3.7.0
 seaborn>=0.12.0
 plotly>=5.16.0
-vectorbt>=0.25.0
 
 # Testing & Code Quality
 pytest>=7.4.0

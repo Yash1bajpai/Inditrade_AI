@@ -90,3 +90,6 @@ graph_summary.txt
 
 # Local scratch copies of reference docs (e.g. ref_readme.md.bak)
 *.bak
+
+# IDE junk
+.qoder/

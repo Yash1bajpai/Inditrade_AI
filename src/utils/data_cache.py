@@ -50,13 +50,21 @@ def _load(kind, path, **read_kwargs):
 
 
 def load_parquet(path, **read_kwargs):
-    """Return a cached DataFrame for `path`, reloading when file mtime/size changes."""
-    return _load("parquet", path, **read_kwargs)
+    """Return a DataFrame for `path`, reloading when file mtime/size changes.
+
+    Returns a copy: callers (e.g. forecast endpoints) add derived columns
+    in place, and sharing the cached frame across threads would corrupt it.
+    The copy is still far cheaper than re-parsing the parquet.
+    """
+    return _load("parquet", path, **read_kwargs).copy()
 
 
 def load_csv(path, **read_kwargs):
-    """Return a cached DataFrame for `path`, reloading when file mtime/size changes."""
-    return _load("csv", path, **read_kwargs)
+    """Return a DataFrame for `path`, reloading when file mtime/size changes.
+
+    Returns a copy — see load_parquet.
+    """
+    return _load("csv", path, **read_kwargs).copy()
 
 
 def clear_cache():
