@@ -7,6 +7,10 @@ on:
   workflow_dispatch:
     # Allow manual triggering from the GitHub UI
 
+# Required for the release upload step (gh release upload).
+permissions:
+  contents: write
+
 jobs:
   retrain:
     runs-on: ubuntu-latest
@@ -28,10 +32,11 @@ jobs:
           # requirements-backend.txt carries the model stack:
           # pandas, numpy, scikit-learn, xgboost, joblib, pyarrow.
           pip install -r requirements-backend.txt
-          # Graph embedding step only — kept out of requirements-backend.txt so
-          # the deployed API image doesn't carry gensim/networkx.
-          # Quoted: bare >= would be parsed by the shell as a redirect.
-          pip install "networkx>=3.1" "node2vec>=0.4.6"
+          # Training-only deps (kept out of the API image):
+          # xgboost_train.py needs optuna + onnxmltools/onnxconverter-common;
+          # network_embed.py needs networkx/node2vec.
+          pip install "optuna>=3.0" "onnxmltools>=1.12" "onnxconverter-common>=1.14" \
+            "networkx>=3.1" "node2vec>=0.4.6"
 
       - name: Fetch Training Data
         run: |
@@ -62,19 +67,57 @@ jobs:
       - name: Retrain Network Embedding Model
         run: |
           echo "Retraining Node2Vec embeddings..."
-          python src/models/network_embed.py --output-dir models
+          # Parquet artifacts belong in data/processed; only the .pkl model
+          # goes to models/. (--output-dir is the parquet directory.)
+          python src/models/network_embed.py --output-dir data/processed --model-dir models
 
-      - name: Commit and Push Updated Models
+      - name: Publish Retrained Artifacts to Data Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # .pkl/.parquet artifacts are gitignored by design (repo stays lean);
+          # the Dockerfile pulls inditrade-data.zip from the data-v1 release,
+          # so retraining must rebuild and republish that zip — a plain
+          # `git add models/` would be a no-op.
+          set -eu
+          STAGE=/tmp/release-stage
+          mkdir -p "$STAGE"
+          for f in \
+            data/processed/trade_features.parquet \
+            data/processed/dgft_policy_chunks.jsonl \
+            data/processed/pib_press_releases.jsonl \
+            models/xgboost_trade_forecast.pkl \
+            models/xgboost_trade_forecast.onnx \
+            models/xgboost_trade_forecast_meta.json \
+            models/isolation_forest_anomalies.pkl \
+            models/node2vec_trade_graph.pkl \
+            data/processed/node2vec_trade_embeddings.parquet; do
+            if [[ -f "$f" ]]; then
+              cp "$f" "$STAGE/"
+            else
+              echo "WARN: expected artifact missing: $f"
+            fi
+          done
+          if [[ -z $(ls -A "$STAGE") ]]; then
+            echo "FATAL: retraining produced no artifacts" >&2
+            exit 1
+          fi
+          (cd "$STAGE" && zip -q -j inditrade-data.zip *)
+          ls -la "$STAGE"
+          gh release upload data-v1 "$STAGE/inditrade-data.zip" --clobber
+
+      - name: Commit Updated Tracked Metadata
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Check if there are any changes in the models/ or data/ directories
+          # Only tracked metadata (meta json / flagged csv) — weights live in
+          # the release, not git.
           if [[ -n $(git status -s models/ data/) ]]; then
-            echo "Changes detected in models or data. Committing..."
-            git add models/ data/
-            git commit -m "Automated model retraining [skip ci]"
+            echo "Tracked metadata changed. Committing..."
+            git add -u models/ data/
+            git commit -m "Automated model retraining metadata [skip ci]" || echo "nothing to commit"
             git push
           else
-            echo "No changes in models detected."
+            echo "No tracked changes detected."
           fi

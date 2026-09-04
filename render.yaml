@@ -19,4 +19,8 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
+      # Render terminates TLS in front of the app; without this the in-memory
+      # rate limiter buckets every visitor under the proxy IP.
+      - key: TRUST_PROXY
+        value: "true"
     healthCheckPath: /health

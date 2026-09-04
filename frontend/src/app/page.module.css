@@ -542,12 +542,9 @@
 }
 
 .chartContainer {
-  margin-top: 0.5rem;
-  text-align: right;
+  /* Merged duplicate declarations; preserves effective cascade values. */
   display: block;
-}
-
-.chartContainer {
+  text-align: right;
   height: 300px;
   margin-top: 2rem;
 }
