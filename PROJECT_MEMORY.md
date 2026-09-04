@@ -45,5 +45,5 @@ The FastAPI backend (`src/backend/api/forecast.py`) exposes several endpoints th
 
 ## DO NOT DO:
 *   Do not retrain the XGBoost model manually. It is refreshed automatically by the monthly GitHub Actions workflow (`retrain_models.yml`) using the 2015-2024 baseline; manual retraining risks diverging the deployed artifact from the CI-produced one.
-*   Do not touch the `vanijya` chat initialization logic in `page.tsx` or `ClientShell.tsx` (it injects DOM elements explicitly to ensure it runs well with the Chat endpoints).
+*   Do not touch the `vanijya` chat initialization logic in `page.tsx` (it injects DOM elements explicitly to ensure it runs well with the Chat endpoints).
 *   Do not replace native standard CSS with Tailwind without explicit instruction.
