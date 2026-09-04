@@ -10,6 +10,7 @@ on:
 jobs:
   retrain:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout Repository
@@ -18,45 +19,56 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
-          # requirements.txt is the full local/dev pin set and includes Indian
-          # broker SDKs (kiteconnect etc.) that are irrelevant to retraining and
-          # slow/fragile to install in CI. requirements-backend.txt carries the
-          # actual model stack: pandas, numpy, scikit-learn, xgboost, joblib, pyarrow.
+          # requirements-backend.txt carries the model stack:
+          # pandas, numpy, scikit-learn, xgboost, joblib, pyarrow.
           pip install -r requirements-backend.txt
           # Graph embedding step only — kept out of requirements-backend.txt so
           # the deployed API image doesn't carry gensim/networkx.
           # Quoted: bare >= would be parsed by the shell as a redirect.
           pip install "networkx>=3.1" "node2vec>=0.4.6"
 
+      - name: Fetch Training Data
+        run: |
+          set -eu
+          # trade_features.parquet is gitignored, so fetch the canonical
+          # data release produced by the ingestion pipeline. Without this
+          # step every training script dies with FileNotFoundError.
+          curl -fL --retry 3 \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/inditrade-data.zip" \
+            -o /tmp/inditrade-data.zip
+          unzip -oq /tmp/inditrade-data.zip -d /tmp/inditrade-data
+          mkdir -p data/processed models
+          find /tmp/inditrade-data -name '*.parquet' -exec mv {} data/processed/ \;
+          find /tmp/inditrade-data -name '*.jsonl' -exec mv {} data/processed/ \;
+          test -f data/processed/trade_features.parquet
+
       - name: Retrain XGBoost Forecast Model
         run: |
           echo "Retraining XGBoost model..."
-          python src/models/xgboost_train.py --output_dir models
-        continue-on-error: true
+          # argparse expects kebab-case: --output-dir (not --output_dir)
+          python src/models/xgboost_train.py --output-dir models
 
       - name: Retrain Anomaly Detection Model
         run: |
           echo "Retraining Isolation Forest model..."
-          python src/models/anomaly_train.py
-        continue-on-error: true
+          python src/models/anomaly_train.py --output-dir models
 
       - name: Retrain Network Embedding Model
         run: |
           echo "Retraining Node2Vec embeddings..."
-          python src/models/network_embed.py
-        continue-on-error: true
+          python src/models/network_embed.py --output-dir models
 
       - name: Commit and Push Updated Models
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Check if there are any changes in the models/ or data/ directories
           if [[ -n $(git status -s models/ data/) ]]; then
             echo "Changes detected in models or data. Committing..."

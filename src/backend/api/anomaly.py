@@ -76,14 +76,23 @@ def detect_anomaly(req: AnomalyRequest):
         val_3y = -0.2 if req.crude_price > 100 else 0.05
         policy_flag = 1 if req.usd_inr > 85 else 0
 
-        df = pd.DataFrame([{
+        feature_values = {
             "brent_crude_yoy_pct": crude_yoy,
             "primaryValue_yoy_growth_rate": val_3y * 100,
             "unit_value": req.crude_price * 10,
             "value_vs_3y_mean": val_3y,
             "wgt_vs_3y_mean": val_3y,
-            "policy_event_flag": policy_flag
-        }])
+            "policy_event_flag": policy_flag,
+        }
+
+        # The pickle records the training-time feature order in its 'features'
+        # key; sklearn requires predict() frames to match that exact order.
+        # The hardcoded ANOMALY_FEATURES list is only a fallback.
+        feature_order = list(anomaly_model.get("features") or ANOMALY_FEATURES)
+        df = pd.DataFrame(
+            [[feature_values.get(f, 0.0) for f in feature_order]],
+            columns=feature_order,
+        )
 
         prediction = anomaly_model['model'].predict(df)[0]
         is_anomaly = bool(prediction == -1)

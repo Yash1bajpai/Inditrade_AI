@@ -45,7 +45,7 @@ def load_anomaly_features(data_path):
 def main():
     parser = argparse.ArgumentParser(description="IndiTrade AI - Isolation Forest Trade Anomaly Detector")
     parser.add_argument("--data-path", type=str, default="data/processed/trade_features.parquet", help="Path to trade_features.parquet")
-    parser.add_argument("--contamination", type=float, default=0.01, help="Expected anomaly ratio (default: 0.01 / 1%)")
+    parser.add_argument("--contamination", type=float, default=0.01, help="Expected anomaly ratio (default: 0.01 / 1%%)")
     parser.add_argument("--output-dir", type=str, default="models", help="Directory to save exported .pkl model")
     args = parser.parse_args()
 

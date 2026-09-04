@@ -72,7 +72,7 @@ Inditrade_AI/
 * Pandas & Numpy (Data Preprocessing & Feature Engineering)
 
 **Frontend (Dashboard):**
-* Next.js 14+ (React Framework)
+* Next.js 16 (React Framework)
 * TypeScript
 * CSS Modules / Vanilla CSS (Glassmorphism, Dark Mode)
 * Framer Motion (Animations & Interactions)
@@ -103,8 +103,8 @@ python -m venv .venv
 # source .venv/bin/activate
 
 pip install -r requirements.txt
-cd src/backend
-uvicorn main:app --reload
+# Run from the repository root so the `src.*` package imports resolve:
+uvicorn src.backend.main:app --reload
 ```
 
 ### 3. Run the Frontend Dashboard

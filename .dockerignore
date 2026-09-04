@@ -14,3 +14,12 @@ venv/
 .venv/
 *.md
 .github/
+
+# agent memory / local artifacts
+.agents/
+*.xlsx
+.qoder/
+.pytest_cache/
+AGY_AUDIT_REPORT.md
+AGY_REAUDIT_REPORT.md
+OPENCODE_AUDIT_REPORT.md
