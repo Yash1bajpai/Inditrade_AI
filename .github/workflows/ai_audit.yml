@@ -1,0 +1,113 @@
+name: OpenCode AI Audit
+
+# Standing external audit. Fires after every successful Tests run on main
+# (i.e. after each push = each finished work session) and on demand.
+#
+# One persistent OpenCode session is created on the first run and reused for
+# every later run: the opencode data dir (~/.local/share/opencode, containing
+# the session db) is kept in a rolling actions/cache keyed by run id with a
+# stable restore prefix, and the active session id is tracked in a marker
+# file inside that same cached path.
+
+on:
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "full = re-audit whole repo, incremental = focus on recent commits"
+        default: "incremental"
+        type: choice
+        options: [incremental, full]
+
+concurrency:
+  group: opencode-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    env:
+      OPENCODE_MODEL: agentrouter/glm-5.3
+      OPENCODE_VARIANT: high
+      SESSION_TITLE: "IndiTrade AI Audit"
+      OC_DATA: /home/runner/.local/share/opencode
+      AGENTROUTER_API_KEY: ${{ secrets.AGENTROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore persistent audit session
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/opencode
+          key: opencode-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: opencode-audit-
+
+      - name: Install opencode CLI
+        run: |
+          curl -fsSL https://opencode.ai/install | bash
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+
+      - name: Run audit (reuse or create the single session)
+        run: |
+          set -uo pipefail
+          MARKER="$OC_DATA/.audit_session_id"
+          SID=""
+          if [ -f "$MARKER" ]; then
+            SID=$(cat "$MARKER" 2>/dev/null || true)
+          fi
+
+          # Validate the cached session still exists in opencode's db
+          if [ -n "$SID" ]; then
+            FOUND=$(sqlite3 "$OC_DATA/opencode.db" \
+              "SELECT COUNT(*) FROM session WHERE id='$SID';" 2>/dev/null || echo 0)
+            if [ "$FOUND" != "1" ]; then
+              echo "::warning::cached session $SID no longer exists; creating a new one"
+              SID=""
+            fi
+          fi
+
+          FULL_PROMPT='You are the standing external auditor of the IndiTrade AI repository (Indian trade intelligence platform: FastAPI backend, Next.js frontend, XGBoost/IsolationForest/Node2Vec models, hybrid BM25+vector RAG). This is a full audit. Read-only: you must not modify any files. Cover: (1) repo structure and whether README/PROJECT_MEMORY.md claims match the actual code and data; (2) security: any secrets or keys in tracked files, .env hygiene, unsafe endpoints; (3) code health of src/backend, src/rag, frontend; (4) CI workflows sanity; (5) test suite state. Finish with a concise markdown report: ## Summary, ## Findings (each tagged [CRITICAL]/[HIGH]/[MEDIUM]/[LOW] with file paths), ## Recommendations.'
+
+          INCREMENTAL_PROMPT='You are the same standing auditor of the IndiTrade AI repository, continuing your existing session. New commits were pushed since your last audit. Run git log --oneline -15 yourself and inspect the recent changes (read-only: no file modifications). Audit only what changed plus any regressions it could cause elsewhere, and confirm overall repo health has not degraded. Finish with a concise markdown report: ## Summary, ## Findings (each tagged [CRITICAL]/[HIGH]/[MEDIUM]/[LOW] with file paths), ## Recommendations. If nothing needs attention, say so explicitly.'
+
+          if [ -n "$SID" ]; then
+            echo "Reusing audit session: $SID"
+            opencode run -s "$SID" \
+              --agent plan --variant "$OPENCODE_VARIANT" -m "$OPENCODE_MODEL" --auto \
+              "$INCREMENTAL_PROMPT" | tee audit_report.md
+          else
+            echo "No usable session — running full audit and creating the persistent session"
+            opencode run \
+              --title "$SESSION_TITLE" --agent plan \
+              --variant "$OPENCODE_VARIANT" -m "$OPENCODE_MODEL" --auto \
+              "$FULL_PROMPT" | tee audit_report.md
+            SID=$(sqlite3 "$OC_DATA/opencode.db" \
+              "SELECT id FROM session WHERE title='$SESSION_TITLE' ORDER BY time_updated DESC LIMIT 1;")
+            mkdir -p "$OC_DATA"
+            echo "$SID" > "$MARKER"
+            echo "Created persistent audit session: $SID"
+          fi
+
+      - name: Publish report to job summary
+        if: always()
+        run: |
+          echo "<h2>🤖 OpenCode AI Audit — ${{ github.sha }}</h2>" >> "$GITHUB_STEP_SUMMARY"
+          cat audit_report.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(no report produced)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload audit report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-audit-report
+          path: audit_report.md
+          if-no-files-found: warn
