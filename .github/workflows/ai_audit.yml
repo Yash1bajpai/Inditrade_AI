@@ -57,6 +57,31 @@ jobs:
           npm install -g opencode-ai@1.18.29
           echo "$(npm prefix -g)/bin" >> "$GITHUB_PATH"
 
+      # The developer's laptop reaches agentrouter through a local proxy on
+      # 127.0.0.1:8089; CI goes straight to the hosted upstream. The key is
+      # injected from the AGENTROUTER_API_KEY secret via {env:} substitution,
+      # so no secret ever lands in the repo.
+      - name: Configure agentrouter provider (hosted upstream)
+        run: |
+          mkdir -p ~/.config/opencode
+          cat > ~/.config/opencode/opencode.json <<'EOF'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+              "agentrouter": {
+                "name": "AgentRouter",
+                "options": {
+                  "baseURL": "https://agentrouter.org/v1",
+                  "apiKey": "{env:AGENTROUTER_API_KEY}"
+                },
+                "models": {
+                  "glm-5.3": { "name": "GLM 5.3" }
+                }
+              }
+            }
+          }
+          EOF
+
       - name: Run audit (reuse or create the single session)
         run: |
           set -uo pipefail
