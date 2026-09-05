@@ -8,9 +8,12 @@ scanned OCR legal gazettes, and PIB press releases into:
 """
 
 import os
+import re
 import json
 import joblib
 import argparse
+import lzma
+import pickle
 from datetime import datetime
 from typing import List, Dict, Any
 from tqdm import tqdm
@@ -24,6 +27,54 @@ from rank_bm25 import BM25Okapi
 DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 FALLBACK_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 COLLECTION_NAME = "trade_policy_compliance"
+
+# bge-small truncates input at 512 tokens (~2000 chars). Whole gazette
+# notifications blow past that, so the dense vector only ever represented the
+# opening boilerplate. Paragraph-aware chunking keeps every embedded unit
+# inside the model's real context window.
+MAX_CHUNK_CHARS = 1600
+CHUNK_OVERLAP_CHARS = 200
+SINGLE_CHUNK_THRESHOLD = int(MAX_CHUNK_CHARS * 1.2)
+
+
+def chunk_text(text: str, max_chars: int = MAX_CHUNK_CHARS, overlap: int = CHUNK_OVERLAP_CHARS) -> List[str]:
+    """Split text into overlapping chunks on paragraph boundaries.
+
+    Greedily merges paragraphs up to max_chars; paragraphs longer than the
+    limit are hard-split with character overlap so no content is dropped.
+    """
+    text = text.strip()
+    if len(text) <= SINGLE_CHUNK_THRESHOLD:
+        return [text]
+
+    paragraphs = [p.strip() for p in re.split(r"\n{1,}", text) if p.strip()]
+    chunks: List[str] = []
+    current: List[str] = []
+    current_len = 0
+
+    def flush():
+        nonlocal current, current_len
+        if current:
+            chunks.append("\n".join(current))
+            current, current_len = [], 0
+
+    for para in paragraphs:
+        if len(para) > max_chars:
+            flush()
+            step = max(1, max_chars - overlap)
+            for start in range(0, len(para), step):
+                piece = para[start:start + max_chars]
+                if len(piece) < overlap // 2 and chunks:
+                    break
+                chunks.append(piece)
+            continue
+        if current_len + len(para) + 1 > max_chars:
+            flush()
+        current.append(para)
+        current_len += len(para) + 1
+    flush()
+
+    return chunks if chunks else [text[:max_chars]]
 
 def load_all_policy_chunks(data_dir: str) -> List[Dict[str, Any]]:
     """
@@ -85,6 +136,31 @@ def load_all_policy_chunks(data_dir: str) -> List[Dict[str, Any]]:
     print(f"\n[OK] Total normalized qualitative policy documents ready for indexing: {len(normalized_docs)}")
     return normalized_docs
 
+def explode_docs_into_chunks(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Expand whole-document payloads into paragraph-level chunk payloads.
+
+    Parent metadata (doc_type, title, notification_no, date, ministry,
+    pdf_path) is inherited by every chunk so citations survive chunking.
+    """
+    chunk_docs: List[Dict[str, Any]] = []
+    for doc in docs:
+        pieces = chunk_text(doc["text"])
+        for idx, piece in enumerate(pieces):
+            chunk_docs.append({
+                **doc,
+                "doc_id": f"{doc['doc_id']}::c{idx}",
+                "parent_doc_id": doc["doc_id"],
+                "chunk_index": idx,
+                "num_chunks": len(pieces),
+                "text": piece,
+                "char_length": len(piece),
+            })
+    multi = sum(1 for d in docs if d["char_length"] > SINGLE_CHUNK_THRESHOLD)
+    print(f"[*] Chunking: {len(docs)} documents ({multi} long) -> {len(chunk_docs)} chunks "
+          f"(max {MAX_CHUNK_CHARS} chars, overlap {CHUNK_OVERLAP_CHARS})")
+    return chunk_docs
+
+
 def build_dense_and_sparse_indexes(
     docs: List[Dict[str, Any]],
     qdrant_path: str,
@@ -97,6 +173,8 @@ def build_dense_and_sparse_indexes(
     """
     if not docs:
         raise ValueError("Document list is empty! Cannot build vector/keyword indexes.")
+
+    docs = explode_docs_into_chunks(docs)
 
     print(f"\n[*] Initializing dense embedding model: {model_name}...")
     try:
@@ -166,10 +244,28 @@ def build_dense_and_sparse_indexes(
     }, bm25_output_path)
     print(f"[SUCCESS] Sparse BM25 Index & Corpus serialized to -> {bm25_output_path}")
 
+    # lzma-compressed twin for production: the whole pickle is ~21MB of
+    # repetitive legal text (2.6MB compressed) — small enough to track in git
+    # and COPY into the Render Docker image, so the API always has a real
+    # sparse retriever even without a live Qdrant cluster.
+    lzma_path = bm25_output_path + ".lzma"
+    with open(bm25_output_path, "rb") as f_in:
+        raw = f_in.read()
+    with lzma.open(lzma_path, "wb", preset=6) as f_out:
+        f_out.write(raw)
+    print(f"[Exported] Compressed prod BM25 artifact -> {lzma_path} "
+          f"({len(raw) // 1024}KB -> {os.path.getsize(lzma_path) // 1024}KB)")
+
     meta_path = os.path.join(os.path.dirname(bm25_output_path), "rag_index_meta.json")
     meta_data = {
         "index_timestamp": datetime.now().isoformat(),
         "total_documents": len(docs),
+        "chunking": {
+            "strategy": "paragraph-aware, overlapping",
+            "max_chunk_chars": MAX_CHUNK_CHARS,
+            "overlap_chars": CHUNK_OVERLAP_CHARS,
+            "parents_split_into_chunks": len({d["parent_doc_id"] for d in docs if d.get("num_chunks", 1) > 1}),
+        },
         "doc_types_breakdown": {
             "DGFT_Policy": sum(1 for d in docs if d["doc_type"] == "DGFT_Policy"),
             "DGFT_OCR": sum(1 for d in docs if d["doc_type"] == "DGFT_OCR"),

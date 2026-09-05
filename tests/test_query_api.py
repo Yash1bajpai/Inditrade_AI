@@ -28,6 +28,9 @@ def query_client(monkeypatch):
     monkeypatch.setattr(query_mod, "ip_requests", {})
     # No Qdrant in tests -> retrieval is skipped, so grounded must be False.
     monkeypatch.setattr(query_mod, "qdrant", None, raising=False)
+    # Hermetic: also disable the tracked BM25 artifact (real local retrieval
+    # would flip grounded to True), keeping the suite offline-only.
+    monkeypatch.setattr(query_mod, "get_sparse_index", lambda: None)
 
     # Keep the suite hermetic and fast: never let the HF branch hit the network.
     # Without this the handler spends its full 10s timeout per test before

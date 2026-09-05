@@ -29,6 +29,13 @@ class MockSupabase:
 import json
 
 class MockQdrantRetriever:
+    """Last-resort retriever: keyword overlap over the QA dataset.
+
+    Only used when even the tracked BM25 artifact is missing (bare checkout).
+    """
+
+    supports_vector = False
+
     def __init__(self):
         self.documents = []
         try:
@@ -70,6 +77,41 @@ class MockQdrantRetriever:
         
         return [DummyHit(doc, score, idx) for idx, (score, doc) in enumerate(scored_docs[:limit])]
 
+class Bm25LocalRetriever:
+    """Offline fallback retriever: real BM25 over the chunked policy corpus.
+
+    Backed by the lzma-compressed BM25 artifact tracked in git, so a fresh
+    checkout (or the Render Docker image) can retrieve actual DGFT/PIB policy
+    text with zero external services — no Qdrant cluster, no embedding API.
+    """
+
+    supports_vector = False
+
+    def __init__(self):
+        from src.rag.sparse_index import ProdBM25Index
+        self._index = ProdBM25Index.load()
+        logger.info(
+            f"Bm25LocalRetriever ready: {len(self._index.docs)} indexed policy chunks"
+        )
+
+    def search(self, collection_name, query_vector=None, limit=3, **kwargs):
+        query_text = kwargs.get("query_text", "")
+        if not query_text:
+            return []
+        # Dedupe to one hit per parent document so the limited slots span
+        # distinct notifications rather than neighboring chunks.
+        hits = self._index.search(query_text, limit=limit * 3)
+        seen_parents, deduped = set(), []
+        for hit in hits:
+            parent = hit.payload.get("parent_doc_id") or hit.payload.get("doc_id")
+            if parent in seen_parents:
+                continue
+            seen_parents.add(parent)
+            deduped.append(hit)
+            if len(deduped) >= limit:
+                break
+        return deduped
+
 def init_supabase():
     supabase_url = os.getenv("SUPABASE_URL", "")
     supabase_key = os.getenv("SUPABASE_KEY", "")
@@ -108,8 +150,8 @@ def init_qdrant():
     qdrant_key = os.getenv("QDRANT_API_KEY", "")
 
     if _qdrant_url_blocked(qdrant_url):
-         logger.warning("Qdrant connection failed (Placeholder/Dead URL Detected). Falling back to Mock Retriever.")
-         return MockQdrantRetriever()
+         logger.warning("Qdrant connection failed (Placeholder/Dead URL Detected). Using local BM25 retriever.")
+         return _init_local_retriever()
 
     try:
         from qdrant_client import QdrantClient
@@ -120,7 +162,18 @@ def init_qdrant():
         logger.info("Successfully connected to genuine Qdrant instance!")
         return client
     except Exception as e:
-        logger.warning(f"Qdrant connection failed ({e}). Falling back to Mock Retriever.")
+        logger.warning(f"Qdrant connection failed ({e}). Using local BM25 retriever.")
+        return _init_local_retriever()
+
+def _init_local_retriever():
+    """Prefer the tracked BM25 index over the QA-dataset keyword mock."""
+    try:
+        return Bm25LocalRetriever()
+    except FileNotFoundError as e:
+        logger.warning(f"{e} Falling back to QA-dataset mock retriever.")
+        return MockQdrantRetriever()
+    except Exception as e:
+        logger.warning(f"Failed to load BM25 artifact ({e}). Falling back to QA-dataset mock retriever.")
         return MockQdrantRetriever()
 
 supabase = init_supabase()

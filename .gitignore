@@ -31,6 +31,7 @@ data/processed/*
 data/cache/*
 !data/cache/.gitkeep
 !data/cache/*_meta.json
+!data/cache/bm25_index.pkl.lzma
 
 # Models directory (preserve structure and metadata json only)
 models/*.pkl
