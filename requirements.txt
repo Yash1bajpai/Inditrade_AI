@@ -46,7 +46,10 @@ black>=23.7.0
 flake8>=6.1.0
 
 # Backend Web & Database
-fastapi>=0.100.0
+# fastapi must stay paired with a starlette it actually supports:
+# fastapi 0.141+ requires starlette>=0.46 (older fastapi breaks on starlette 1.x).
+fastapi>=0.141.0
+starlette>=0.46.0,<2.0
 uvicorn>=0.23.0
 supabase>=2.3.0
 qdrant-client>=1.6.0
