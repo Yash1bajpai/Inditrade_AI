@@ -52,10 +52,10 @@ jobs:
           key: opencode-audit-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: opencode-audit-
 
-      - name: Install opencode CLI
+      - name: Install opencode CLI (pinned to the locally-verified version)
         run: |
-          curl -fsSL https://opencode.ai/install | bash
-          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+          npm install -g opencode-ai@1.18.29
+          echo "$(npm prefix -g)/bin" >> "$GITHUB_PATH"
 
       - name: Run audit (reuse or create the single session)
         run: |
@@ -83,13 +83,13 @@ jobs:
           if [ -n "$SID" ]; then
             echo "Reusing audit session: $SID"
             opencode run -s "$SID" \
-              --agent plan --variant "$AUDIT_VARIANT" -m "$AUDIT_MODEL" --auto \
+              --variant "$AUDIT_VARIANT" -m "$AUDIT_MODEL" --auto --print-logs \
               "$INCREMENTAL_PROMPT" | tee audit_report.md
           else
             echo "No usable session — running full audit and creating the persistent session"
             opencode run \
-              --title "$SESSION_TITLE" --agent plan \
-              --variant "$AUDIT_VARIANT" -m "$AUDIT_MODEL" --auto \
+              --title "$SESSION_TITLE" \
+              --variant "$AUDIT_VARIANT" -m "$AUDIT_MODEL" --auto --print-logs \
               "$FULL_PROMPT" | tee audit_report.md
             SID=$(sqlite3 "$OC_DATA/opencode.db" \
               "SELECT id FROM session WHERE title='$SESSION_TITLE' ORDER BY time_updated DESC LIMIT 1;")
@@ -97,6 +97,10 @@ jobs:
             echo "$SID" > "$MARKER"
             echo "Created persistent audit session: $SID"
           fi
+
+      - name: Dump opencode server logs on failure
+        if: failure()
+        run: tail -40 "$OC_DATA"/log/*.log 2>/dev/null || echo "(no server logs found)"
 
       - name: Publish report to job summary
         if: always()
