@@ -38,6 +38,9 @@ COPY src/ src/
 COPY config/ config/
 COPY data/processed/flagged_trade_anomalies.csv /app/data/processed/
 COPY data/processed/node2vec_trade_embeddings.parquet /app/data/processed/
+# Compressed BM25 policy index: powers offline sparse retrieval when the
+# Qdrant cluster is unreachable (see src/rag/sparse_index.py).
+COPY data/cache/bm25_index.pkl.lzma /app/data/cache/
 
 # Ensure necessary directories exist
 RUN mkdir -p data/raw logs && \

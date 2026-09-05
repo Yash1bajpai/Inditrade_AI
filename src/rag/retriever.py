@@ -121,11 +121,16 @@ class HybridPolicyRetriever:
         top_k: int = 5,
         alpha: float = 0.5,
         rrf_k: int = 60,
-        doc_type_filter: Optional[str] = None
+        doc_type_filter: Optional[str] = None,
+        dedupe_parents: bool = True
     ) -> List[Dict[str, Any]]:
         """
         Combines dense vector search and sparse BM25 search using Reciprocal Rank Fusion (RRF).
         RRF score = (alpha / (rrf_k + dense_rank)) + ((1 - alpha) / (rrf_k + sparse_rank))
+
+        With a chunked index several hits can come from the same parent document;
+        dedupe_parents=True keeps only the highest-fused chunk per parent so the
+        top_k slots span distinct documents.
         """
         dense_hits = self.search_dense(query, top_k=top_k * 3, doc_type_filter=doc_type_filter)
         sparse_hits = self.search_sparse(query, top_k=top_k * 3, doc_type_filter=doc_type_filter)
@@ -151,16 +156,36 @@ class HybridPolicyRetriever:
             sparse_contrib = (1.0 - alpha) / (rrf_k + h["sparse_rank"])
             rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + sparse_contrib
 
-        sorted_doc_ids = sorted(rrf_scores.keys(), key=lambda k: rrf_scores[k], reverse=True)[:top_k]
+        sorted_doc_ids = sorted(rrf_scores.keys(), key=lambda k: rrf_scores[k], reverse=True)
+
+        if dedupe_parents:
+            seen_parents = set()
+            deduped_ids = []
+            for doc_id in sorted_doc_ids:
+                payload = payload_map[doc_id]
+                parent = payload.get("parent_doc_id") or doc_id
+                if parent in seen_parents:
+                    continue
+                seen_parents.add(parent)
+                deduped_ids.append(doc_id)
+            sorted_doc_ids = deduped_ids
+
+        sorted_doc_ids = sorted_doc_ids[:top_k]
 
         final_results = []
         for idx, doc_id in enumerate(sorted_doc_ids):
             payload = payload_map[doc_id]
             r_info = ranks_map.get(doc_id, {})
+            chunk_idx = payload.get("chunk_index")
+            num_chunks = payload.get("num_chunks")
+            snippet = payload.get("text", "")[:450]
+            if chunk_idx is not None and num_chunks and num_chunks > 1:
+                snippet = f"[doc {payload.get('parent_doc_id')} — chunk {chunk_idx + 1}/{num_chunks}] {snippet}"
             final_results.append({
                 "rank": idx + 1,
                 "rrf_score": float(rrf_scores[doc_id]),
                 "doc_id": doc_id,
+                "parent_doc_id": payload.get("parent_doc_id", doc_id),
                 "doc_type": payload.get("doc_type", ""),
                 "title": payload.get("title", ""),
                 "notification_no": payload.get("notification_no", ""),
@@ -168,7 +193,7 @@ class HybridPolicyRetriever:
                 "ministry": payload.get("ministry", ""),
                 "dense_rank": r_info.get("dense_rank", "N/A"),
                 "sparse_rank": r_info.get("sparse_rank", "N/A"),
-                "snippet": payload.get("text", "")[:450] + ("..." if len(payload.get("text", "")) > 450 else ""),
+                "snippet": snippet + ("..." if len(payload.get("text", "")) > 450 else ""),
                 "full_text": payload.get("text", "")
             })
 

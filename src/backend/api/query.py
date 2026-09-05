@@ -6,9 +6,52 @@ import requests
 import asyncio
 import time
 from src.backend.database import qdrant, supabase
+from src.rag.sparse_index import ProdBM25Index
 
 logger = logging.getLogger("api.query")
 router = APIRouter()
+
+# Hybrid retrieval budget: fetch dense + sparse candidates, fuse with RRF,
+# keep the top FINAL_CONTEXTS parents as generation context.
+DENSE_HITS = 8
+SPARSE_HITS = 8
+FINAL_CONTEXTS = 5
+RRF_K = 60
+
+_sparse_index = None
+_sparse_loaded = False
+
+
+def get_sparse_index():
+    """Lazily load the tracked BM25 artifact once; None when unavailable."""
+    global _sparse_index, _sparse_loaded
+    if not _sparse_loaded:
+        _sparse_loaded = True
+        try:
+            _sparse_index = ProdBM25Index.load()
+            logger.info(f"ProdBM25Index loaded: {len(_sparse_index.docs)} policy chunks")
+        except Exception as e:
+            logger.warning(f"BM25 artifact unavailable ({e}); sparse retrieval disabled.")
+            _sparse_index = None
+    return _sparse_index
+
+
+def _rrf_fuse(dense_hits, sparse_hits, rrf_k: int = RRF_K):
+    """Reciprocal Rank Fusion over dense and sparse hit lists.
+
+    Hits are objects exposing .payload. Fusion keys on the parent document so
+    multiple chunks of the same notification cannot crowd out other sources.
+    Returns payloads ordered by fused score.
+    """
+    scores, payloads = {}, {}
+    for hits in (dense_hits, sparse_hits):
+        for rank, hit in enumerate(hits, start=1):
+            payload = hit.payload or {}
+            key = payload.get("parent_doc_id") or payload.get("doc_id") or f"hit_{id(payload)}"
+            scores[key] = scores.get(key, 0.0) + 1.0 / (rrf_k + rank)
+            if key not in payloads:
+                payloads[key] = payload
+    return [payloads[k] for k in sorted(scores, key=scores.get, reverse=True)]
 
 # Simple in-memory rate limiter
 RATE_LIMIT = 10
@@ -92,10 +135,10 @@ async def query_policy(req: QueryRequest, request: Request):
     # one in the response body.
     grounded = False
     try:
-        if qdrant and hasattr(qdrant, 'search'):
-
+        dense_hits = []
+        if qdrant is not None and getattr(qdrant, "supports_vector", True) and hasattr(qdrant, "search"):
             hf_token = os.getenv("HF_TOKEN")
-            
+
             def fetch_embeddings():
                 return requests.post(
                     "https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5/pipeline/feature-extraction",
@@ -103,44 +146,62 @@ async def query_policy(req: QueryRequest, request: Request):
                     json={"inputs": req.question},
                     timeout=5
                 )
-            
-            emb_response = await asyncio.to_thread(fetch_embeddings)
-            query_vector = emb_response.json() if emb_response.status_code == 200 else [0.0]*384
-            while isinstance(query_vector, list) and len(query_vector) > 0 and isinstance(query_vector[0], list):
-                query_vector = query_vector[0]
 
-            if emb_response.status_code == 200:
+            emb_response = await asyncio.to_thread(fetch_embeddings)
+            if emb_response.status_code != 200:
+                # Searching with a fabricated zero vector would silently return
+                # garbage neighbors. Skip dense and let sparse retrieval carry
+                # the request instead.
+                logger.error(
+                    f"HF embedding API returned {emb_response.status_code}; "
+                    "skipping dense retrieval, using sparse only."
+                )
+            else:
+                query_vector = emb_response.json()
+                while isinstance(query_vector, list) and len(query_vector) > 0 and isinstance(query_vector[0], list):
+                    query_vector = query_vector[0]
+
                 def qdrant_search():
                     return qdrant.search(
                         collection_name="trade_policy_compliance",
                         query_vector=query_vector,
-                        limit=3,
+                        limit=DENSE_HITS,
                         query_text=req.question
                     )
-                
-                results = await asyncio.to_thread(qdrant_search)
 
-                contexts = []
-                citations = []
-                for r in results:
-                    payload = r.payload
-                    text = payload.get("text", "")
-                    title = payload.get("title", "")
-                    notif = payload.get("notification_no", "")
-                    doc_type = payload.get("doc_type", "Policy")
+                dense_hits = await asyncio.to_thread(qdrant_search)
 
-                    contexts.append(text)
-                    if title:
-                        cite = f"{doc_type}: {title}"
-                        if notif:
-                            cite += f" (No. {notif})"
-                        citations.append(cite)
+        # Reuse the fallback retriever's in-memory index when present (no
+        # second 20MB load on the 512MB Render container); otherwise load the
+        # tracked artifact once.
+        sparse = getattr(qdrant, "_index", None) or get_sparse_index()
+        sparse_hits = []
+        if sparse is not None:
+            def sparse_search():
+                return sparse.search(req.question, limit=SPARSE_HITS)
+            sparse_hits = await asyncio.to_thread(sparse_search)
 
-                context = "\n".join(contexts)
-                citation_str = " | ".join(set(citations)) if citations else ""
-                grounded = bool(context.strip())
+        fused = _rrf_fuse(dense_hits, sparse_hits)[:FINAL_CONTEXTS]
+        contexts, citations, seen_parents = [], [], set()
+        for payload in fused:
+            text = payload.get("text", "")
+            if not text:
+                continue
+            contexts.append(text)
+            parent = payload.get("parent_doc_id") or payload.get("doc_id")
+            title = payload.get("title", "")
+            if title and parent not in seen_parents:
+                seen_parents.add(parent)
+                cite = f"{payload.get('doc_type', 'Policy')}: {title}"
+                if payload.get("notification_no"):
+                    cite += f" (No. {payload['notification_no']})"
+                citations.append(cite)
+
+        context = "\n".join(contexts)
+        citation_str = " | ".join(citations) if citations else ""
+        grounded = bool(context.strip())
     except Exception as e:
-        logger.warning(f"RAG Retrieval failed or mocked: {e}")
+        logger.warning(f"RAG Retrieval failed: {e}")
         citation_str = ""
         grounded = False
 
