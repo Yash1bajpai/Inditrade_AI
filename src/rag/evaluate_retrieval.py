@@ -71,17 +71,41 @@ def load_eval_questions(qa_path: str, max_questions: int) -> List[Dict[str, Any]
     return questions
 
 
-def is_relevant(retrieved_text: str, gold_tokens: set) -> bool:
+def is_relevant(retrieved_text: str, gold_tokens: set, threshold: float = GOLD_OVERLAP_THRESHOLD) -> bool:
     if not gold_tokens:
         return False
     hit_tokens = _content_tokens(retrieved_text)
     overlap = len(gold_tokens & hit_tokens) / len(gold_tokens)
-    return overlap >= GOLD_OVERLAP_THRESHOLD
+    return overlap >= threshold
+
+
+def build_parent_texts() -> Dict[str, str]:
+    """Map parent_doc_id -> full document text (chunks joined in order).
+
+    Judging happens at the parent level so chunked and whole-doc indexes are
+    measured on equal footing: a chunked index is correct when it surfaces a
+    chunk of the right document, not only when one chunk contains the entire
+    gold snippet.
+    """
+    from src.rag.sparse_index import ProdBM25Index
+
+    index = ProdBM25Index.load()
+    parts: Dict[str, Dict[int, str]] = {}
+    for doc in index.docs:
+        parent = doc.get("parent_doc_id") or doc.get("doc_id")
+        parts.setdefault(parent, {})[doc.get("chunk_index", 0)] = doc.get("text", "")
+    return {
+        parent: "\n".join(text for _, text in sorted(chunks.items()))
+        for parent, chunks in parts.items()
+    }
 
 
 def evaluate(results: List[List[Dict[str, Any]]], eval_set: List[Dict[str, Any]], k_values=(1, 3, 5, 10)) -> Dict[str, Any]:
-    hits_at = {k: 0 for k in k_values}
-    rr_total = 0.0
+    parent_texts = build_parent_texts()
+    doc_hits_at = {k: 0 for k in k_values}
+    chunk_hits_at = {k: 0 for k in k_values}
+    doc_rr = 0.0
+    chunk_rr = 0.0
     judged = 0
 
     for retrieved, item in zip(results, eval_set):
@@ -89,23 +113,36 @@ def evaluate(results: List[List[Dict[str, Any]]], eval_set: List[Dict[str, Any]]
         if not gold:
             continue
         judged += 1
-        first_rank = None
+        first_doc_rank = None
+        first_chunk_rank = None
         for rank, doc in enumerate(retrieved, start=1):
-            if is_relevant(doc.get("full_text") or doc.get("text") or "", gold):
-                if first_rank is None:
-                    first_rank = rank
+            text = doc.get("full_text") or doc.get("text") or ""
+            parent = doc.get("parent_doc_id") or doc.get("doc_id")
+            parent_full = parent_texts.get(parent, "")
+            if first_doc_rank is None and is_relevant(parent_full or text, gold):
+                first_doc_rank = rank
+            if first_chunk_rank is None and is_relevant(text, gold, threshold=0.35):
+                first_chunk_rank = rank
+            if first_doc_rank is not None and first_chunk_rank is not None:
                 break
         for k in k_values:
-            if first_rank is not None and first_rank <= k:
-                hits_at[k] += 1
-        if first_rank is not None:
-            rr_total += 1.0 / first_rank
+            if first_doc_rank is not None and first_doc_rank <= k:
+                doc_hits_at[k] += 1
+            if first_chunk_rank is not None and first_chunk_rank <= k:
+                chunk_hits_at[k] += 1
+        if first_doc_rank is not None:
+            doc_rr += 1.0 / first_doc_rank
+        if first_chunk_rank is not None:
+            chunk_rr += 1.0 / first_chunk_rank
 
-    return {
-        "judged": judged,
-        **{f"hit@{k}": round(hits_at[k] / judged, 4) for k in k_values if judged},
-        "mrr@10": round(rr_total / judged, 4) if judged else 0.0,
-    }
+    metrics = {"judged": judged}
+    for k in k_values:
+        if judged:
+            metrics[f"doc_hit@{k}"] = round(doc_hits_at[k] / judged, 4)
+            metrics[f"chunk_hit@{k}"] = round(chunk_hits_at[k] / judged, 4)
+    metrics["doc_mrr@10"] = round(doc_rr / judged, 4) if judged else 0.0
+    metrics["chunk_mrr@10"] = round(chunk_rr / judged, 4) if judged else 0.0
+    return metrics
 
 
 def main():
