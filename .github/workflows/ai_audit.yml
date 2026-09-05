@@ -35,8 +35,8 @@ jobs:
     timeout-minutes: 30
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     env:
-      OPENCODE_MODEL: agentrouter/glm-5.3
-      OPENCODE_VARIANT: high
+      AUDIT_MODEL: agentrouter/glm-5.3
+      AUDIT_VARIANT: high
       SESSION_TITLE: "IndiTrade AI Audit"
       OC_DATA: /home/runner/.local/share/opencode
       AGENTROUTER_API_KEY: ${{ secrets.AGENTROUTER_API_KEY }}
@@ -83,13 +83,13 @@ jobs:
           if [ -n "$SID" ]; then
             echo "Reusing audit session: $SID"
             opencode run -s "$SID" \
-              --agent plan --variant "$OPENCODE_VARIANT" -m "$OPENCODE_MODEL" --auto \
+              --agent plan --variant "$AUDIT_VARIANT" -m "$AUDIT_MODEL" --auto \
               "$INCREMENTAL_PROMPT" | tee audit_report.md
           else
             echo "No usable session — running full audit and creating the persistent session"
             opencode run \
               --title "$SESSION_TITLE" --agent plan \
-              --variant "$OPENCODE_VARIANT" -m "$OPENCODE_MODEL" --auto \
+              --variant "$AUDIT_VARIANT" -m "$AUDIT_MODEL" --auto \
               "$FULL_PROMPT" | tee audit_report.md
             SID=$(sqlite3 "$OC_DATA/opencode.db" \
               "SELECT id FROM session WHERE title='$SESSION_TITLE' ORDER BY time_updated DESC LIMIT 1;")
