@@ -47,3 +47,12 @@ The FastAPI backend (`src/backend/api/forecast.py`) exposes several endpoints th
 *   Do not retrain the XGBoost model manually. It is refreshed automatically by the monthly GitHub Actions workflow (`retrain_models.yml`) using the 2015-2024 baseline; manual retraining risks diverging the deployed artifact from the CI-produced one.
 *   Do not touch the `vanijya` chat initialization logic in `page.tsx` (it injects DOM elements explicitly to ensure it runs well with the Chat endpoints).
 *   Do not replace native standard CSS with Tailwind without explicit instruction.
+*   Do not run heavy compute (indexing, embedding, evals, training) on the local 8GB laptop — push it to Kaggle via `kaggle kernels push -p kaggle_kernel` (see `kaggle_kernel/rebuild_rag_index.py`).
+*   Do not create new OpenCode audit sessions per run — the CI workflow reuses the single cached `IndiTrade AI Audit` session; locally, agentrouter goes through the `127.0.0.1:8089` proxy (config `~/.config/opencode/opencode.jsonc`), while CI hits `agentrouter.org/v1` directly.
+
+## 6. RAG Architecture (as of Sept 2026)
+*   **Indexing:** paragraph-aware chunks (1,600 chars / 200 overlap) — NOT whole documents; bge-small truncates at 512 tokens so whole-doc vectors only represented gazette boilerplate. 5,062 chunks from 564 docs. Built on Kaggle, artifacts in `data/cache/`.
+*   **Production retrieval (`/api/query`):** dense top-8 (Qdrant; HF Inference embeddings) + BM25 top-8 (local `bm25_index.pkl.lzma` via `src/rag/sparse_index.py`) fused with Reciprocal Rank Fusion, keyed on parent document. No zero-vector fallback: embedding failure degrades to sparse-only, loudly logged.
+*   **Fallback chain:** real Qdrant cloud → (dead/unreachable) → `Bm25LocalRetriever` (real BM25 over chunks) → `MockQdrantRetriever` (QA-pair keyword overlap, bare checkout only).
+*   **Retrieval quality** is measured by `src/rag/evaluate_retrieval.py` (hit@k / MRR at parent level, gold = QA `context_snippet`). Current: hybrid doc hit@5 0.917, MRR 0.881. Reports live in `reports/rag_eval_*.json` (tracked in git).
+*   **Cross-encoder reranker** (`src/rag/reranker.py`, bge-reranker-base) is local/dev-only — too heavy for Render 512MB.
