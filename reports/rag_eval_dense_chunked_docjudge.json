@@ -1,0 +1,16 @@
+{
+  "judged": 300,
+  "doc_hit@1": 0.8033,
+  "chunk_hit@1": 0.6833,
+  "doc_hit@3": 0.8933,
+  "chunk_hit@3": 0.83,
+  "doc_hit@5": 0.9133,
+  "chunk_hit@5": 0.8567,
+  "doc_hit@10": 0.9233,
+  "chunk_hit@10": 0.8967,
+  "doc_mrr@10": 0.8508,
+  "chunk_mrr@10": 0.7605,
+  "mode": "dense",
+  "questions": 300,
+  "timestamp": "2026-09-06 00:39:07"
+}

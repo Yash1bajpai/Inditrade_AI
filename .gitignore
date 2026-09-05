@@ -75,7 +75,8 @@ scratch/
 .scan_tmp/
 .scannerwork/
 .sonar/
-reports/
+reports/*
+!reports/rag_eval_*.json
 notebooks/
 
 # Model Checkpoints and LLM outputs
