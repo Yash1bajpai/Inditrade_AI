@@ -73,7 +73,7 @@ def session_exists(sid: str) -> bool:
     if not (OC_DB.exists() and sid):
         return False
     try:
-        con = sqlite3.connect(str(OC_DB))
+        con = sqlite3.connect(f"file:{OC_DB}?mode=ro", uri=True)
         row = con.execute(
             "SELECT COUNT(*) FROM session WHERE id=?", (sid,)
         ).fetchone()
@@ -103,7 +103,13 @@ def main() -> int:
     print(f"[*] Starting {mode} audit at {datetime.now():%Y-%m-%d %H:%M:%S}")
 
     started = time.time()
-    result = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, encoding="utf-8", errors="replace")
+    try:
+        result = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=5400)
+    except subprocess.TimeoutExpired:
+        print("ERROR: audit exceeded 90 minutes — treating as failed so the "
+              "scheduled job never hangs on a stalled upstream.", file=sys.stderr)
+        return 1
     elapsed = time.time() - started
 
     output = (result.stdout or "").strip()
@@ -123,16 +129,30 @@ def main() -> int:
 
     if not incremental:
         # New session was just created — persist its id for all future runs.
-        con = sqlite3.connect(str(OC_DB))
-        row = con.execute(
-            "SELECT id FROM session WHERE title=? ORDER BY time_updated DESC LIMIT 1",
-            (SESSION_TITLE,),
-        ).fetchone()
-        con.close()
-        if row:
+        # The DB may be locked by the opencode instance that just created the
+        # session; retry briefly rather than silently losing the marker (a
+        # lost marker would fork the persistent session on the next run).
+        new_sid = ""
+        for attempt in range(5):
+            try:
+                con = sqlite3.connect(f"file:{OC_DB}?mode=ro", uri=True)
+                row = con.execute(
+                    "SELECT id FROM session WHERE title=? ORDER BY time_updated DESC LIMIT 1",
+                    (SESSION_TITLE,),
+                ).fetchone()
+                con.close()
+                if row:
+                    new_sid = row[0]
+                break
+            except sqlite3.OperationalError:
+                time.sleep(2 * (attempt + 1))
+        if new_sid:
             MARKER.parent.mkdir(parents=True, exist_ok=True)
-            MARKER.write_text(row[0], encoding="utf-8")
-            print(f"[+] Session persisted: {row[0]}")
+            MARKER.write_text(new_sid, encoding="utf-8")
+            print(f"[+] Session persisted: {new_sid}")
+        else:
+            print("WARNING: could not persist the new session id; the next "
+                  "run will bootstrap a fresh session.", file=sys.stderr)
 
     print(f"[OK] Audit complete in {elapsed:.0f}s -> {report_path}")
     return 0
