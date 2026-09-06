@@ -70,7 +70,22 @@ jobs:
       # 127.0.0.1:8089; CI goes straight to the hosted upstream. The key is
       # injected from the AGENTROUTER_API_KEY secret via {env:} substitution,
       # so no secret ever lands in the repo.
-      - name: Configure agentrouter provider (hosted upstream)
+      # agentrouter.org rejects any client whose User-Agent is not "cline/2.0.0"
+      # ("unauthorized client detected"), so opencode cannot reach it directly.
+      # The developer's laptop solves this with a local sanitizing proxy — run
+      # the same stdlib-only proxy inside the runner and point opencode at it.
+      - name: Start agentrouter proxy (client-fingerprint adapter)
+        run: |
+          nohup python ci/agentrouter_proxy.py > /tmp/proxy.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -s -o /dev/null http://127.0.0.1:8089/v1/models; then
+              echo "proxy is up"; break
+            fi
+            sleep 1
+          done
+          curl -s http://127.0.0.1:8089/v1/models -H "Authorization: Bearer $AGENTROUTER_API_KEY" | head -c 200; echo
+
+      - name: Configure agentrouter provider (via local proxy)
         run: |
           mkdir -p ~/.config/opencode
           cat > ~/.config/opencode/opencode.json <<'EOF'
@@ -80,7 +95,7 @@ jobs:
               "agentrouter": {
                 "name": "AgentRouter",
                 "options": {
-                  "baseURL": "https://agentrouter.org/v1",
+                  "baseURL": "http://127.0.0.1:8089/v1",
                   "apiKey": "{env:AGENTROUTER_API_KEY}"
                 },
                 "models": {
