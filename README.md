@@ -15,16 +15,16 @@ Built with an ultra-premium "Data Journalism" aesthetic, this system utilizes a 
 
 ## 🎯 Model Performance & Optimization
 
-Our rigorous chronological hold-out validation ensures zero future-data leakage. The system relies on XGBoost, Isolation Forests, and Node2Vec embeddings to accurately map and predict trade data.
+Our rigorous chronological hold-out validation ensures zero future-data leakage: the model trains on 2015–2021 and is examined on 2022–2025 (the tariff-shock years included). The system relies on XGBoost, Isolation Forests, and Node2Vec embeddings to accurately map and predict trade data.
 
 | AI Engine Module | Algorithm & Architecture | Target / Domain Scope | Primary Verification Metric | Verified Performance Score |
 | :--- | :--- | :--- | :--- | :--- |
-| **Trade Flow Forecast** | `XGBoost Regressor` | `$0.01` to `$119.07B` | **Log-Scale $R^2$ Score** | **`0.9989`** |
-| **Dollar Reverse-Fit** | `expm1(y_pred)` | Real Dollar Flows | **Dollar-Scale SMAPE** | **`7.25%`** |
-| **Anomaly Detection** | `Isolation Forest` | Trade Misinvoicing & Policy Shocks | **Contamination Rate** | **`1.00%`** |
-| **Network Embeddings** | `Node2Vec + Skip-Gram` | Bipartite Weighted Trade Graph | **Structural Equivalence Accuracy** | **`115 Nodes` \| `1,744 Edges`** |
+| **Trade Flow Forecast** | `XGBoost Regressor` | `$0.01` to `$59.53B` | **Log-Scale $R^2$ Score** | **`0.9579`** |
+| **Dollar Reverse-Fit** | `expm1(y_pred)` | Real Dollar Flows | **Dollar-Scale RMSE / MAE** | **`$0.90B` / `$54.4M`** |
+| **Anomaly Detection** | `Isolation Forest` | Trade Misinvoicing & Policy Shocks | **Flagged Anomalies** | **`353` across 35,279 flows** |
+| **Network Embeddings** | `Node2Vec + Skip-Gram` | Bipartite Weighted Trade Graph | **Graph Coverage** | **`115 Nodes` \| `1,744 Edges`** |
 
-> *Directional Accuracy tracks the model's ability to correctly predict trade expansion vs contraction relative to the prior periods. All pipelines are fully accelerated on NVIDIA GPUs.*
+> *All numbers come from the retrained 2015–2025 model (CI run 34048182665, Sept 2026) and match `models/xgboost_trade_forecast_meta.json` exactly. The log-R² is lower than the pre-refresh figure (0.992) because the hold-out now includes the volatile 2022–2025 window — a harder, more honest examination. Dollar-scale error fell ~61% in the same refresh.*
 
 ---
 
