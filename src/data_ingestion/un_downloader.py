@@ -1,15 +1,17 @@
 """
 IndiTrade AI - UN Comtrade HS 2-Digit Data Ingestion Module
 Fetches bilateral trade flows (Imports 'M' & Exports 'X') between India (699)
-and its top 20 trade partners using exact UN M49 numeric codes for years 2015-2024.
+and its top 20 trade partners using exact UN M49 numeric codes for years 2015-2025 (refreshable via --mode refresh).
 
 Features:
 - Dual API Key Rotation & Quota Management (COMTRADE_API_KEY1, COMTRADE_API_KEY2).
 - Strict 403 / 429 error handling: Logs exact error and STOPS immediately without synthetic substitution.
 - 1.5s sleep interval between requests to honor API rate limits.
 - Test mode: Fetches strictly 1 partner and 1 year first for user approval before full 400-iteration loop.
+- Refresh mode: --year 2025 --append fetches one extra year and appends to the parquet.
 """
 
+import argparse
 import os
 import time
 import pandas as pd
@@ -216,7 +218,80 @@ def run_full_loop():
     else:
         print("\n[WARNING] No data was fetched across the iterations.")
 
-if __name__ == "__main__":
+def run_refresh_loop(year, append=True):
+    """
+    Fetches one additional year for all 20 partners x 2 flows (40 calls),
+    then appends to the raw parquet. Skips partners already present for the
+    year so a re-run after a partial failure never duplicates rows.
+    """
+    print(f"\n=== REFRESH FETCH: YEAR {year} (20 partners x 2 flows) ===")
+    fetcher = ComtradeFetcher()
 
-    run_test_fetch(partner_code="842", year="2023", flow_code="M")
+    existing = pd.read_parquet(OUTPUT_PARQUET)
+    print(f"Existing raw parquet: {len(existing)} rows, years {sorted(existing['period'].unique().tolist())}")
+
+    have = set()
+    if not existing.empty and int(year) in existing["period"].astype(int).unique():
+        have = set(zip(
+            existing[existing["period"].astype(int) == int(year)]["partnerCode"].astype(str),
+            existing[existing["period"].astype(int) == int(year)]["flowCode"].astype(str),
+        ))
+        print(f"Year {year} already partially present: {len(have)} (partner, flow) slices — they will be skipped.")
+
+    all_dfs = []
+    stopped_early = False
+    iteration = 0
+    total_iterations = len(TOP_20_PARTNERS) * 2
+
+    for partner_code, partner_name in TOP_20_PARTNERS.items():
+        if stopped_early:
+            break
+        for flow in ["M", "X"]:
+            iteration += 1
+            if (str(partner_code), flow) in have:
+                print(f"[{iteration:02d}/{total_iterations}] India <-> {partner_name:<20} | {year} | {flow} — already present, skipping")
+                continue
+            flow_label = "Import (M)" if flow == "M" else "Export (X)"
+            print(f"[{iteration:02d}/{total_iterations}] Fetching India <-> {partner_name:<20} ({partner_code}) | {year} | {flow_label}...", end=" ", flush=True)
+
+            df, status = fetcher.fetch_slice(partner_code=partner_code, year=year, flow_code=flow)
+            if df is None:
+                print(f"\n[CRITICAL STOP] API Rate/Quota Exceeded ({status}). Partial data kept, nothing written for the missing slices.")
+                stopped_early = True
+                break
+            print(f"Rows: {len(df):<4} | Status: {status}")
+            if not df.empty:
+                all_dfs.append(df)
+            time.sleep(1.5)
+
+    if stopped_early and not all_dfs:
+        print("[ABORT] Nothing new fetched; raw parquet left untouched.")
+        return None
+
+    new_df = pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
+    if append and not new_df.empty:
+        combined = pd.concat([existing, new_df], ignore_index=True)
+        combined = combined.drop_duplicates(
+            subset=["period", "partnerCode", "cmdCode", "flowCode"], keep="first"
+        )
+        combined.to_parquet(OUTPUT_PARQUET, index=False)
+        print(f"\n=== REFRESH SAVED ===")
+        print(f"File: {OUTPUT_PARQUET}")
+        print(f"New rows: {len(new_df)} | Total rows now: {len(combined)} | Years: {sorted(combined['period'].astype(int).unique().tolist())}")
+    elif new_df.empty:
+        print("[NOTICE] No new rows fetched.")
+    return new_df
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="UN Comtrade HS-2 ingestion")
+    parser.add_argument("--mode", choices=["test", "full", "refresh"], default="test")
+    parser.add_argument("--year", type=int, default=2025, help="Year for refresh mode")
+    args = parser.parse_args()
+
+    if args.mode == "test":
+        run_test_fetch(partner_code="842", year=str(2023), flow_code="M")
+    elif args.mode == "full":
+        run_full_loop()
+    elif args.mode == "refresh":
+        run_refresh_loop(year=args.year)
 
