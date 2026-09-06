@@ -48,7 +48,7 @@ The FastAPI backend (`src/backend/api/forecast.py`) exposes several endpoints th
 *   Do not touch the `vanijya` chat initialization logic in `page.tsx` (it injects DOM elements explicitly to ensure it runs well with the Chat endpoints).
 *   Do not replace native standard CSS with Tailwind without explicit instruction.
 *   Do not run heavy compute (indexing, embedding, evals, training) on the local 8GB laptop — push it to Kaggle via `kaggle kernels push -p kaggle_kernel` (see `kaggle_kernel/rebuild_rag_index.py`).
-*   Do not create new OpenCode audit sessions per run — the CI workflow reuses the single cached `IndiTrade AI Audit` session; locally, agentrouter goes through the `127.0.0.1:8089` proxy (config `~/.config/opencode/opencode.jsonc`), while CI hits `agentrouter.org/v1` directly.
+*   The standing audit runs LOCALLY: Task Scheduler task `IndiTrade AI Local Audit` (daily 21:00) or `python scripts/local_audit.py`. It reuses the single persistent `IndiTrade AI Audit` opencode session (id in `.audit/session_id.txt`) through the local agentrouter proxy (127.0.0.1:8089, config `~/.config/opencode/opencode.jsonc`). Reports land in `reports/ai_audit/` + `reports/ai_audit_latest.md`. The GitHub workflow (`ai_audit.yml`) exists but agentrouter.org WAF-tarpits GitHub runner IPs (69s locally vs 90+ min on CI), so CI audits stay disabled-by-reality until the upstream changes.
 
 ## 6. RAG Architecture (as of Sept 2026)
 *   **Indexing:** paragraph-aware chunks (1,600 chars / 200 overlap) — NOT whole documents; bge-small truncates at 512 tokens so whole-doc vectors only represented gazette boilerplate. 5,062 chunks from 564 docs. Built on Kaggle, artifacts in `data/cache/`.
