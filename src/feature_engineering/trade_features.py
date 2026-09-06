@@ -49,6 +49,12 @@ M49_PARTNER_MAP = {
     "704": {"desc": "Vietnam", "iso": "VNM"}
 }
 
+# Years of major external policy shocks to Indian trade flows (COVID 2020,
+# Russia sanctions 2022, 2023 policy tightening, 2025 US tariff regime).
+# Single source of truth: the backend's forecast endpoint imports this same
+# constant so training and inference can never disagree.
+POLICY_EVENT_YEARS = (2020, 2022, 2023, 2025)
+
 def load_and_aggregate_macro(forex_dir: str = "data/raw/forex_macro") -> pd.DataFrame:
     """Load daily forex/macro CSVs, perform QC filtering, and aggregate to Yearly frequency."""
     csv_files = sorted(glob.glob(os.path.join(forex_dir, "*.csv")))
@@ -154,7 +160,7 @@ def build_trade_features(comtrade_parquet: str = "data/raw/un_comtrade/india_tra
 
     # 2025 added with the 2025 data refresh: the sweeping US tariff regime of
     # 2025 is a genuine external policy shock for Indian trade flows.
-    df_merged["policy_event_flag"] = df_merged["period"].apply(lambda x: 1 if int(x) in [2020, 2022, 2023, 2025] else 0)
+    df_merged["policy_event_flag"] = df_merged["period"].apply(lambda x: 1 if int(x) in POLICY_EVENT_YEARS else 0)
 
     print(f"--- Step 4: Engineering Temporal Lags (`lag_1y`, `lag_3y`, `lag_5y`), Rolling Means (`3y`, `5y`), and YoY Growth ---")
 

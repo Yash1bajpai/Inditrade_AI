@@ -383,9 +383,12 @@ def get_forecast(req: ForecastRequest):
         if "period" in input_data: input_data["period"] = float(req.year)
         # The latest historical row is the feature template, so without this
         # override a 2026 forecast would inherit 2025's tariff-shock flag.
-        # The flag must reflect the year being predicted, not the template's year.
+        # The flag must reflect the year being predicted, not the template's
+        # year. POLICY_EVENT_YEARS is owned by the feature pipeline so
+        # training and inference can never drift apart.
+        from src.feature_engineering.trade_features import POLICY_EVENT_YEARS
         if "policy_event_flag" in input_data:
-            input_data["policy_event_flag"] = 1.0 if int(req.year) in (2020, 2022, 2023, 2025) else 0.0
+            input_data["policy_event_flag"] = 1.0 if int(req.year) in POLICY_EVENT_YEARS else 0.0
 
         df = pd.DataFrame([input_data])
         prediction_log = xgboost_model['model'].predict(df)[0]
