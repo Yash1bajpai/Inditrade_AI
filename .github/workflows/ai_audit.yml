@@ -137,12 +137,12 @@ jobs:
             # Incremental audits run at the model's default reasoning effort:
             # high variant burns 60+ minutes per run on this upstream.
             opencode run -s "$SID" \
-              -m "$AUDIT_MODEL" --auto --print-logs \
+              --agent plan -m "$AUDIT_MODEL" --auto --print-logs \
               "$INCREMENTAL_PROMPT" | tee audit_report.md
           else
             echo "No usable session — running full audit and creating the persistent session"
             opencode run \
-              --title "$SESSION_TITLE" \
+              --title "$SESSION_TITLE" --agent plan \
               --variant "$AUDIT_VARIANT" -m "$AUDIT_MODEL" --auto --print-logs \
               "$FULL_PROMPT" | tee audit_report.md
             SID=$(sqlite3 "$OC_DATA/opencode.db" \
