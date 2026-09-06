@@ -270,14 +270,26 @@ def run_refresh_loop(year, append=True):
 
     new_df = pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
     if append and not new_df.empty:
+        # Guard against the dedup below silently rewriting history: raw rows
+        # for pre-existing years must survive the append in count (they can be
+        # split across customs/mot codes, which the dedup key intentionally
+        # collapses — but only within the NEW year's rows).
+        pre_mask = existing["period"].astype(int) != int(year)
+        expected_pre = int(pre_mask.sum())
         combined = pd.concat([existing, new_df], ignore_index=True)
-        combined = combined.drop_duplicates(
+        deduped = combined.drop_duplicates(
             subset=["period", "partnerCode", "cmdCode", "flowCode"], keep="first"
         )
-        combined.to_parquet(OUTPUT_PARQUET, index=False)
-        print(f"\n=== REFRESH SAVED ===")
+        actual_pre = int((deduped["period"].astype(int) != int(year)).sum())
+        assert actual_pre == expected_pre, (
+            f"CRITICAL: dedup collapsed historical rows "
+            f"(expected {expected_pre} pre-{year} rows, got {actual_pre}). "
+            "Aborting without writing."
+        )
+        deduped.to_parquet(OUTPUT_PARQUET, index=False)
+        print(f"\n=== REFRESH SAVED (pre-{year} rows preserved: {actual_pre}) ===")
         print(f"File: {OUTPUT_PARQUET}")
-        print(f"New rows: {len(new_df)} | Total rows now: {len(combined)} | Years: {sorted(combined['period'].astype(int).unique().tolist())}")
+        print(f"New rows: {len(new_df)} | Total rows now: {len(deduped)} | Years: {sorted(deduped['period'].astype(int).unique().tolist())}")
     elif new_df.empty:
         print("[NOTICE] No new rows fetched.")
     return new_df
