@@ -92,11 +92,11 @@ def main() -> int:
     sid = load_session_id()
     incremental = bool(sid and session_exists(sid))
 
-    cmd = [opencode, "run", "--agent", "plan", "-m", MODEL, "--auto"]
+    cmd = [opencode, "run", "--agent", "plan", "-m", MODEL, "--variant", "high", "--auto"]
     if incremental:
         cmd += ["-s", sid]
     else:
-        cmd += ["--title", SESSION_TITLE, "--variant", "high"]
+        cmd += ["--title", SESSION_TITLE]
     cmd.append(INCREMENTAL_PROMPT if incremental else BOOTSTRAP_PROMPT)
 
     mode = "incremental (session %s)" % sid if incremental else "bootstrap"
