@@ -8,7 +8,7 @@ Features:
 - Strict 403 / 429 error handling: Logs exact error and STOPS immediately without synthetic substitution.
 - 1.5s sleep interval between requests to honor API rate limits.
 - Test mode: Fetches strictly 1 partner and 1 year first for user approval before full 400-iteration loop.
-- Refresh mode: --year 2025 --append fetches one extra year and appends to the parquet.
+- Refresh mode: --mode refresh --year YYYY fetches one extra year and appends to the parquet (idempotent, safe to re-run).
 """
 
 import argparse
