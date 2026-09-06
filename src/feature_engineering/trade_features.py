@@ -12,7 +12,7 @@ Core Responsibilities & Bug Fixes:
    via `groupby().agg()` BEFORE lag computation to eliminate duplicates split across customs/mot codes.
 6. Lag & Rolling Engineering: Compute grouped `lag_1y`, `lag_3y`, `lag_5y`, `rolling_3y_mean`,
    `rolling_5y_mean`, and `yoy_growth_rate` per bilateral commodity flow (`partnerCode, cmdCode, flowCode`).
-7. Policy Flag: Add `policy_event_flag` indicating major DGFT/Macro policy years (`2020, 2022, 2023`).
+7. Policy Flag: Add `policy_event_flag` indicating major DGFT/Macro policy years (`2020, 2022, 2023, 2025`).
 8. Export standardized feature matrix to `data/processed/trade_features.parquet`.
 """
 
@@ -152,7 +152,9 @@ def build_trade_features(comtrade_parquet: str = "data/raw/un_comtrade/india_tra
     assert len(df_merged) == initial_rows, f"CRITICAL ERROR: Merge dropped rows! Initial: {initial_rows}, Post-merge: {len(df_merged)}"
     print(f"  ✅ Merge Successful! Shape after macro join: {df_merged.shape} (Exact 100% row preservation)\n")
 
-    df_merged["policy_event_flag"] = df_merged["period"].apply(lambda x: 1 if int(x) in [2020, 2022, 2023] else 0)
+    # 2025 added with the 2025 data refresh: the sweeping US tariff regime of
+    # 2025 is a genuine external policy shock for Indian trade flows.
+    df_merged["policy_event_flag"] = df_merged["period"].apply(lambda x: 1 if int(x) in [2020, 2022, 2023, 2025] else 0)
 
     print(f"--- Step 4: Engineering Temporal Lags (`lag_1y`, `lag_3y`, `lag_5y`), Rolling Means (`3y`, `5y`), and YoY Growth ---")
 

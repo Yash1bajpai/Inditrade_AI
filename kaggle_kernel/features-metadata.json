@@ -1,0 +1,13 @@
+{
+  "id": "yashbajpai2027/inditrade-features-2025-refresh",
+  "title": "IndiTrade features 2025 refresh",
+  "code_file": "rebuild_features_2025.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": []
+}
