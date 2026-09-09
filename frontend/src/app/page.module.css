@@ -906,3 +906,71 @@
     align-items: flex-start;
   }
 }
+
+/* ---- Terminal 2026 replacements for framer-motion ----
+/* Page-level staggered entrance (was motion container variants) */
+.terminalReveal {
+  animation: terminalFade var(--dur-med) var(--ease-out) both;
+}
+@keyframes terminalFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Skeleton pulse (was motion opacity mirror) */
+.skeleton {
+  height: 100%;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.02);
+  animation: skeletonPulse 1s ease-in-out infinite alternate;
+}
+@keyframes skeletonPulse {
+  from { opacity: 0.3; }
+  to { opacity: 0.8; }
+}
+
+/* Modal card entrance (was motion scale/y) */
+.modalCard {
+  animation: modalIn var(--dur-med) var(--ease-out) both;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Execute button: hover lift + press, GPU-composited (was motion whileHover/whileTap) */
+.terminalButton {
+  transition: transform var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
+}
+.terminalButton:hover:not(:disabled) {
+  transform: scale(1.02);
+  box-shadow: 0 8px 20px rgba(200, 169, 126, 0.4);
+}
+.terminalButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Section cards: subtle hover lift (was motion.section whileHover) */
+.terminalHover {
+  transition: transform var(--dur-med) var(--ease-out),
+              box-shadow var(--dur-med) var(--ease-out);
+}
+.terminalHover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* Single global reduced-motion guard for every animation above */
+@media (prefers-reduced-motion: reduce) {
+  .float-node,
+  .terminalReveal,
+  .skeleton,
+  .modalCard {
+    animation: none !important;
+  }
+  .terminalButton,
+  .terminalHover {
+    transition: none !important;
+  }
+}
