@@ -6,24 +6,36 @@
   --foreground: #EFECE6;
   --card: #23262D;
   --card-foreground: #EFECE6;
-  
+
   --primary: #C8A97E; /* Minted Brass */
   --primary-foreground: #1A1C21;
-  
+
   --secondary: #2C303A;
   --secondary-foreground: #EFECE6;
-  
+
   --muted: #2C303A;
   --muted-foreground: #8B949E;
-  
+
   --destructive: #9E3E3E; /* Crimson Wax */
   --destructive-foreground: #EFECE6;
-  
+
   --border: #3A3F4C;
   --input: #23262D;
   --ring: #C8A97E;
-  
+
   --radius: 0px; /* Formal dossier, no rounded corners */
+
+  /* Terminal 2026 motion system: one easing, three durations.
+     Expo-out feels decisive; springs felt bouncy (removed with framer-motion). */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-med: 400ms;
+  --dur-draw: 1200ms;
+
+  /* Terminal display hierarchy (Phase 1) */
+  --display-size: clamp(2.5rem, 5vw, 4.5rem); /* 72px at desktop */
+  --eyebrow-size: 0.75rem;
+  --section-title-size: 1.25rem; /* 20px — down from inflated old size */
 }
 
 * {
@@ -99,9 +111,73 @@ select option {
   transform-origin: center;
 }
 
+/* ---- Terminal 2026 replacements for framer-motion ---- */
+
+/* Page-level staggered entrance (was motion container variants) */
+.terminalReveal {
+  animation: terminalFade var(--dur-med) var(--ease-out) both;
+}
+@keyframes terminalFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Skeleton pulse (was motion opacity mirror) */
+.skeleton {
+  height: 100%;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.02);
+  animation: skeletonPulse 1s ease-in-out infinite alternate;
+}
+@keyframes skeletonPulse {
+  from { opacity: 0.3; }
+  to { opacity: 0.8; }
+}
+
+/* Modal card entrance (was motion scale/y) */
+.modalCard {
+  animation: modalIn var(--dur-med) var(--ease-out) both;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Execute button: hover lift + press, GPU-composited (was motion whileHover/whileTap) */
+.terminalButton {
+  transition: transform var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
+  will-change: transform;
+}
+.terminalButton:hover:not(:disabled) {
+  transform: scale(1.02);
+  box-shadow: 0 8px 20px rgba(200, 169, 126, 0.4);
+}
+.terminalButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Section cards: subtle hover lift (was motion.section whileHover) */
+.terminalHover {
+  transition: transform var(--dur-med) var(--ease-out),
+              box-shadow var(--dur-med) var(--ease-out);
+}
+.terminalHover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* Single global reduced-motion guard for every animation above */
 @media (prefers-reduced-motion: reduce) {
-  .float-node {
+  .float-node,
+  .terminalReveal,
+  .skeleton,
+  .modalCard {
     animation: none !important;
+  }
+  .terminalButton,
+  .terminalHover {
+    transition: none !important;
   }
 }
 

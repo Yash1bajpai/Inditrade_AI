@@ -1,6 +1,5 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, GripVertical, Maximize2, Menu, Code, User, Mail } from 'lucide-react';
 import { LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
@@ -9,13 +8,6 @@ import { geoMercator } from 'd3-geo';
 import CountUp from 'react-countup';
 import styles from './page.module.css';
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05, delayChildren: 0 }
-  }
-};
 
 const itemVariants = {
   hidden: { opacity: 0, y: 15 },
@@ -148,10 +140,7 @@ const AnimatedMoney = ({ value }: { value: number | undefined | null }) => {
   );
 };
 const SkeletonLoader = () => (
-  <motion.div
-    initial={{ opacity: 0.3 }} animate={{ opacity: 0.8 }} transition={{ repeat: Infinity, duration: 1, repeatType: "mirror" }}
-    style={{ height: '100%', width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '0px' }}
-  />
+  <div className={styles.skeleton} />
 );
 const DrillDownModal = ({ country, originalCountry, onClose }: { country: string, originalCountry: string, onClose: () => void }) => {
   const [historyData, setHistoryData] = useState<{year: string, value_billions: number, import_billions?: number, export_billions?: number}[]>([]);
@@ -189,11 +178,9 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
   }, [country, originalCountry]);
   return (
     <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        onClick={(e) => e.stopPropagation()} 
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className={styles.modalCard}
         style={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, padding: '2rem', width: 'clamp(300px, 90vw, 500px)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
@@ -248,7 +235,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
              {domains.length === 0 && !loading && <span style={{ color: FADED_INK, fontSize: '0.85rem' }}>No domain data available.</span>}
            </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
@@ -494,14 +481,6 @@ export default function Dashboard() {
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
-  };
   return (
     <div className={styles.container}>
       <aside className={`${styles.sidebar} ${isSidebarOpen ? styles.open : ''}`}>
@@ -526,17 +505,15 @@ export default function Dashboard() {
             <div className={styles.logoContainer} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <Menu className={styles.hamburger} size={24} color={FADED_INK} onClick={() => setIsSidebarOpen(true)} style={{ cursor: 'pointer', flexShrink: 0 }} />
               <div className={styles.logo}>
+                <span className={styles.eyebrow}>INDIA · BILATERAL TRADE INTELLIGENCE · 2015—2025</span>
                 <h1 style={{ margin: 0 }}>Global Trade Intelligence</h1>
               </div>
             </div>
           </header>
 
         <main className={styles.mainContent}>
-          <AnimatePresence>
-            {selectedCountry && <DrillDownModal key="drilldown" country={selectedCountry.name} originalCountry={selectedCountry.code} onClose={() => setSelectedCountry(null)} />}
-            
-            </AnimatePresence>
-          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+          {selectedCountry && <DrillDownModal key="drilldown" country={selectedCountry.name} originalCountry={selectedCountry.code} onClose={() => setSelectedCountry(null)} />}
+          <div className={styles.terminalReveal}>
             
             {activeTab === 'dashboard' && (
               <div className={styles.kpiRow}>
@@ -567,23 +544,21 @@ export default function Dashboard() {
                   <input type="number" value={crudePrice} onChange={(e) => setCrudePrice(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
                 </div>
                 <div className={styles.kpiCard} style={{ justifyContent: 'flex-end', background: 'transparent', border: 'none' }}>
-                  <motion.button 
-                    whileHover={{ scale: 1.02, boxShadow: '0 8px 20px rgba(200, 169, 126, 0.4)' }}
-                    whileTap={{ scale: 0.98 }}
+                  <button 
                     onClick={handlePredict} 
                     disabled={isPredicting} 
-                    className={styles.chatButton} 
-                    style={{ width: '100%', padding: '0.85rem 1rem', minHeight: '48px', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.05rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s ease', boxShadow: '0 4px 12px rgba(200, 169, 126, 0.25)', touchAction: 'manipulation' }}
+                    className={`${styles.chatButton} ${styles.terminalButton}`}
+                    style={{ width: '100%', padding: '0.85rem 1rem', minHeight: '48px', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.05rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', touchAction: 'manipulation' }}
                   >
                     {isPredicting ? 'Running AI Model...' : 'Generate AI Forecast'}
-                  </motion.button>
+                  </button>
                 </div>
               </div>
             )}
 
             <div className={styles.grid}>
               {activeTab === 'dashboard' && (
-                <motion.section id="dashboard" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
+                <section id="dashboard" className={`glass-panel ${styles.section} ${styles.terminalHover}`}>
                 <div className={styles.sectionHeader}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <TrendingUp size={20} color={MINTED_BRASS} />
@@ -659,7 +634,7 @@ export default function Dashboard() {
                       <div key={i} className={styles.featureBarRow}>
                         <span className={styles.featureLabel} title={f.feature}>{f.feature}</span>
                         <div className={styles.featureTrack}>
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${(f.importance / maxImportance) * 100}%` }} className={styles.featureFill} style={{ backgroundColor: MINTED_BRASS }} />
+                          <div className={styles.featureFill} style={{ backgroundColor: MINTED_BRASS, width: `${(f.importance / maxImportance) * 100}%` }} />
                         </div>
                       </div>
                     ));
@@ -667,10 +642,10 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          </motion.section>
+          </section>
               )}
               {activeTab === 'anomalies' && (
-          <motion.section id="anomalies" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
+          <section id="anomalies" className={`glass-panel ${styles.section} ${styles.terminalHover}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <AlertTriangle size={20} color={CRIMSON_WAX} />
@@ -746,10 +721,10 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
-          </motion.section>
+          </section>
               )}
               {activeTab === 'network' && (
-          <motion.section id="network" variants={itemVariants} whileHover={{ scale: 1.01, y: -4, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)" }} transition={{ duration: 0.2 }} className={`glass-panel ${styles.section}`}>
+          <section id="network" className={`glass-panel ${styles.section} ${styles.terminalHover}`}>
             <div className={styles.sectionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <MapIcon size={20} color={MINTED_BRASS} />
@@ -861,7 +836,7 @@ export default function Dashboard() {
                             })}
                           </ComposableMap>
                           {flowMode !== 'off' && (
-                            <motion.div drag dragMomentum={false} whileDrag={{ scale: 1.02, cursor: "grabbing" }} style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(11, 14, 20, 0.85)', padding: '1rem', borderRadius: '8px', border: `1px solid ${flowMode === 'exports' ? '#FF9F43' : '#00E5FF'}`, width: '250px', backdropFilter: 'blur(4px)', cursor: 'grab', zIndex: 10 }}>
+                            <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(11, 14, 20, 0.85)', padding: '1rem', borderRadius: '8px', border: `1px solid ${flowMode === 'exports' ? '#FF9F43' : '#00E5FF'}`, width: '250px', backdropFilter: 'blur(4px)', cursor: 'grab', zIndex: 10 }}>
                               <h4 style={{ margin: '0 0 0.75rem 0', color: flowMode === 'exports' ? '#FF9F43' : '#00E5FF', fontSize: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', pointerEvents: 'none' }}>Top 5 {flowMode === 'exports' ? 'Destinations' : 'Sources'}</h4>
                               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', pointerEvents: 'none' }}>
                                 {(flowMode === 'exports' ? topExports : topImports).map((item: any, idx: number) => (
@@ -871,7 +846,7 @@ export default function Dashboard() {
                                   </li>
                                 ))}
                               </ul>
-                            </motion.div>
+                            </div>
                           )}
                       </>
                     )}
@@ -900,20 +875,15 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-              </motion.section>
+              </section>
               )}
             </div>
-      </motion.div>
-      {}
+      </div>
       <button className={styles.fab} onClick={() => window.VanijyaChat?.open()}>
         <Sparkles size={20} />
         Ask AI
       </button>
-      {}
-      <AnimatePresence>
-        <div id="vanijya-chat-root"></div>
-
-      </AnimatePresence>
+      <div id="vanijya-chat-root"></div>
         {/* Data Sources & Footer */}
         <div className={styles.footerSection}>
           <div className={styles.footer}>
