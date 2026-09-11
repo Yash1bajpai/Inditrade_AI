@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 90
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     env:
-      AUDIT_MODEL: agentrouter/glm-5.3
+      AUDIT_MODEL: opencode/muse-spark-1.3-contributor-free
       AUDIT_VARIANT: high
       SESSION_TITLE: "IndiTrade AI Audit"
       OC_DATA: /home/runner/.local/share/opencode

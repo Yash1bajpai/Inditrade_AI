@@ -2,11 +2,10 @@
 """
 Local standing audit for IndiTrade AI.
 
-Runs the OpenCode CLI against the local agentrouter proxy (127.0.0.1:8089 —
-started via %USERPROFILE%\\.agentrouter\\start_proxy_background.vbs) to audit
-the repository with GLM-5.3. Mirrors the CI workflow's logic but runs on the
-developer's machine, where agentrouter.org is fast (GitHub-hosted runners are
-WAF-tarpitted by the upstream).
+Runs the OpenCode CLI to audit the repository with muse-spark-1.3 at high
+reasoning effort (native opencode model, no agentrouter proxy needed).
+Mirrors the CI workflow's logic but runs on the developer's machine, where
+the upstream is fast (GitHub-hosted runners are WAF-tarpitted).
 
 One persistent OpenCode session ("IndiTrade AI Audit") is created on the first
 run and reused forever after; its id lives in .audit/session_id.txt.
@@ -33,7 +32,7 @@ REPORT_DIR = REPO_ROOT / "reports" / "ai_audit"
 OC_DATA = Path.home() / ".local" / "share" / "opencode"
 OC_DB = OC_DATA / "opencode.db"
 SESSION_TITLE = "IndiTrade AI Audit"
-MODEL = "agentrouter/glm-5.3"
+MODEL = "opencode/muse-spark-1.3-contributor-free"
 
 BOOTSTRAP_PROMPT = (
     "You are the standing external auditor of the IndiTrade AI repository "
