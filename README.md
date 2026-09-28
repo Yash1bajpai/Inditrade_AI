@@ -1,11 +1,11 @@
 > ⚠️ **PROPRIETARY & CONFIDENTIAL**  
-> This repository contains the architectural implementation of the Vanijya AI (formerly IndiTrade AI) pipeline. While the core algorithmic architecture and ensemble weights (`.pkl`) are provided for **strict portfolio evaluation purposes only**, access to live proprietary data streams and automated re-training triggers have been restricted to protect intellectual property.
+> This repository contains the architectural implementation of the Inditrade AI pipeline. While the core algorithmic architecture and ensemble weights (`.pkl`) are provided for **strict portfolio evaluation purposes only**, access to live proprietary data streams and automated re-training triggers have been restricted to protect intellectual property.
 
-# 📈 Vanijya AI | Global Trade Intelligence Engine
+# 📈 Inditrade AI | Global Trade Intelligence Engine
 
 **🌍 Live Site:** [https://inditrade.vercel.app/](https://inditrade.vercel.app/)
 
-[![Vanijya AI Dashboard Preview](frontend/public/dashboard_preview.png)](https://inditrade.vercel.app/)
+[![Inditrade AI Dashboard Preview](frontend/public/dashboard_preview.png)](https://inditrade.vercel.app/)
 
 An end-to-end, full-stack macroeconomic forecasting and intelligence system designed to predict and analyze global bilateral trade flows for India across its major trade partners.
 
@@ -36,6 +36,7 @@ Our rigorous chronological hold-out validation ensures zero future-data leakage:
 - **Automated Cloud Retraining:** Configured with a monthly GitHub Actions scheduled workflow (`retrain_models.yml`) that fetches fresh indicators, retrains ML models on cloud, and commits updated artifacts automatically.
 - **Premium Fintech UI/UX:** A responsive, dark-mode themed interactive dashboard built in Next.js, featuring dynamic GeoJSON mapping (`react-simple-maps`), framer-motion animations, and interactive analytics.
 - **Zero Data Leakage:** Strict chronological train/test splitting ensuring production-grade validation.
+- **Vanijya Chat (Hybrid RAG):** An embedded assistant answering natural-language questions over trade documents — dense + BM25 retrieval fused with Reciprocal Rank Fusion over 5,062 indexed chunks (0.917 hit@5, 0.881 MRR@10 on 300 judged queries). `Vanijya` is the chat layer's name; the platform is Inditrade AI.
 
 ---
 
