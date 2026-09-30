@@ -125,6 +125,11 @@ def build_trade_features(comtrade_parquet: str = "data/raw/un_comtrade/india_tra
     df_comtrade = pd.read_parquet(comtrade_parquet)
     print(f"  -> Raw Comtrade Shape: {df_comtrade.shape} across {df_comtrade['period'].nunique()} years ({df_comtrade['period'].min()} to {df_comtrade['period'].max()})")
 
+    # A second-partner slice is not the all-second-partners bilateral total.
+    # Never aggregate it into a total or compare it with partner2Code=0 years.
+    if "partner2Code" not in df_comtrade or not pd.to_numeric(df_comtrade["partner2Code"], errors="coerce").eq(0).all():
+        raise ValueError("Mixed/unknown partner2 trade grain: refetch all-second-partner totals (partner2Code=0) before building production features")
+    df_comtrade["flowDesc"] = df_comtrade["flowCode"].map({"M": "Import", "X": "Export"}).fillna(df_comtrade.get("flowDesc"))
     df_comtrade["period"] = df_comtrade["period"].astype(int)
     df_macro["period"] = df_macro["period"].astype(int)
 
