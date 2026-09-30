@@ -252,7 +252,7 @@ export default function Dashboard() {
   const [partnerList, setPartnerList] = useState<{code:string, name:string}[]>([]);
   const [validMap, setValidMap] = useState<Record<string, string[]>>({});
   const [suggestedCommodities, setSuggestedCommodities] = useState<any[]>([]);
-  const [r2Metric, setR2Metric] = useState<number>(0.992);
+  const [r2Metric, setR2Metric] = useState<number | null>(null);
 
   const [featureImportances, setFeatureImportances] = useState<{feature: string, importance: number}[]>([]);
   const [chartData, setChartData] = useState<{year: string, value: number}[]>([]);
@@ -456,7 +456,7 @@ export default function Dashboard() {
         setFeatureImportances(data.feature_importance);
       }
       
-      if (data.metrics && data.metrics.test_log_scale_r2) {
+      if (data.metrics && typeof data.metrics.test_log_scale_r2 === "number") {
         setR2Metric(data.metrics.test_log_scale_r2);
       }
       
@@ -569,7 +569,7 @@ export default function Dashboard() {
                         </div>
                       );
                     })()}
-                    <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>R&sup2; = {r2Metric.toFixed(3)} (Log-Scale)</div>
+                    <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>{r2Metric === null ? "Forecast accuracy: not validated" : `R² = ${r2Metric.toFixed(3)} (Log-Scale)`}</div>
                   </div>
                 </div>
             {forecastError && (
