@@ -47,6 +47,29 @@ CMD_MAP = {'01': 'Live Animals', '02': 'Meat', '03': 'Fish', '04': 'Dairy', '05'
 
 combo_cache = None
 
+@router.get("/data_quality")
+def get_data_quality():
+    """Measured dataset coverage; do not infer freshness from a successful job."""
+    try:
+        df = load_parquet("data/processed/trade_features.parquet")
+        years = pd.to_numeric(df.period, errors="coerce")
+        latest = 2025
+        canonical = pd.to_numeric(df.get("partner2Code", pd.Series(index=df.index, dtype=float)), errors="coerce").eq(0)
+        canonical &= df.get("customsCode", pd.Series(index=df.index, dtype=str)).eq("C00")
+        canonical &= pd.to_numeric(df.get("motCode", pd.Series(index=df.index, dtype=float)), errors="coerce").eq(0)
+        latest_rows = df.loc[years.eq(latest) & canonical]
+        have = {(str(int(r.partnerCode)), str(r.flowCode)) for r in latest_rows.itertuples()}
+        missing = [{"partner": p, "flow": f, "year": latest} for p in ("250", "756") for f in ("M", "X") if (p, f) not in have]
+        mixed = int((~canonical).sum())
+        return {"status": "repair_required" if mixed or missing else "coverage_checks_passed",
+                "rows": len(df), "years": [int(years.min()), int(years.max())],
+                "mixed_grain_rows": mixed, "missing_slices": missing,
+                "forecast_validation": "not_validated",
+                "note": "Coverage checks are not model validation or source freshness verification."}
+    except Exception:
+        logger.exception("Data quality check failed")
+        return {"status": "unknown", "forecast_validation": "not_validated", "note": "Data checks unavailable; do not assume complete coverage."}
+
 @router.get("/valid_combinations")
 def get_valid_combinations():
     global combo_cache
