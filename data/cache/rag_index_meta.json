@@ -18,10 +18,17 @@
     "collection_name": "trade_policy_compliance",
     "embedding_model": "BAAI/bge-small-en-v1.5",
     "vector_dimension": 384,
-    "points_count": 5062
+    "points_count": 5062,
+    "refresh_status": "rebuilt and released by Actions 36715996899; cloud synchronization unverified"
   },
   "sparse_index": {
     "engine": "BM25Okapi",
-    "path": "data/cache/bm25_index.pkl"
-  }
+    "path": "data/cache/bm25_index.pkl",
+    "documents": 5195,
+    "source_latest_dates": {
+      "DGFT_Policy": "2026-09-30",
+      "PIB_Press_Release": "2026-09-28"
+    }
+  },
+  "sparse_index_timestamp": "2026-09-30T12:31:22.450825+00:00"
 }
