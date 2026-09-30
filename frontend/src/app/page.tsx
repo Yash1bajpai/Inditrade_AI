@@ -252,6 +252,15 @@ export default function Dashboard() {
   const [partnerList, setPartnerList] = useState<{code:string, name:string}[]>([]);
   const [validMap, setValidMap] = useState<Record<string, string[]>>({});
   const [suggestedCommodities, setSuggestedCommodities] = useState<any[]>([]);
+  const [quality, setQuality] = useState<{status: string; rows?: number; years?: number[]; mixed_grain_rows?: number; missing_slices?: {partner: string; flow: string; year: number}[]; note?: string} | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${API_BASE}/forecast/data_quality`, {signal: controller.signal})
+      .then(r => { if (!r.ok) throw new Error("Data checks unavailable"); return r.json(); })
+      .then(setQuality)
+      .catch(e => { if (e.name !== "AbortError") setQuality({status: "unknown"}); });
+    return () => controller.abort();
+  }, []);
   const [r2Metric, setR2Metric] = useState<number | null>(null);
 
   const [featureImportances, setFeatureImportances] = useState<{feature: string, importance: number}[]>([]);
@@ -501,10 +510,10 @@ export default function Dashboard() {
       <div className={styles.mainWrapper}>
         <header className={styles.header}>
             <div className={styles.logoContainer} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <Menu className={styles.hamburger} size={24} color={FADED_INK} onClick={() => setIsSidebarOpen(true)} style={{ cursor: 'pointer', flexShrink: 0 }} />
+              <button className={styles.menuToggle} aria-label="Open navigation" onClick={() => setIsSidebarOpen(true)}><Menu size={24} color={MINTED_BRASS} /></button>
               <div className={styles.logo}>
                 <span className={styles.eyebrow}>INDIA · BILATERAL TRADE INTELLIGENCE · 2015—2025</span>
-                <h1 style={{ margin: 0 }}>Global Trade Intelligence</h1>
+                <h1 style={{ margin: 0 }}>India, in trade.</h1>
               </div>
             </div>
           </header>
@@ -514,6 +523,17 @@ export default function Dashboard() {
           <div className={styles.terminalReveal}>
             
             {activeTab === 'dashboard' && (
+              <>
+              <section className={styles.briefing} aria-label="Data and forecast status">
+                <div><span className={styles.briefEyebrow}>THE TRADE DESK</span><h2>Explore the data. Question the forecast.</h2><p>Choose a trade partner and commodity, then compare the model output with recorded history. Forecasts are provisional, not advice.</p></div>
+                <div className={styles.qualityCard} role="status">
+                  <span className={styles.qualityTag}>{quality?.status === "coverage_checks_passed" ? "COVERAGE CHECKS PASSED" : quality?.status === "repair_required" ? "DATA REPAIR REQUIRED" : quality ? "DATA CHECKS UNAVAILABLE" : "DATA CHECKS LOADING"}</span>
+                  <strong>Forecast accuracy is not validated</strong>
+                  <p>{quality?.status === "repair_required" ? `${quality.mixed_grain_rows?.toLocaleString() || 0} mixed-grain rows and ${quality.missing_slices?.length || 0} missing France/Switzerland flow slices need source repair.` : quality?.status === "coverage_checks_passed" ? "Coverage checks passed. Model and source freshness verification are separate checks." : "The source checks are unavailable or loading. Do not assume the dataset is complete."}</p>
+                  <span className={styles.qualityMeta}>{quality?.rows ? `${quality.rows.toLocaleString()} rows · ${quality.years?.join(" to ")}` : "Coverage: not yet verified"}</span>
+                </div>
+              </section>
+              <div className={styles.workspaceHeading}><span>01 / FORECAST WORKSPACE</span><p>Change the inputs to test a scenario</p></div>
               <div className={styles.kpiRow}>
                 <div className={styles.kpiCard}>
                   <span className={styles.kpiLabel}>Partner</span>
@@ -552,6 +572,7 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
+              </>
             )}
 
             <div className={styles.grid}>
@@ -904,4 +925,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-}
+        }
