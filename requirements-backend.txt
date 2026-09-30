@@ -31,3 +31,6 @@ supabase>=2.3.0,<3.0
 qdrant-client>=1.6.0,<2.0
 groq>=0.4.0,<1.0
 pyarrow>=14.0.0,<24.0
+
+# Required to unpickle and run the production policy retrieval artifact.
+rank_bm25>=0.2.2,<0.3
