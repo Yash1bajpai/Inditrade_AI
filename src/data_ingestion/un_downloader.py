@@ -233,7 +233,7 @@ def run_refresh_loop(year, append=True):
     have = set()
     if not existing.empty and int(year) in existing["period"].astype(int).unique():
         have = set(zip(
-            existing[existing["period"].astype(int) == int(year)]["partnerCode"].astype(str),
+            existing[existing["period"].astype(int) == int(year)]["partnerCode"].astype(int).astype(str),
             existing[existing["period"].astype(int) == int(year)]["flowCode"].astype(str),
         ))
         print(f"Year {year} already partially present: {len(have)} (partner, flow) slices — they will be skipped.")
@@ -248,7 +248,7 @@ def run_refresh_loop(year, append=True):
             break
         for flow in ["M", "X"]:
             iteration += 1
-            if (str(partner_code), flow) in have:
+            if (str(int(partner_code)), flow) in have:
                 print(f"[{iteration:02d}/{total_iterations}] India <-> {partner_name:<20} | {year} | {flow} — already present, skipping")
                 continue
             flow_label = "Import (M)" if flow == "M" else "Export (X)"
@@ -270,22 +270,12 @@ def run_refresh_loop(year, append=True):
 
     new_df = pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
     if append and not new_df.empty:
-        # Guard against the dedup below silently rewriting history: raw rows
-        # for pre-existing years must survive the append in count (they can be
-        # split across customs/mot codes, which the dedup key intentionally
-        # collapses — but only within the NEW year's rows).
-        pre_mask = existing["period"].astype(int) != int(year)
-        expected_pre = int(pre_mask.sum())
-        combined = pd.concat([existing, new_df], ignore_index=True)
-        deduped = combined.drop_duplicates(
-            subset=["period", "partnerCode", "cmdCode", "flowCode"], keep="first"
-        )
-        actual_pre = int((deduped["period"].astype(int) != int(year)).sum())
-        assert actual_pre == expected_pre, (
-            f"CRITICAL: dedup collapsed historical rows "
-            f"(expected {expected_pre} pre-{year} rows, got {actual_pre}). "
-            "Aborting without writing."
-        )
+        # Only missing slices were fetched. Preserve every existing raw row,
+        # including legitimate customs/mode splits; aggregate in feature engineering.
+        new_df = new_df.drop_duplicates()
+        deduped = pd.concat([existing, new_df], ignore_index=True)
+        pd.testing.assert_frame_equal(existing.reset_index(drop=True), deduped.iloc[:len(existing)].reset_index(drop=True))
+        actual_pre = int((existing["period"].astype(int) != int(year)).sum())
         deduped.to_parquet(OUTPUT_PARQUET, index=False)
         print(f"\n=== REFRESH SAVED (pre-{year} rows preserved: {actual_pre}) ===")
         print(f"File: {OUTPUT_PARQUET}")
@@ -306,4 +296,3 @@ if __name__ == "__main__":
         run_full_loop()
     elif args.mode == "refresh":
         run_refresh_loop(year=args.year)
-
