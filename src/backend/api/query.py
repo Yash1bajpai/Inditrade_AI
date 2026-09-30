@@ -307,7 +307,9 @@ async def fallback_query(question, context, citation_str="", client_ip="anonymou
             )
             return chat_completion.choices[0].message.content
             
-        answer = await asyncio.to_thread(run_groq)        
+        answer = await asyncio.to_thread(run_groq)
+        if not grounded:
+            answer = "I couldn't retrieve policy sources for this question, so I can't verify an answer. Please check the official DGFT/PIB source or try again after the knowledge base is available."
         res = {
             "answer": answer,
             "source": "Groq",
