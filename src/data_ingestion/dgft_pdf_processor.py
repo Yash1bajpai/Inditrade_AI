@@ -16,6 +16,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from src.utils.scraping_utils import fetch_table_rows
 import json
 import time
+import subprocess
+import tempfile
+import shutil
 import pandas as pd
 import pdfplumber
 
@@ -106,6 +109,8 @@ def scrape_full_dgft_master_list():
             print(f"[ERROR] Exception scraping {t['Type']}: {e}")
 
     df_master = pd.DataFrame(all_records)
+    if df_master.empty:
+        raise RuntimeError("DGFT listing empty or blocked; refresh failed")
     if not df_master.empty:
         df_master = df_master.drop_duplicates(subset=["Type", "Notification_No", "Subject"]).reset_index(drop=True)
         master_csv = os.path.join(RAW_DIR, "dgft_master_list.csv")
@@ -231,6 +236,12 @@ def process_pdfs_to_chunks(df_master):
                     if txt:
                         full_raw_text += txt + "\n"
 
+            if len(full_raw_text.strip()) < 100 and shutil.which("tesseract") and shutil.which("pdftoppm"):
+                with tempfile.TemporaryDirectory() as tmp:
+                    subprocess.run(["pdftoppm", "-r", "150", "-png", path, os.path.join(tmp, "page")], check=True, timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    for image in sorted(__import__("pathlib").Path(tmp).glob("page-*.png")):
+                        result = subprocess.run(["tesseract", str(image), "stdout", "-l", "eng"], check=True, timeout=60, capture_output=True, text=True)
+                        full_raw_text += result.stdout + "\n"
             clean_text = clean_pdf_text(full_raw_text)
 
             if clean_text and len(clean_text) > 30:
@@ -242,7 +253,8 @@ def process_pdfs_to_chunks(df_master):
                     "date": str(row["Issue_Date"]),
                     "financial_year": str(row["Financial_Year"]),
                     "subject": str(row["Subject"]),
-                    "pdf_path": str(path),
+                    "pdf_path": str(row["PDF_Link"]),
+                    "url": str(row["PDF_Link"]),
                     "clean_text": clean_text
                 }
                 chunks.append(chunk_record)
@@ -252,7 +264,17 @@ def process_pdfs_to_chunks(df_master):
         except Exception as e:
             print(f"[ERROR] Failed to process PDF {path}: {e}")
 
-    # Use atomic write: write to temp file then replace to prevent data loss on crash
+    if not chunks:
+        raise RuntimeError("No valid DGFT PDF text extracted; preserving historical corpus")
+    existing = {}
+    if os.path.exists(OUTPUT_JSONL):
+        with open(OUTPUT_JSONL, encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    row = json.loads(line)
+                    existing[(row["chunk_id"], row.get("financial_year", ""))] = row
+    existing.update({(row["chunk_id"], row.get("financial_year", "")): row for row in chunks})
+    chunks = list(existing.values())
     tmp_path = OUTPUT_JSONL + ".tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
         for chunk in chunks:
@@ -267,7 +289,8 @@ def process_pdfs_to_chunks(df_master):
 
 if __name__ == "__main__":
     df_master = scrape_full_dgft_master_list()
+    if df_master.empty:
+        raise RuntimeError("DGFT listing empty or blocked; refresh failed")
     if not df_master.empty:
         download_pdfs(df_master)
         chunks = process_pdfs_to_chunks(df_master)
-
