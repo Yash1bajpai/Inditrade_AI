@@ -14,7 +14,6 @@ TICKERS = {
     "USDINR": "USDINR=X",
     "EURINR": "EURINR=X",
     "GBPINR": "GBPINR=X",
-    "CNYINR": "CNYINR=X",
     "JPYINR": "JPYINR=X",
     "BRENT_CRUDE": "BZ=F",
     "GOLD_FUTURES": "GC=F",
@@ -34,6 +33,10 @@ def fetch_and_verify_all(start_date="2005-01-01", end_date=None):
     print(f"Target Output Directory: {OUTPUT_DIR}\n")
 
     results_summary = []
+    # CNYINR provider returns a degenerate one-row series; excluded from features.
+    cny_path = os.path.join(OUTPUT_DIR, "cnyinr.csv")
+    if os.path.exists(cny_path):
+        os.remove(cny_path)
 
     for name, ticker in TICKERS.items():
         print(f"[*] Fetching {name:<14} ({ticker})...", end=" ", flush=True)
@@ -44,7 +47,7 @@ def fetch_and_verify_all(start_date="2005-01-01", end_date=None):
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
 
-            if df.empty:
+            if df.empty or len(df) <= 1:
                 print(f"[FAILED / EMPTY] No data returned for {ticker}.")
                 results_summary.append({"Ticker": name, "Symbol": ticker, "Status": "EMPTY", "Rows": 0, "File": "None"})
                 continue
@@ -52,7 +55,12 @@ def fetch_and_verify_all(start_date="2005-01-01", end_date=None):
             df = df.reset_index()
 
             file_path = os.path.join(OUTPUT_DIR, f"{name.lower()}.csv")
-            df.to_csv(file_path, index=False)
+            latest = pd.to_datetime(df["Date"]).max()
+            if (pd.Timestamp(end_date) - latest).days > 7:
+                raise ValueError(f"Stale market series: latest {latest.date()}")
+            temp_path = file_path + ".tmp"
+            df.to_csv(temp_path, index=False)
+            os.replace(temp_path, file_path)
 
             row_count = len(df)
             min_date = df["Date"].min().strftime("%Y-%m-%d") if "Date" in df.columns else "N/A"
@@ -78,8 +86,9 @@ def fetch_and_verify_all(start_date="2005-01-01", end_date=None):
     summary_df = pd.DataFrame(results_summary)
     print(summary_df.to_string(index=False))
 
+    if any(row["Status"] != "SUCCESS" for row in results_summary):
+        raise RuntimeError("One or more macro refreshes failed; refusing a successful stale run")
     return summary_df
 
 if __name__ == "__main__":
     fetch_and_verify_all()
-
