@@ -1,0 +1,46 @@
+import numpy as np
+import pandas as pd
+import pytest
+from src.feature_engineering.forecast_features import prepare_forecast_frame
+
+
+def sample():
+    return pd.DataFrame({'partnerCode': [842]*4, 'cmdCode': ['27']*4,
+                         'flowCode': ['M']*4, 'period': [2019, 2020, 2022, 2023],
+                         'partner2Code': [0]*4, 'primaryValue': [100., 120., 150., 180.],
+                         'netWgt': [1., 2., 3., 4.], 'usdinr_mean': [70., 72., 80., 82.],
+                         'primaryValue_yoy_growth_rate': [0., .2, .25, .2]})
+
+
+def test_current_target_and_macro_do_not_change_current_predictors():
+    f = sample()
+    X, *_ = prepare_forecast_frame(f)
+    f.loc[3, ['primaryValue', 'netWgt', 'usdinr_mean', 'primaryValue_yoy_growth_rate']] = [999., 999., 999., 999.]
+    changed, *_ = prepare_forecast_frame(f)
+    pd.testing.assert_series_equal(X.iloc[3], changed.iloc[3])
+    assert 'primaryValue_yoy_growth_rate' not in X
+    assert 'netWgt' not in X
+    assert 'usdinr_mean' not in X
+    assert X.iloc[3].usdinr_mean_lag_1y == 80.
+
+
+def test_calendar_lags_do_not_bridge_a_missing_year():
+    X, *_ = prepare_forecast_frame(sample())
+    assert np.isnan(X.loc[2, 'primaryValue_lag_1y'])
+    assert X.loc[3, 'primaryValue_lag_1y'] == 150.
+    assert X.loc[3, 'primaryValue_lag_3y'] == 120.
+
+
+def test_non_total_partner2_is_not_a_bilateral_total():
+    f = sample()
+    f.loc[2, 'partner2Code'] = 36
+    X, _, _, _, df, excluded = prepare_forecast_frame(f)
+    assert excluded == 1
+    assert 2022 not in df.period.values
+    assert np.isnan(X.loc[df.period.eq(2023), 'primaryValue_lag_1y']).all()
+
+
+def test_ambiguous_duplicate_totals_fail():
+    f = sample()
+    with pytest.raises(ValueError, match='duplicate'):
+        prepare_forecast_frame(pd.concat([f, f.iloc[[0]]], ignore_index=True))
