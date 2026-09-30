@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install pandas pyarrow numpy python-dotenv comtradeapicall
+      - run: pip install pandas pyarrow numpy python-dotenv comtradeapicall urllib3 requests
       - name: Restore immutable input copies
         env:
           GH_TOKEN: ${{ github.token }}
