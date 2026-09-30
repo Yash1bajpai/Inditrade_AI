@@ -15,6 +15,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
 from sklearn.model_selection import TimeSeriesSplit
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import xgboost as xgb
 import optuna
@@ -50,30 +52,11 @@ def load_and_preprocess_data(data_path, sample_size=None):
         print(f"[*] Subsampling dataset to {sample_size} chronological rows for rapid end-to-end verification...")
         df = df.tail(sample_size).reset_index(drop=True)
 
-    drop_cols = [c for c in METADATA_COLS_TO_DROP if c in df.columns]
-
-    leak_cols = [c for c in ['cifvalue', 'fobvalue'] if c in df.columns]
-    df_clean = df.drop(columns=drop_cols + leak_cols)
-
-    if 'primaryValue' not in df_clean.columns:
-        raise ValueError("CRITICAL: Target column 'primaryValue' not found in dataset!")
-
-    y_raw = df_clean['primaryValue'].astype(float).fillna(0)
-
-    y_log = np.log1p(np.maximum(y_raw, 0))
-
-    ignore_cols = ['primaryValue', 'partnerDesc', 'cmdDesc', 'flowDesc', 'partnerISO', 'refYear']
-    feature_cols = [c for c in df_clean.columns if c not in ignore_cols]
-
-    X = df_clean[feature_cols].copy()
-
-    for col in X.columns:
-        X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0).astype(np.float32)
-
-    X = X.replace([np.inf, -np.inf], 0).fillna(0)
-
-    print(f"[OK] Preprocessed feature matrix shape: {X.shape} | Target shape: {y_log.shape}")
-    print(f"[OK] Features included ({len(feature_cols)} total): {feature_cols[:8]} ... plus {len(feature_cols)-8} more")
+    from src.feature_engineering.forecast_features import prepare_forecast_frame
+    X, y_log, y_raw, feature_cols, df_clean, excluded = prepare_forecast_frame(df)
+    df_clean.attrs["excluded_non_total_partner2_rows"] = excluded
+    print(f"[QC] Excluded {excluded} non-total partner2 rows; {len(X)} canonical rows remain")
+    print(f"[OK] Past-only features ({len(feature_cols)}): {feature_cols}")
     return X, y_log, y_raw, feature_cols, df_clean
 
 def get_device_setting():
@@ -87,6 +70,9 @@ def get_device_setting():
 
 def objective(trial, X, y):
     """Optuna objective function using TimeSeriesSplit(5)."""
+    years = np.sort(X.period.unique())
+    if len(years) < 6:
+        raise ValueError("Need at least six training years for year-blocked CV")
     tscv = TimeSeriesSplit(n_splits=5)
 
     params = {
@@ -104,7 +90,9 @@ def objective(trial, X, y):
     }
 
     scores = []
-    for train_idx, val_idx in tscv.split(X):
+    for train_year_idx, val_year_idx in tscv.split(years):
+        train_idx = np.flatnonzero(X.period.isin(years[train_year_idx]))
+        val_idx = np.flatnonzero(X.period.isin(years[val_year_idx]))
         X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
 
@@ -122,6 +110,7 @@ def main():
     parser.add_argument("--trials", type=int, default=150, help="Number of Optuna Bayesian trials (default: 150)")
     parser.add_argument("--sample", type=int, default=None, help="Optional sample size for quick verification (e.g. 2000)")
     parser.add_argument("--output-dir", type=str, default="models", help="Directory to save exported .pkl and .onnx models")
+    parser.add_argument("--allow-incomplete-data", action="store_true", help="Diagnostic only; never auto-promote incomplete source data")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -129,6 +118,11 @@ def main():
 
     X, y_log, y_raw, feature_cols, df_raw = load_and_preprocess_data(args.data_path, args.sample)
 
+    excluded = df_raw.attrs.get("excluded_non_total_partner2_rows", 0)
+    present = {(str(int(r.partnerCode)), r.flowCode) for r in df_raw[df_raw.period == 2025].itertuples()}
+    missing = [{"partnerCode": p, "flowCode": f, "year": 2025} for p in ("250", "756") for f in ("M", "X") if (p, f) not in present]
+    if (excluded or missing) and not args.allow_incomplete_data:
+        raise ValueError("Source data incomplete/mixed grain; refetch canonical totals before production retraining. Use --allow-incomplete-data for diagnostic output only.")
     train_mask = df_raw['period'] <= 2021
     test_mask = df_raw['period'] >= 2022
 
@@ -138,7 +132,7 @@ def main():
     print(f"\n[*] Chronological Holdout Split -> Train rows (<=2021): {len(X_train)} | Test rows (>=2022): {len(X_test)}")
 
     print(f"\n[*] Launching Optuna Bayesian Optimization across {args.trials} trials with TimeSeriesSplit(5) on Train set...")
-    study = optuna.create_study(direction="minimize")
+    study = optuna.create_study(direction="minimize", sampler=optuna.samplers.TPESampler(seed=42))
     study.optimize(lambda trial: objective(trial, X_train, y_log_train), n_trials=args.trials, show_progress_bar=True)
 
     best_params = study.best_params
@@ -171,6 +165,17 @@ def main():
     print(f"  * Test Dollar-Scale MAE   : ${mae_dollar:,.2f}")
     print(f"  * Test Dollar-Scale RMSE  : ${rmse_dollar:,.2f}")
 
+    baseline = X_test['primaryValue_lag_1y'].fillna(0)
+    baseline_metrics = {
+        "test_log_scale_r2": float(r2_score(y_log_test, np.log1p(baseline))),
+        "test_dollar_scale_mae": float(mean_absolute_error(y_raw_test, baseline)),
+        "test_dollar_scale_rmse": float(np.sqrt(mean_squared_error(y_raw_test, baseline)))
+    }
+    print("[NAIVE PREVIOUS-YEAR BASELINE]", json.dumps(baseline_metrics))
+    per_year = {}
+    for year in sorted(df_raw.loc[test_mask, 'period'].unique()):
+        mask = df_raw.loc[test_mask, 'period'].eq(year).to_numpy()
+        per_year[str(year)] = {"rows": int(mask.sum()), "log_r2": float(r2_score(y_log_test.to_numpy()[mask], preds_log_test[mask])), "dollar_mae": float(mean_absolute_error(y_raw_test.to_numpy()[mask], preds_dollar_test[mask]))}
     importances = final_model.feature_importances_
     feat_df = pd.DataFrame({'feature': feature_cols, 'importance': importances}).sort_values('importance', ascending=False)
     print("\n=== TOP 10 MOST INFLUENTIAL TRADE & MACRO FEATURES ===")
@@ -197,6 +202,15 @@ def main():
 
     meta_path = os.path.join(args.output_dir, "xgboost_trade_forecast_meta.json")
     meta_data = {
+        "evaluation_design": "rolling_one_year_with_observed_prior_years; year-blocked CV",
+        "feature_contract": "past_only_calendar_lags_v1",
+        "production_approved": False,
+        "provisional": bool(excluded or missing),
+        "excluded_non_total_partner2_rows": int(excluded),
+        "missing_2025_slices": missing,
+        "limitations": ["1072 mixed partner2-grain cells in source release require refetch", "2025 France/Switzerland import/export slices missing", "Not a frozen-origin multi-year forecast score"],
+        "naive_previous_year_baseline": baseline_metrics,
+        "holdout_metrics_by_year": per_year,
         "model_name": "XGBoost Bilateral Trade Flow Forecast (Module A)",
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "holdout_split_year": 2022,
@@ -229,4 +243,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
