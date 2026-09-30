@@ -76,5 +76,13 @@
     "std": 1179910931.0761044,
     "min": 0.015,
     "max": 59534289660.861
-  }
+  },
+  "validation_status": "invalid_for_prospective_forecasting_target_and_same_year_leakage",
+  "production_approved": false,
+  "legacy_metrics_not_forecast_accuracy": true,
+  "limitations": [
+    "Current-target YoY and same-year predictors in historical feature list",
+    "1072 non-total partner2 source cells in 2023-2025",
+    "2025 France/Switzerland M/X slices missing"
+  ]
 }
