@@ -89,7 +89,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git add data/cache/bm25_index.pkl.lzma data/cache/rag_index_meta.json
-          git diff --cached --quiet || { git commit -m 'Refresh verified policy RAG indexes'; git push; }
+          git diff --cached --quiet || { git commit -m 'Refresh verified policy RAG indexes'; git pull --rebase origin main; git push; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
