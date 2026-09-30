@@ -8,6 +8,10 @@ on:
         description: Scrape live DGFT and PIB before rebuilding (false uses reviewed release corpus)
         type: boolean
         default: true
+      seed_asset:
+        description: Optional reviewed refresh archive in the data-v1 release
+        type: string
+        default: ''
 permissions:
   contents: write
 concurrency:
@@ -39,6 +43,21 @@ jobs:
           for filename in dgft_policy_chunks.jsonl dgft_ocr_chunks.jsonl pib_press_releases.jsonl policy_qa_dataset.jsonl; do
             gh release download data-v1 --pattern "$filename" --dir data/processed
           done
+      - name: Restore reviewed refresh (when supplied)
+        if: ${{ inputs.seed_asset != '' }}
+        env:
+          SEED_ASSET: ${{ inputs.seed_asset }}
+        run: |
+          gh release download data-v1 --pattern "$SEED_ASSET" --dir /tmp
+          python - "$SEED_ASSET" <<'PYCODE'
+          import sys, zipfile
+          from pathlib import Path
+          with zipfile.ZipFile(Path('/tmp') / sys.argv[1]) as archive:
+              for name in archive.namelist():
+                  if not name.startswith(('data/raw/forex_macro/', 'data/processed/', 'data/cache/')) or '..' in Path(name).parts:
+                      raise RuntimeError('Unexpected refresh archive path')
+              archive.extractall('.')
+          PYCODE
       - name: Scrape real sources (fail closed)
         if: ${{ github.event_name == 'schedule' || inputs.refresh_sources }}
         run: |
@@ -52,6 +71,10 @@ jobs:
         run: |
           tar -czf /tmp/rag-dense-index.tar.gz -C data/cache qdrant_index
           gh release upload data-v1 /tmp/rag-dense-index.tar.gz data/processed/*jsonl --clobber
+          if compgen -G 'data/raw/forex_macro/*.csv' > /dev/null; then
+            gh release upload data-v1 data/raw/forex_macro/*.csv --clobber
+            gh release delete-asset data-v1 cnyinr.csv --yes || true
+          fi
       - name: Commit production sparse index
         run: |
           git config user.name 'github-actions[bot]'
