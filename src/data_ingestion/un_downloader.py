@@ -90,6 +90,16 @@ class ComtradeFetcher:
         print("\n[CRITICAL ERROR / STOPPING] All available UN Comtrade API keys are exhausted or rate limited (403/429)!")
         return None
 
+    def count_slice(self, partner_code, year, flow_code):
+        """Independent count for detecting truncated canonical refetches."""
+        result = comtradeapicall.getFinalData(
+            subscription_key=self.get_active_key(), typeCode="C", freqCode="A", clCode="HS",
+            period=str(year), reporterCode=REPORTER_INDIA, cmdCode="AG2", flowCode=flow_code,
+            partnerCode=str(partner_code), partner2Code="0", customsCode="C00", motCode="0", countOnly=True)
+        if not isinstance(result, pd.DataFrame) or len(result) != 1 or "count" not in result:
+            raise ValueError("Source count unavailable; completeness cannot be verified")
+        return int(result["count"].iloc[0])
+
     def fetch_slice(self, partner_code, year, flow_code):
         """
         Fetches a single slice: Reporter=699 (India), Partner=partner_code, Year=year, Flow=flow_code, HS 2-digit (AG2).
@@ -112,7 +122,8 @@ class ComtradeFetcher:
                 partnerCode=str(partner_code),
                 partner2Code="0",
                 customsCode="C00",
-                motCode="0"
+                motCode="0",
+                maxRecords=500
             )
 
             if isinstance(df, pd.DataFrame):
