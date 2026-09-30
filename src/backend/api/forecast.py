@@ -410,7 +410,10 @@ def get_forecast(req: ForecastRequest):
             "forecasted_trade_value_usd": actual_prediction_usd,
             "forecasted_trade_value_billions": actual_prediction_usd / 1e9,
             "feature_importance": feature_importance,
-            "metrics": xgboost_model.get("meta", {}).get("metrics", {}),
+            # The deployed legacy model contains current-target/same-year
+            # predictors. Do not expose its retrospective R2 as forecast accuracy.
+            "metrics": {} if "primaryValue_yoy_growth_rate" in expected_features else xgboost_model.get("meta", {}).get("metrics", {}),
+            "validation_status": "legacy_model_leakage_not_validated" if "primaryValue_yoy_growth_rate" in expected_features else xgboost_model.get("meta", {}).get("validation_status", "pending_validation"),
             "status": "success"
         }
     except HTTPException:
