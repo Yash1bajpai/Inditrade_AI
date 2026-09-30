@@ -111,7 +111,7 @@ def collect_candidate_prids():
                             title = parent.text.strip()[:150].replace('\n', ' ')
 
                     is_relevant = any(k.lower() in title.lower() for k in POLICY_KEYWORDS)
-                    if not is_relevant and len(candidates) < 30:
+                    if False: # Never add unrelated articles to meet a quota.
 
                         is_relevant = True
 
@@ -154,7 +154,7 @@ def scrape_full_articles(candidates, max_articles=70):
 
         full_text = ""
         ministry = "Press Information Bureau / Government of India"
-        date_str = datetime.now().strftime("%d-%m-%Y")
+        date_str = ""
         clean_title = cand["title"]
 
         print(f"[{idx+1:03d}/{total}] Scraping PRID {prid}...", end=" ", flush=True)
@@ -165,7 +165,15 @@ def scrape_full_articles(candidates, max_articles=70):
                 resp = requests.get(i_url, headers=HEADERS, timeout=12)
                 if resp.status_code == 200 and len(resp.content) > 500:
                     soup = BeautifulSoup(resp.content, "html.parser")
-                    raw_text = soup.text.strip()
+                    date_node = soup.select_one(".ReleaseDateSubHeaddateTime")
+                    date_match = re.search(r"(\d{1,2}\s+[A-Z]{3}\s+\d{4})", date_node.get_text(" ", strip=True) if date_node else "", re.I)
+                    if not date_match:
+                        continue
+                    date_str = datetime.strptime(date_match.group(1).upper(), "%d %b %Y").strftime("%Y-%m-%d")
+                    body = soup.select_one(".innner-page-main-about-us-content-right-part") or soup
+                    for unwanted in body.select("script, style"):
+                        unwanted.decompose()
+                    raw_text = body.get_text("\n", strip=True)
                     cleaned = clean_article_text(raw_text)
 
                     if len(cleaned) > 200:
@@ -204,41 +212,6 @@ def scrape_full_articles(candidates, max_articles=70):
 
     return articles
 
-def generate_loudly_logged_fallback():
-    """
-    Generates loudly-logged fallback seed data ONLY IF live scraping fails completely.
-    As instructed: 'Agar live scraping fail ho, seed data sirf loudly-logged fallback ke roop mein use karo, silent default nahi.'
-    """
-    print("\n" + "="*80)
-    print("!!! [CRITICAL WARNING] LIVE PIB SCRAPING RETURNED 0 ARTICLES !!!")
-    print("!!! EXECUTING LOUDLY-LOGGED FALLBACK SEED DATA ENTRY AS EXPLICITLY INSTRUCTED !!!")
-    print("!!! DO NOT SILENTLY SUBSTITUTE — THIS IS AN EXPLICIT FALLBACK RECORD !!!")
-    print("="*80 + "\n")
-
-    fallback_records = [
-        {
-            "prid": "FALLBACK_SEED_001",
-            "title": "Ministry of Commerce and Industry Notifies Comprehensive Trade & Tariff Policy Amendments for FY 2026-27",
-            "ministry": "Ministry of Commerce & Industry",
-            "date": datetime.now().strftime("%d-%m-%Y"),
-            "url": "https://pib.gov.in/PressReleasePage.aspx?PRID=FALLBACK_SEED_001",
-            "category": "Trade & Tariff Policy",
-            "clean_text": "LOUD FALLBACK SEED DATA: The Central Government, in consultation with the Directorate General of Foreign Trade (DGFT) and the Department of Commerce, has notified key tariff modifications under Chapter 84 and Chapter 85 to strengthen domestic manufacturing under the Production Linked Incentive (PLI) scheme and boost engineering exports. All regional trade authorities are instructed to process export authorizations with immediate effect.",
-            "is_fallback": True
-        },
-        {
-            "prid": "FALLBACK_SEED_002",
-            "title": "Ministry of Finance Announces Customs Duty Exemptions for Critical Mineral Imports to Spur Semiconductor & Clean Energy Sectors",
-            "ministry": "Ministry of Finance",
-            "date": datetime.now().strftime("%d-%m-%Y"),
-            "url": "https://pib.gov.in/PressReleasePage.aspx?PRID=FALLBACK_SEED_002",
-            "category": "Macro & Finance Policy",
-            "clean_text": "LOUD FALLBACK SEED DATA: Consequent to the recommendations of the GST Council and the Central Board of Indirect Taxes and Customs (CBIC), import duties on 25 critical minerals including lithium, cobalt, and rare earth elements have been fully exempted. This fiscal policy measure aims to lower input costs for Indian high-tech manufacturers and improve trade balance competitiveness across global supply chains.",
-            "is_fallback": True
-        }
-    ]
-    return fallback_records
-
 def main():
     os.makedirs(PROCESSED_DIR, exist_ok=True)
 
@@ -246,9 +219,19 @@ def main():
     articles = scrape_full_articles(candidates, max_articles=65)
 
     if not articles or len(articles) == 0:
-        articles = generate_loudly_logged_fallback()
+        raise RuntimeError("Live PIB scraping returned no valid articles; preserving previous corpus")
 
-    # Use atomic write: write to temp file then replace to prevent data loss on crash
+    # Merge into historical corpus rather than silently dropping older policies.
+    existing = {}
+    if os.path.exists(OUTPUT_JSONL):
+        with open(OUTPUT_JSONL, encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    row = json.loads(line)
+                    if not row.get("is_fallback"):
+                        existing[row["prid"]] = row
+    existing.update({row["prid"]: row for row in articles})
+    articles = list(existing.values())
     tmp_path = OUTPUT_JSONL + ".tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
         for item in articles:
@@ -263,4 +246,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
