@@ -538,13 +538,13 @@ export default function Dashboard() {
                 <div className={styles.kpiCard}>
                   <span className={styles.kpiLabel}>Partner</span>
                   <select value={partnerCode} onChange={handlePartnerChange} className={styles.chatInput}>
-                    {partnerList.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
+                    {!partnerList.length && <option value="">Partner data unavailable</option>}{partnerList.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
                   </select>
                 </div>
                 <div className={styles.kpiCard}>
                   <span className={styles.kpiLabel}>Commodity</span>
                   <select value={commodityCode} onChange={(e) => { setCommodityCode(e.target.value); setForecastError(null); setSuggestedCommodities([]); }} className={styles.chatInput} disabled={!validMap[partnerCode] || validMap[partnerCode].length === 0}>
-                    {validMap[partnerCode]?.length > 0 ? validMap[partnerCode].map(c => <option key={c} value={c}>{c} — {CMD_MAP[c] || c}</option>) : <option value="">No trade data</option>}
+                    {validMap[partnerCode]?.length > 0 ? validMap[partnerCode].map(c => <option key={c} value={c}>{c} — {CMD_MAP[c] || c}</option>) : <option value="">Commodity data unavailable</option>}
                   </select>
                 </div>
                 <div className={styles.kpiCard}>
@@ -564,7 +564,7 @@ export default function Dashboard() {
                 <div className={styles.kpiCard} style={{ justifyContent: 'flex-end', background: 'transparent', border: 'none' }}>
                   <button 
                     onClick={handlePredict} 
-                    disabled={isPredicting} 
+                    disabled={isPredicting || !partnerList.length || !validMap[partnerCode]?.includes(commodityCode)} 
                     className={`${styles.chatButton} ${styles.terminalButton}`}
                     style={{ width: '100%', padding: '0.85rem 1rem', minHeight: '48px', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.05rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', touchAction: 'manipulation' }}
                   >
@@ -925,4 +925,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-        }
+                      }
