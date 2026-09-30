@@ -250,6 +250,8 @@ async def query_policy(req: QueryRequest, request: Request):
         response.raise_for_status()
         data = response.json()
         answer = data["choices"][0]["message"]["content"].strip()
+        if not grounded:
+            answer = "I couldn't retrieve policy sources for this question, so I can't verify an answer. Please check the official DGFT/PIB source or try again after the knowledge base is available."
 
         res = {"answer": answer, "source": "Hugging Face", "citation": citation_str, "grounded": grounded}
         log_chat_to_supabase(client_ip, req.question, res["answer"])
