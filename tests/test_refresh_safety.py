@@ -30,3 +30,19 @@ def test_macro_includes_last_completed_year(tmp_path):
 
 def test_broken_cny_not_requested():
     assert 'CNYINR' not in macro.TICKERS
+
+def test_comtrade_append_preserves_historical_splits(tmp_path, monkeypatch):
+    from src.data_ingestion import un_downloader as un
+    p=tmp_path/'trade.parquet'
+    original=pd.DataFrame({'period':['2024','2024'],'partnerCode':[842,842],'cmdCode':['01','01'],'flowCode':['M','M'],'primaryValue':[1.,2.],'customsCode':['A','B']})
+    original.to_parquet(p,index=False)
+    new=pd.DataFrame({'period':['2025'],'partnerCode':[250],'cmdCode':['01'],'flowCode':['M'],'primaryValue':[3.],'customsCode':['A']})
+    class Fetcher:
+        def fetch_slice(self,**kwargs): return new.copy(), 'SUCCESS'
+    monkeypatch.setattr(un,'OUTPUT_PARQUET',str(p))
+    monkeypatch.setattr(un,'ComtradeFetcher',Fetcher)
+    monkeypatch.setattr(un,'TOP_20_PARTNERS',{'250':'France'})
+    monkeypatch.setattr(un.time,'sleep',lambda *a:None)
+    un.run_refresh_loop(2025)
+    output=pd.read_parquet(p)
+    pd.testing.assert_frame_equal(output.iloc[:2].reset_index(drop=True),original)
