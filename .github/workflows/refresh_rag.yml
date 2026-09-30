@@ -75,6 +75,15 @@ jobs:
             gh release upload data-v1 data/raw/forex_macro/*.csv --clobber
             gh release delete-asset data-v1 cnyinr.csv --yes || true
           fi
+      - name: Refresh deployment archive without changing model weights
+        run: |
+          gh release download data-v1 --pattern inditrade-data.zip --dir /tmp
+          mkdir -p /tmp/deploy-stage
+          unzip -q /tmp/inditrade-data.zip -d /tmp/deploy-stage
+          cp data/processed/*jsonl /tmp/deploy-stage/
+          (cd /tmp/deploy-stage && zip -q -j /tmp/inditrade-data-refreshed.zip *)
+          cp /tmp/inditrade-data-refreshed.zip /tmp/inditrade-data.zip
+          gh release upload data-v1 /tmp/inditrade-data.zip --clobber
       - name: Commit production sparse index
         run: |
           git config user.name 'github-actions[bot]'
