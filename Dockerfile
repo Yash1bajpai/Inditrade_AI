@@ -17,6 +17,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # release can no longer produce a "successful" image with no data inside.
 # Per-type mv stays tolerant (the zip may legitimately lack some extensions),
 # but the image must contain at least one data or model artifact to pass.
+# Tracked freshness metadata busts this mutable-release download layer on refresh.
+COPY data/cache/rag_index_meta.json models/xgboost_trade_forecast_meta.json /tmp/data-version/
 ARG DATA_RELEASE_URL=https://github.com/Yash1bajpai/Inditrade_AI/releases/download/data-v1/inditrade-data.zip
 RUN set -eu; \
     curl -fL --retry 3 "${DATA_RELEASE_URL}" -o /tmp/data.zip; \
