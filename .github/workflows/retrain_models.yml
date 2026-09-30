@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: data-refresh-retrain
+  cancel-in-progress: false
+
 jobs:
   retrain:
     runs-on: ubuntu-latest
@@ -36,7 +40,8 @@ jobs:
           # xgboost_train.py needs optuna + onnxmltools/onnxconverter-common;
           # network_embed.py needs networkx/node2vec.
           pip install "optuna>=3.0" "onnxmltools>=1.12" "onnxconverter-common>=1.14" \
-            "networkx>=3.1" "node2vec>=0.4.6"
+            "networkx>=3.1" "node2vec>=0.4.6" \
+            "yfinance>=0.2.54,<1" "comtradeapicall>=1.2,<2"
 
       - name: Fetch Training Data
         run: |
@@ -51,7 +56,19 @@ jobs:
           mkdir -p data/processed models
           find /tmp/inditrade-data -name '*.parquet' -exec mv {} data/processed/ \;
           find /tmp/inditrade-data -name '*.jsonl' -exec mv {} data/processed/ \;
+          for filename in dgft_ocr_chunks.jsonl policy_qa_dataset.jsonl; do
+            curl -fL --retry 3 "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/$filename" -o "data/processed/$filename"
+          done
           test -f data/processed/trade_features.parquet
+          mkdir -p data/raw/un_comtrade
+          curl -fL --retry 3 "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/india_trade_hs2_2015_2024.parquet" -o data/raw/un_comtrade/india_trade_hs2_2015_2024.parquet
+
+      - name: Refresh Real Training Inputs (fail closed)
+        env:
+          COMTRADE_API_KEY: ${{ secrets.COMTRADE_API_KEY }}
+          COMTRADE_API_KEY1: ${{ secrets.COMTRADE_API_KEY1 }}
+          COMTRADE_API_KEY2: ${{ secrets.COMTRADE_API_KEY2 }}
+        run: python scripts/refresh_data.py
 
       - name: Retrain XGBoost Forecast Model
         run: |
@@ -86,6 +103,8 @@ jobs:
             data/processed/trade_features.parquet \
             data/processed/dgft_policy_chunks.jsonl \
             data/processed/pib_press_releases.jsonl \
+            data/processed/dgft_ocr_chunks.jsonl \
+            data/processed/policy_qa_dataset.jsonl \
             models/xgboost_trade_forecast.pkl \
             models/xgboost_trade_forecast.onnx \
             models/xgboost_trade_forecast_meta.json \
@@ -105,6 +124,7 @@ jobs:
           (cd "$STAGE" && zip -q -j inditrade-data.zip *)
           ls -la "$STAGE"
           gh release upload data-v1 "$STAGE/inditrade-data.zip" --clobber
+          gh release upload data-v1 data/raw/forex_macro/*.csv data/raw/un_comtrade/*.parquet data/cache/data_freshness_meta.json --clobber
 
       - name: Commit Updated Tracked Metadata
         run: |
