@@ -73,7 +73,7 @@ def load_and_aggregate_macro(forex_dir: str = "data/raw/forex_macro") -> pd.Data
         df["Date"] = pd.to_datetime(df["Date"])
         df["period"] = df["Date"].dt.year
 
-        df_window = df[(df["period"] >= 2015) & (df["period"] <= 2024)].copy()
+        df_window = df[(df["period"] >= 2015) & (df["period"] < pd.Timestamp.today().year)].copy()
 
         if len(df_window) == 0:
             print(f"  [WARNING] `{asset_name}.csv` has 0 rows in 2015-2024 range. Skipping.")
@@ -218,4 +218,3 @@ def build_trade_features(comtrade_parquet: str = "data/raw/un_comtrade/india_tra
 
 if __name__ == "__main__":
     build_trade_features()
-
