@@ -43,6 +43,7 @@ def repair(raw, fetcher, pause=time.sleep):
         fresh, status = fetcher.fetch_slice(partner, year, flow)
         if status != 'SUCCESS' or fresh is None or fresh.empty:
             raise RuntimeError(f'Canonical refetch failed for {year}/{partner}/{flow}: {status}; source untouched')
+        pause(1.5)
         expected = fetcher.count_slice(partner, year, flow)
         if expected != len(fresh) or expected <= 0 or expected >= 500:
             raise ValueError('Refetch completeness check failed: source count differs or limit reached')
