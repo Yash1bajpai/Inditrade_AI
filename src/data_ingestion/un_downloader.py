@@ -110,12 +110,22 @@ class ComtradeFetcher:
                 cmdCode="AG2",
                 flowCode=flow_code,
                 partnerCode=str(partner_code),
-                partner2Code=None,
-                customsCode=None,
-                motCode=None
+                partner2Code="0",
+                customsCode="C00",
+                motCode="0"
             )
 
             if isinstance(df, pd.DataFrame):
+                if not df.empty:
+                    required = {"partner2Code": "0", "customsCode": "C00", "motCode": "0"}
+                    for column, expected in required.items():
+                        if column not in df:
+                            raise ValueError(f"Missing grain dimension: {column}")
+                        actual = df[column].astype(str).str.replace(r"\.0$", "", regex=True)
+                        if not actual.eq(expected).all():
+                            raise ValueError(f"Unexpected non-total trade grain: {column}")
+                    if df.duplicated(["period", "partnerCode", "flowCode", "cmdCode"]).any():
+                        raise ValueError("Duplicate canonical commodity totals in response")
                 return df, "SUCCESS"
             else:
                 return pd.DataFrame(), "EMPTY_OR_UNFORMATTED"
