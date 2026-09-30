@@ -456,8 +456,10 @@ export default function Dashboard() {
         setFeatureImportances(data.feature_importance);
       }
       
-      if (data.metrics && typeof data.metrics.test_log_scale_r2 === "number") {
+      if (data.validation_status === "validated_past_only_forecast" && data.metrics && typeof data.metrics.test_log_scale_r2 === "number") {
         setR2Metric(data.metrics.test_log_scale_r2);
+      } else {
+        setR2Metric(null);
       }
       
       const history = await getForecastHistory(partnerCode, commodityCode);
