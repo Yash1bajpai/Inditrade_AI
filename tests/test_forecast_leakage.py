@@ -44,3 +44,41 @@ def test_ambiguous_duplicate_totals_fail():
     f = sample()
     with pytest.raises(ValueError, match='duplicate'):
         prepare_forecast_frame(pd.concat([f, f.iloc[[0]]], ignore_index=True))
+
+
+def test_fetch_requests_totals_and_rejects_second_partner_slice(monkeypatch):
+    from src.data_ingestion import un_downloader as un
+    calls = []
+    def fake(**kwargs):
+        calls.append(kwargs)
+        return pd.DataFrame({'period': [2023], 'partnerCode': [842], 'flowCode': ['M'],
+                             'cmdCode': ['27'], 'partner2Code': [36],
+                             'customsCode': ['C00'], 'motCode': [0]})
+    monkeypatch.setattr(un.comtradeapicall, 'getFinalData', fake)
+    monkeypatch.setattr(un, "get_api_keys", lambda: ["test-only-placeholder"])
+    fetcher = un.ComtradeFetcher()
+    fetcher.keys = ['test-only-placeholder']
+    fetcher.current_key_idx = 0
+    df, status = fetcher.fetch_slice('842', 2023, 'M')
+    assert df.empty and status.startswith('ERROR:')
+    assert calls[0]['partner2Code'] == '0'
+    assert calls[0]['customsCode'] == 'C00'
+    assert calls[0]['motCode'] == '0'
+
+
+def test_feature_build_rejects_mixed_grain_before_aggregation(monkeypatch):
+    from src.feature_engineering import trade_features as tf
+    monkeypatch.setattr(tf, 'load_and_aggregate_macro', lambda *a: pd.DataFrame({'period': [2023]}))
+    f = sample().assign(partnerDesc='USA')
+    f.loc[2, 'partner2Code'] = 36
+    monkeypatch.setattr(pd, 'read_parquet', lambda *a: f.copy())
+    with pytest.raises(ValueError, match='partner2'):
+        tf.build_trade_features()
+
+
+def test_legacy_forecast_score_is_not_returned_as_accuracy(forecast_module):
+    from src.backend.api.forecast import ForecastRequest
+    forecast_module.xgboost_model['features'].append('primaryValue_yoy_growth_rate')
+    result = forecast_module.get_forecast(ForecastRequest(usd_inr=83.5, crude_price=80, year=2025, partner_code='643', commodity_code='27'))
+    assert result['metrics'] == {}
+    assert result['validation_status'] == 'legacy_model_leakage_not_validated'
