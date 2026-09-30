@@ -95,7 +95,7 @@ def main():
         f_desc = str(row.get('flowDesc', row.get('flowCode', 'N/A')))
         period = row.get('period', 'N/A')
         val = row.get('primaryValue', 0)
-        yoy = row.get('primaryValue_yoy_growth_rate', 0)
+        yoy = row.get('primaryValue_yoy_growth_rate', 0) * 100.0  # stored ratio -> percent
         score = row.get('anomaly_score', 0)
 
         print(f"\n  [ANOMALY #{top3.index.get_loc(idx)+1}] Score: {score:.4f} | Year: {period}")
@@ -121,4 +121,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
