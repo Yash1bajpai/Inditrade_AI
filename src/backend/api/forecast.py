@@ -11,7 +11,6 @@ from pathlib import Path
 import pandas as pd
 
 from src.utils.data_cache import load_parquet
-from src.data_ingestion.un_downloader import TOP_20_PARTNERS
 
 logger = logging.getLogger("api.forecast")
 router = APIRouter()
@@ -70,7 +69,7 @@ def get_data_quality():
         canonical &= pd.to_numeric(df.get("motCode", pd.Series(index=df.index, dtype=float)), errors="coerce").eq(0)
         latest_rows = df.loc[years.eq(latest) & canonical]
         have = {(str(int(r.partnerCode)), str(r.flowCode)) for r in latest_rows.itertuples()}
-        missing = [{"partner": str(int(p)), "flow": f, "year": latest} for p in TOP_20_PARTNERS for f in ("M", "X") if (str(int(p)), f) not in have]
+        missing = [{"partner": str(int(p)), "flow": f, "year": latest} for p in PARTNER_MAP for f in ("M", "X") if (str(int(p)), f) not in have]
         if manifest:
             known = {(g['year'], str(int(g['partner'])), g['flow']): g for g in manifest['missing_slices']}
             known.update({(g['year'], g['partner'], g['flow']): g for g in missing})
