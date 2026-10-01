@@ -28,7 +28,7 @@ jobs:
           unzip -p /tmp/repair-source/inditrade-data.zip trade_features.parquet > /tmp/repair-source/prior_features.parquet
       - name: Canonical source refetch and completeness check
         env:
-          COMTRADE_API_KEY: ${{ secrets.COMTRADE_REPAIR_CANDIDATE_KEY }}
+          COMTRADE_API_KEY: ${{ secrets.COMTRADE_KEY_OCT1 }}
         run: |
           python scripts/repair_trade_data.py --source /tmp/repair-source/india_trade_hs2_2015_2024.parquet --output /tmp/repair-candidate/candidate_raw.parquet
       - name: Regenerate candidate features and past-only predictors
