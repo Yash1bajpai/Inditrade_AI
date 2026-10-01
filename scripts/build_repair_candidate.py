@@ -41,13 +41,22 @@ def rebuild(raw, prior):
 
 def main():
     p=argparse.ArgumentParser()
+    p.add_argument('--coverage-manifest', required=True)
     p.add_argument('--raw',required=True);p.add_argument('--prior-features',required=True);p.add_argument('--output-dir',required=True)
     a=p.parse_args();out=Path(a.output_dir);out.mkdir(parents=True,exist_ok=True)
+    coverage=json.loads(Path(a.coverage_manifest).read_text())
+    if coverage['candidate_sha256'] != hashlib.sha256(Path(a.raw).read_bytes()).hexdigest():
+        raise ValueError('Coverage manifest does not match raw candidate')
     raw=pd.read_parquet(a.raw);prior=pd.read_parquet(a.prior_features)
+    for gap in coverage['missing_slices']:
+        if ((raw.period.astype(int)==gap['year']) & (raw.partnerCode.astype(int)==int(gap['partner'])) & (raw.flowCode==gap['flow'])).any():
+            raise ValueError('Documented missing slice contains candidate rows')
     frame,X,features=rebuild(raw,prior)
     frame.to_parquet(out/'candidate_trade_features.parquet',index=False)
     X.to_parquet(out/'past_only_predictors.parquet',index=False)
-    report={'candidate_rows':len(frame),'forecast_features':features,'macro_source':'retained annual values from prior feature file, not refreshed',
+    coverage['feature_sha256']=hashlib.sha256((out/'candidate_trade_features.parquet').read_bytes()).hexdigest()
+    (out/'coverage_manifest.json').write_text(json.dumps(coverage,indent=2))
+    report={'coverage_status':coverage['status'],'missing_slices':coverage['missing_slices'],'candidate_rows':len(frame),'forecast_features':features,'macro_source':'retained annual values from prior feature file, not refreshed',
       'macro_source_sha256':hashlib.sha256(Path(a.prior_features).read_bytes()).hexdigest(),
       'production_publication':False,'model_retraining':False,
       'missing_predictor_cells':X.isna().sum().to_dict(),
