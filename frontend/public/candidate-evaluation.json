@@ -1,0 +1,346 @@
+{
+  "status": "partial_candidate_only",
+  "production_approved": false,
+  "device": "cuda",
+  "input_sha256": "e7ef3f604f7f189a1ea33d5c314760e8f06b365d672db32ff0575d3a974443e4",
+  "coverage": {
+    "schema_version": 1,
+    "status": "partial",
+    "as_of": "2026-10-01T05:31:48.096807+00:00",
+    "missing_slices": [
+      {
+        "year": 2025,
+        "partner": "250",
+        "flow": "M",
+        "reason": "canonical_query_empty",
+        "source_count": 0
+      },
+      {
+        "year": 2025,
+        "partner": "250",
+        "flow": "X",
+        "reason": "canonical_query_empty",
+        "source_count": 0
+      },
+      {
+        "year": 2025,
+        "partner": "756",
+        "flow": "M",
+        "reason": "canonical_query_empty",
+        "source_count": 0
+      },
+      {
+        "year": 2025,
+        "partner": "756",
+        "flow": "X",
+        "reason": "canonical_query_empty",
+        "source_count": 0
+      }
+    ],
+    "candidate_sha256": "677e8011a237632c3750373615e2a9f9f06184517c9d6e18a6264fe4ca8c5b60",
+    "planned_slices": [
+      {
+        "year": 2023,
+        "partner": "156",
+        "flow": "M"
+      },
+      {
+        "year": 2023,
+        "partner": "156",
+        "flow": "X"
+      },
+      {
+        "year": 2023,
+        "partner": "276",
+        "flow": "M"
+      },
+      {
+        "year": 2023,
+        "partner": "842",
+        "flow": "M"
+      },
+      {
+        "year": 2024,
+        "partner": "156",
+        "flow": "M"
+      },
+      {
+        "year": 2024,
+        "partner": "156",
+        "flow": "X"
+      },
+      {
+        "year": 2024,
+        "partner": "276",
+        "flow": "M"
+      },
+      {
+        "year": 2024,
+        "partner": "276",
+        "flow": "X"
+      },
+      {
+        "year": 2024,
+        "partner": "842",
+        "flow": "M"
+      },
+      {
+        "year": 2024,
+        "partner": "842",
+        "flow": "X"
+      },
+      {
+        "year": 2025,
+        "partner": "156",
+        "flow": "M"
+      },
+      {
+        "year": 2025,
+        "partner": "156",
+        "flow": "X"
+      },
+      {
+        "year": 2025,
+        "partner": "250",
+        "flow": "M"
+      },
+      {
+        "year": 2025,
+        "partner": "250",
+        "flow": "X"
+      },
+      {
+        "year": 2025,
+        "partner": "276",
+        "flow": "M"
+      },
+      {
+        "year": 2025,
+        "partner": "276",
+        "flow": "X"
+      },
+      {
+        "year": 2025,
+        "partner": "756",
+        "flow": "M"
+      },
+      {
+        "year": 2025,
+        "partner": "756",
+        "flow": "X"
+      },
+      {
+        "year": 2025,
+        "partner": "842",
+        "flow": "M"
+      },
+      {
+        "year": 2025,
+        "partner": "842",
+        "flow": "X"
+      }
+    ],
+    "repaired_slices": [
+      {
+        "year": 2023,
+        "partner": "156",
+        "flow": "M"
+      },
+      {
+        "year": 2023,
+        "partner": "156",
+        "flow": "X"
+      },
+      {
+        "year": 2023,
+        "partner": "276",
+        "flow": "M"
+      },
+      {
+        "year": 2023,
+        "partner": "842",
+        "flow": "M"
+      },
+      {
+        "year": 2024,
+        "partner": "156",
+        "flow": "M"
+      },
+      {
+        "year": 2024,
+        "partner": "156",
+        "flow": "X"
+      },
+      {
+        "year": 2024,
+        "partner": "276",
+        "flow": "M"
+      },
+      {
+        "year": 2024,
+        "partner": "276",
+        "flow": "X"
+      },
+      {
+        "year": 2024,
+        "partner": "842",
+        "flow": "M"
+      },
+      {
+        "year": 2024,
+        "partner": "842",
+        "flow": "X"
+      },
+      {
+        "year": 2025,
+        "partner": "156",
+        "flow": "M"
+      },
+      {
+        "year": 2025,
+        "partner": "156",
+        "flow": "X"
+      },
+      {
+        "year": 2025,
+        "partner": "276",
+        "flow": "M"
+      },
+      {
+        "year": 2025,
+        "partner": "276",
+        "flow": "X"
+      },
+      {
+        "year": 2025,
+        "partner": "842",
+        "flow": "M"
+      },
+      {
+        "year": 2025,
+        "partner": "842",
+        "flow": "X"
+      }
+    ],
+    "candidate_rows": 35279,
+    "model_promoted": false,
+    "scope": "Repair plan and latest-year top-20 partner M/X slice presence; not all historical HS2 completeness",
+    "note": "Empty canonical query plus zero count is a gap, not zero trade or proof of global unavailability.",
+    "feature_sha256": "e7ef3f604f7f189a1ea33d5c314760e8f06b365d672db32ff0575d3a974443e4"
+  },
+  "train_years": [
+    2015,
+    2021
+  ],
+  "test_years": [
+    2022,
+    2025
+  ],
+  "train_rows": 22458,
+  "test_rows": 12821,
+  "trials": 40,
+  "best_cv_log_rmse": 1.1554256065993551,
+  "all_holdout_model": {
+    "log_r2": 0.8871263513575786,
+    "dollar_mae": 110359327.27810703,
+    "dollar_rmse": 1320284100.9715314
+  },
+  "comparison": {
+    "rows": 12553,
+    "omitted_no_previous_year": 268,
+    "model": {
+      "log_r2": 0.8934086741962375,
+      "dollar_mae": 112703890.91646929,
+      "dollar_rmse": 1334303231.0824835
+    },
+    "baseline": {
+      "log_r2": 0.8778169715040166,
+      "dollar_mae": 63133356.73403099,
+      "dollar_rmse": 559446817.2505183
+    }
+  },
+  "per_year": {
+    "2022": {
+      "rows": 3151,
+      "model": {
+        "log_r2": 0.9006210950134513,
+        "dollar_mae": 113526161.65880474,
+        "dollar_rmse": 1177163413.2506495
+      },
+      "baseline": {
+        "log_r2": 0.8785377396132635,
+        "dollar_mae": 71986915.7522073,
+        "dollar_rmse": 715427818.6258374
+      }
+    },
+    "2023": {
+      "rows": 3130,
+      "model": {
+        "log_r2": 0.8568331657345827,
+        "dollar_mae": 112978244.79518521,
+        "dollar_rmse": 1300390806.13265
+      },
+      "baseline": {
+        "log_r2": 0.840722786840033,
+        "dollar_mae": 84773794.2136658,
+        "dollar_rmse": 701230053.6101617
+      }
+    },
+    "2024": {
+      "rows": 3138,
+      "model": {
+        "log_r2": 0.906747372240359,
+        "dollar_mae": 108003202.40347654,
+        "dollar_rmse": 1382070105.549724
+      },
+      "baseline": {
+        "log_r2": 0.8914959222855574,
+        "dollar_mae": 42469264.00427111,
+        "dollar_rmse": 300280022.24042124
+      }
+    },
+    "2025": {
+      "rows": 3134,
+      "model": {
+        "log_r2": 0.9099541404634637,
+        "dollar_mae": 116309844.26818956,
+        "dollar_rmse": 1461668162.359029
+      },
+      "baseline": {
+        "log_r2": 0.9008114260909721,
+        "dollar_mae": 53309422.21215992,
+        "dollar_rmse": 397024137.22129107
+      }
+    }
+  },
+  "anomaly": {
+    "flagged": 353,
+    "rows": 35279,
+    "validation": "unsupervised descriptive only; no accuracy or misinvoicing claim",
+    "missing_indicators": 16818,
+    "omitted_indicators": [
+      "log_unit_value"
+    ],
+    "contract": "Reduced descriptive detector; wholly missing indicators omitted, no invented values"
+  },
+  "graph": {
+    "nodes": 115,
+    "edges": 1744,
+    "dimensions": 64,
+    "validation": "descriptive embedding; no forecast accuracy metric"
+  },
+  "limitations": [
+    "Partial query coverage, not globally complete data",
+    "Macro source retained, not refreshed",
+    "Rolling one-year evaluation with observed prior years, not frozen-origin multi-year forecast",
+    "Baseline comparison excludes rows without observed prior year; no zero imputation",
+    "Anomaly and graph contracts changed; not production-compatible until API review",
+    "log_unit_value omitted because every unit value is unavailable; reduced anomaly contract",
+    "Anomaly imputation medians fitted on full descriptive dataset, not a predictive holdout evaluation"
+  ],
+  "verification": {
+    "method": "Independent NumPy metrics from lossless float32 log predictions in saved Kaggle Version 6 log, matched against exact hashed candidate input and baseline-eligible rows",
+    "prediction_sha256": "165079360479727be1e7ee73f10cda1b3413ce2ce0ec351fc02de6c64cdb7ae6",
+    "verified": true
+  }
+}
