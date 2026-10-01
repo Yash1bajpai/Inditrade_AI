@@ -991,3 +991,17 @@
 .section { border-radius:10px; }
 .header { padding-bottom:1.2rem; }
 @media(max-width:800px) { .briefing { grid-template-columns:1fr; gap:1.2rem; padding:1rem 0 1.5rem; } .workspaceHeading { align-items:flex-start; flex-direction:column; gap:.35rem; } .qualityCard { padding:1.1rem; } .briefing h2 { font-size:1.8rem; } }
+
+.evaluationPanel { margin:0 0 2rem; padding:1.5rem; border:1px solid #414958; border-radius:10px; background:#202631; }
+.evaluationHeading { display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+.evaluationHeading h3 { font-size:1.35rem; margin:.5rem 0; font-family:'Playfair Display',serif; }
+.evaluationPanel p,.chartNote { font-size:.8rem; line-height:1.6; color:#aeb6c2; }
+.metricTable { overflow-x:auto; margin:1rem 0; }
+.metricTable table { width:100%; border-collapse:collapse; min-width:380px; }
+.metricTable th,.metricTable td { padding:.8rem; text-align:left; border-bottom:1px solid #414958; font-size:.85rem; font-weight:400; }
+.metricTable thead th { color:#C8A97E; }
+.chartLegend { display:flex; flex-wrap:wrap; gap:1rem; font-size:.78rem; margin-top:1rem; color:#aeb6c2; }
+.chartLegend span { display:flex; gap:.4rem; align-items:center; }
+.chartLegend i { width:10px; height:10px; border-radius:50%; }
+@media(max-width:600px) { .evaluationPanel { padding:1rem; } .evaluationHeading { flex-direction:column; align-items:flex-start; } .sectionHeader { flex-wrap:wrap; gap:1rem; } .sectionHeader > div { flex-wrap:wrap; } .modalCard { max-height:90dvh; overflow-y:auto; } }
+@media(max-width:600px) { .metricTable table { min-width:0; table-layout:fixed; } .metricTable th,.metricTable td { padding:.7rem .25rem; font-size:.74rem; overflow-wrap:anywhere; } .metricTable thead th { width:33.333%; } }
