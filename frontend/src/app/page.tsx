@@ -527,9 +527,10 @@ export default function Dashboard() {
               <section className={styles.briefing} aria-label="Data and forecast status">
                 <div><span className={styles.briefEyebrow}>THE TRADE DESK</span><h2>Explore the data. Question the forecast.</h2><p>Choose a trade partner and commodity, then compare the model output with recorded history. Forecasts are provisional, not advice.</p></div>
                 <div className={styles.qualityCard} role="status">
-                  <span className={styles.qualityTag}>{quality?.status === "coverage_checks_passed" ? "COVERAGE CHECKS PASSED" : quality?.status === "repair_required" ? "DATA REPAIR REQUIRED" : quality ? "DATA CHECKS UNAVAILABLE" : "DATA CHECKS LOADING"}</span>
+                  <span className={styles.qualityTag}>{quality?.status === "partial" ? "PARTIAL DATASET" : quality?.status === "coverage_checks_passed" ? "COVERAGE CHECKS PASSED" : quality?.status === "repair_required" ? "DATA REPAIR REQUIRED" : quality ? "DATA CHECKS UNAVAILABLE" : "DATA CHECKS LOADING"}</span>
                   <strong>Forecast accuracy is not validated</strong>
-                  <p>{quality?.status === "repair_required" ? `${quality.mixed_grain_rows?.toLocaleString() || 0} mixed-grain rows and ${quality.missing_slices?.length || 0} missing France/Switzerland flow slices need source repair.` : quality?.status === "coverage_checks_passed" ? "Coverage checks passed. Model and source freshness verification are separate checks." : "The source checks are unavailable or loading. Do not assume the dataset is complete."}</p>
+                  <p>{quality?.status === "repair_required" ? `${quality.mixed_grain_rows?.toLocaleString() || 0} mixed-grain rows and ${quality.missing_slices?.length || 0} missing partner/flow slices need source repair.` : quality?.status === "partial" ? "Available observations only. Missing slices are omitted, never recorded as zero trade. No model promotion." : quality?.status === "coverage_checks_passed" ? "Coverage checks passed. Model and source freshness verification are separate checks." : "The source checks are unavailable or loading. Do not assume the dataset is complete."}</p>
+                  {!!quality?.missing_slices?.length && <details><summary>{quality.missing_slices.length} missing slices</summary><ul>{quality.missing_slices.map(s => <li key={`${s.year}-${s.partner}-${s.flow}`}>{s.year} · {s.partner === "250" ? "France" : s.partner === "756" ? "Switzerland" : partnerList.find(p => p.code === s.partner)?.name || s.partner} · {s.flow === "M" ? "Imports" : "Exports"}</li>)}</ul></details>}
                   <span className={styles.qualityMeta}>{quality?.rows ? `${quality.rows.toLocaleString()} rows · ${quality.years?.join(" to ")}` : "Coverage: not yet verified"}</span>
                 </div>
               </section>
@@ -925,4 +926,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-                      }
+}
