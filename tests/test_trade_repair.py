@@ -57,3 +57,31 @@ def test_truncated_response_refused():
             d=raw.iloc[[-1]].copy();d.partner2Code=0
             return d,'SUCCESS'
     with pytest.raises(ValueError,match='completeness'):repair(raw,Fetcher(),pause=lambda _:None)
+
+
+def test_partial_removes_unavailable_bad_slice_without_zeros():
+    raw=base();original=raw.copy(deep=True);missing=[]
+    class Fetcher:
+        def count_slice(self,*a):return 0
+        def fetch_slice(self,*a):return pd.DataFrame(),'SUCCESS'
+    out,repaired=repair(raw,Fetcher(),pause=lambda _:None,allow_partial=True,missing_slices=missing)
+    assert not repaired
+    assert missing==[{'year':2023,'partner':'842','flow':'M','reason':'canonical_query_empty','source_count':0}]
+    assert not out.period.eq(2023).any()
+    assert out.primaryValue.eq(100).all()
+    pd.testing.assert_frame_equal(raw,original)
+
+
+def test_empty_success_without_zero_count_is_not_missing():
+    class Fetcher:
+        def count_slice(self,*a):return 2
+        def fetch_slice(self,*a):return pd.DataFrame(),'SUCCESS'
+    with pytest.raises(ValueError,match='zero source count'):
+        repair(base(),Fetcher(),pause=lambda _:None,allow_partial=True)
+
+
+def test_partial_never_accepts_error_or_401():
+    class Fetcher:
+        def fetch_slice(self,*a):return pd.DataFrame(),'ERROR: 401'
+    with pytest.raises(RuntimeError):
+        repair(base(),Fetcher(),pause=lambda _:None,allow_partial=True)
