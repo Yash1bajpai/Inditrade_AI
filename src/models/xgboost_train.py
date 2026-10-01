@@ -120,7 +120,7 @@ def main():
 
     excluded = df_raw.attrs.get("excluded_non_total_partner2_rows", 0)
     present = {(str(int(r.partnerCode)), r.flowCode) for r in df_raw[df_raw.period == 2025].itertuples()}
-    missing = [{"partnerCode": p, "flowCode": f, "year": 2025} for p in ("250", "756") for f in ("M", "X") if (p, f) not in present]
+    missing = [{"partnerCode": p, "flowCode": f, "year": 2025} for p in ("251", "757") for f in ("M", "X") if (p, f) not in present]
     if (excluded or missing) and not args.allow_incomplete_data:
         raise ValueError("Source data incomplete/mixed grain; refetch canonical totals before production retraining. Use --allow-incomplete-data for diagnostic output only.")
     train_mask = df_raw['period'] <= 2021
