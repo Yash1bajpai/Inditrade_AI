@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import sys
 import time
+from datetime import datetime, timezone
 import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.data_ingestion.un_downloader import ComtradeFetcher, TOP_20_PARTNERS
@@ -35,16 +36,25 @@ def plan_repairs(raw, latest_year=2025):
     return sorted(slices)
 
 
-def repair(raw, fetcher, pause=time.sleep):
+def repair(raw, fetcher, pause=time.sleep, allow_partial=False, missing_slices=None):
     df = normalized(raw)
     repairs = plan_repairs(df)
     replacements = []
+    missing = missing_slices if missing_slices is not None else []
+    repaired = []
     for year, partner, flow in repairs:
         fresh, status = fetcher.fetch_slice(partner, year, flow)
-        if status != 'SUCCESS' or fresh is None or fresh.empty:
+        if status != 'SUCCESS' or fresh is None:
             raise RuntimeError(f'Canonical refetch failed for {year}/{partner}/{flow}: {status}; source untouched')
         pause(1.5)
         expected = fetcher.count_slice(partner, year, flow)
+        if fresh.empty:
+            if not allow_partial or expected != 0:
+                raise ValueError('Empty response requires partial mode and independent zero source count')
+            missing.append({'year': year, 'partner': str(partner), 'flow': flow,
+                            'reason': 'canonical_query_empty', 'source_count': expected})
+            pause(1.5)
+            continue
         if expected != len(fresh) or expected <= 0 or expected >= 500:
             raise ValueError('Refetch completeness check failed: source count differs or limit reached')
         fresh = normalized(fresh)
@@ -61,14 +71,17 @@ def repair(raw, fetcher, pause=time.sleep):
         if pd.to_numeric(fresh.primaryValue, errors='coerce').lt(0).any():
             raise ValueError('Negative trade values')
         replacements.append(fresh)
+        repaired.append((year, partner, flow))
         pause(1.5)
     replace_mask = pd.Series([tuple(r) in set(repairs) for r in df[SLICE].itertuples(index=False, name=None)], index=df.index)
     candidate = pd.concat([df.loc[~replace_mask], *replacements], ignore_index=True)
     if candidate.duplicated(KEY).any():
         raise ValueError('Candidate contains duplicate canonical cells')
-    if plan_repairs(candidate):
+    unresolved = set(plan_repairs(candidate))
+    documented = {(s['year'], int(s['partner']), s['flow']) for s in missing}
+    if unresolved != {gap for gap in documented if gap[0] == 2025}:
         raise ValueError('Candidate still has mixed/missing slices')
-    return candidate.sort_values(KEY).reset_index(drop=True), repairs
+    return candidate.sort_values(KEY).reset_index(drop=True), repaired
 
 
 def main():
@@ -76,6 +89,7 @@ def main():
     p.add_argument('--source', required=True)
     p.add_argument('--output', required=True)
     p.add_argument('--plan-only', action='store_true')
+    p.add_argument('--allow-partial', action='store_true')
     args = p.parse_args()
     source, output = Path(args.source), Path(args.output)
     if source.resolve() == output.resolve():
@@ -84,7 +98,8 @@ def main():
     print(json.dumps({'repair_slices': plan_repairs(raw), 'source_rows': len(raw)}))
     if args.plan_only:
         return
-    candidate, repaired = repair(raw, ComtradeFetcher())
+    missing = []
+    candidate, repaired = repair(raw, ComtradeFetcher(), allow_partial=args.allow_partial, missing_slices=missing)
     output.parent.mkdir(parents=True, exist_ok=True)
     temp = output.with_suffix('.tmp.parquet')
     candidate.to_parquet(temp, index=False)
@@ -95,6 +110,21 @@ def main():
         'repaired_slices': repaired, 'source_rows': len(raw), 'candidate_rows': len(candidate),
         'production_publication': False, 'model_retraining': False
     }, indent=2))
+    coverage = {
+        'schema_version': 1, 'status': 'partial' if missing else 'checked_repair_candidate',
+        'as_of': datetime.now(timezone.utc).isoformat(), 'missing_slices': missing,
+        'candidate_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
+        'planned_slices': repairs_as_records(plan_repairs(raw)),
+        'repaired_slices': repairs_as_records(repaired),
+        'candidate_rows': len(candidate), 'model_promoted': False,
+        'scope': 'Repair plan and latest-year top-20 partner M/X slice presence; not all historical HS2 completeness',
+        'note': 'Empty canonical query plus zero count is a gap, not zero trade or proof of global unavailability.'}
+    output.with_name('coverage_manifest.json').write_text(json.dumps(coverage, indent=2))
+    print(json.dumps(coverage))
+
+
+def repairs_as_records(slices):
+    return [{'year': y, 'partner': str(p), 'flow': f} for y, p, f in slices]
 
 if __name__ == '__main__':
     main()
