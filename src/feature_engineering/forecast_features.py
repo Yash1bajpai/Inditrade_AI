@@ -12,7 +12,7 @@ def prepare_forecast_frame(frame):
     never enter X. Prior holdout-year observations may feed the following year,
     so the evaluation is rolling one-year, not a frozen-origin multi-year test.
     """
-    df = frame.drop(columns=[c for c in frame if c.startswith(('primaryValue_lag_', 'primaryValue_rolling_'))], errors='ignore').copy()
+    df = frame.drop(columns=[c for c in frame if c.startswith(('primaryValue_lag_', 'primaryValue_rolling_')) or c.endswith('_lag_1y')], errors='ignore').copy()
     excluded = 0
     if 'partner2Code' in df:
         totals = pd.to_numeric(df.partner2Code, errors='coerce').eq(0)

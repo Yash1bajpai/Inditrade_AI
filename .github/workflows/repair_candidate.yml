@@ -1,0 +1,41 @@
+name: Isolated partial trade data repair candidate
+on:
+  push:
+    branches: [fix/trade-data-and-dashboard]
+    paths: ['.github/workflows/repair_candidate.yml']
+permissions:
+  contents: read
+concurrency:
+  group: isolated-trade-repair
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas pyarrow numpy python-dotenv comtradeapicall urllib3 requests
+      - name: Restore immutable input copies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/repair-source /tmp/repair-candidate
+          gh release download data-v1 --pattern india_trade_hs2_2015_2024.parquet --dir /tmp/repair-source
+          gh release download data-v1 --pattern inditrade-data.zip --dir /tmp/repair-source
+          unzip -p /tmp/repair-source/inditrade-data.zip trade_features.parquet > /tmp/repair-source/prior_features.parquet
+      - name: Canonical source refetch and completeness check
+        env:
+          COMTRADE_API_KEY: ${{ secrets.COMTRADE_KEY_OCT1 }}
+        run: |
+          python scripts/repair_trade_data.py --source /tmp/repair-source/india_trade_hs2_2015_2024.parquet --output /tmp/repair-candidate/candidate_raw.parquet --allow-partial
+      - name: Regenerate candidate features and past-only predictors
+        run: python scripts/build_repair_candidate.py --coverage-manifest /tmp/repair-candidate/coverage_manifest.json --raw /tmp/repair-candidate/candidate_raw.parquet --prior-features /tmp/repair-source/prior_features.parquet --output-dir /tmp/repair-candidate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: partial-trade-repair-candidate
+          path: /tmp/repair-candidate/
+          retention-days: 30
+          if-no-files-found: error

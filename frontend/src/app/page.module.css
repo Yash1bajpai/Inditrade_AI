@@ -974,3 +974,34 @@
     transition: none !important;
   }
 }
+
+/* Branch trade-desk redesign: make provenance and limits visible first. */
+.briefing { display:grid; grid-template-columns:1.25fr 1fr; gap:2rem; align-items:center; margin:0 0 2rem; padding:2rem 0; border-bottom:1px solid var(--border); }
+.briefEyebrow { color:var(--primary); font-size:.72rem; letter-spacing:.18em; }
+.briefing h2 { font-family:'Playfair Display',serif; font-size:clamp(1.7rem,3vw,2.6rem); font-weight:500; line-height:1.15; margin:.75rem 0; max-width:650px; }
+.briefing p { color:#aeb6c2; font-size:.9rem; line-height:1.65; max-width:580px; }
+.qualityCard { background:#202631; border:1px solid #414958; border-left:3px solid var(--primary); border-radius:10px; padding:1.3rem 1.5rem; }
+.qualityCard strong { display:block; margin:.75rem 0 .4rem; font-size:1.03rem; font-weight:500; }
+.qualityTag { color:var(--primary); font-size:.65rem; font-weight:600; letter-spacing:.12em; }
+.qualityMeta { display:block; color:#8e9cad; font-size:.73rem; margin-top:.9rem; }
+.workspaceHeading { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
+.workspaceHeading span { color:var(--primary); font-size:.72rem; letter-spacing:.12em; }
+.workspaceHeading p { color:var(--muted-foreground); font-size:.8rem; }
+.kpiCard { border-radius:8px; border-top:1px solid #414958; box-shadow:none; }
+.section { border-radius:10px; }
+.header { padding-bottom:1.2rem; }
+@media(max-width:800px) { .briefing { grid-template-columns:1fr; gap:1.2rem; padding:1rem 0 1.5rem; } .workspaceHeading { align-items:flex-start; flex-direction:column; gap:.35rem; } .qualityCard { padding:1.1rem; } .briefing h2 { font-size:1.8rem; } }
+
+.evaluationPanel { margin:0 0 2rem; padding:1.5rem; border:1px solid #414958; border-radius:10px; background:#202631; }
+.evaluationHeading { display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+.evaluationHeading h3 { font-size:1.35rem; margin:.5rem 0; font-family:'Playfair Display',serif; }
+.evaluationPanel p,.chartNote { font-size:.8rem; line-height:1.6; color:#aeb6c2; }
+.metricTable { overflow-x:auto; margin:1rem 0; }
+.metricTable table { width:100%; border-collapse:collapse; min-width:380px; }
+.metricTable th,.metricTable td { padding:.8rem; text-align:left; border-bottom:1px solid #414958; font-size:.85rem; font-weight:400; }
+.metricTable thead th { color:#C8A97E; }
+.chartLegend { display:flex; flex-wrap:wrap; gap:1rem; font-size:.78rem; margin-top:1rem; color:#aeb6c2; }
+.chartLegend span { display:flex; gap:.4rem; align-items:center; }
+.chartLegend i { width:10px; height:10px; border-radius:50%; }
+@media(max-width:600px) { .evaluationPanel { padding:1rem; } .evaluationHeading { flex-direction:column; align-items:flex-start; } .sectionHeader { flex-wrap:wrap; gap:1rem; } .sectionHeader > div { flex-wrap:wrap; } .modalCard { max-height:90dvh; overflow-y:auto; } }
+@media(max-width:600px) { .metricTable table { min-width:0; table-layout:fixed; } .metricTable th,.metricTable td { padding:.7rem .25rem; font-size:.74rem; overflow-wrap:anywhere; } .metricTable thead th { width:33.333%; } }

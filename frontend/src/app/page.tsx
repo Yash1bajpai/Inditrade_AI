@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, TrendingUp, AlertTriangle, MessageSquare, X, Sparkles, Map as MapIcon, Menu, Code, User, Mail } from 'lucide-react';
-import { LineChart, Line, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
+import { LineChart, Line, ReferenceDot, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ComposedChart, Bar } from 'recharts';
 import { ComposableMap, Geographies, Geography, Sphere, Graticule } from 'react-simple-maps';
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { geoMercator } from 'd3-geo';
@@ -17,7 +17,7 @@ const geoUrl = "/countries-110m.json";
 const MINTED_BRASS = "#C8A97E";
 const CRIMSON_WAX = "#9E3E3E";
 const NIGHT_SLATE = "#1A1C21";
-const FADED_INK = "#4A4F5C";
+const FADED_INK = "#A7B3C4";
 const CARD_SURFACE = "#23262D";
 
 const proj = geoMercator().scale(120).center([0, 20]).translate([400, 225]);
@@ -182,7 +182,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
           <div>
             <h3 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: MINTED_BRASS }}>{country} - Historical Trade</h3>
-            <span style={{ fontSize: '0.75rem', color: FADED_INK, border: `1px solid rgba(255,255,255,0.1)`, padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' }}>Yearly 2015-2024 · bilateral analytics</span>
+            <span style={{ fontSize: '0.75rem', color: FADED_INK, border: `1px solid rgba(255,255,255,0.1)`, padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' }}>Recorded yearly observations · bilateral analytics</span>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: FADED_INK, cursor: 'pointer' }} aria-label="Close modal"><X size={20}/></button>
         </div>
@@ -252,10 +252,21 @@ export default function Dashboard() {
   const [partnerList, setPartnerList] = useState<{code:string, name:string}[]>([]);
   const [validMap, setValidMap] = useState<Record<string, string[]>>({});
   const [suggestedCommodities, setSuggestedCommodities] = useState<any[]>([]);
+  const [quality, setQuality] = useState<{status: string; rows?: number; years?: number[]; mixed_grain_rows?: number; missing_slices?: {partner: string; flow: string; year: number}[]; note?: string} | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${API_BASE}/forecast/data_quality`, {signal: controller.signal})
+      .then(r => { if (!r.ok) throw new Error("Data checks unavailable"); return r.json(); })
+      .then(setQuality)
+      .catch(e => { if (e.name !== "AbortError") setQuality({status: "unknown"}); });
+    return () => controller.abort();
+  }, []);
   const [r2Metric, setR2Metric] = useState<number | null>(null);
 
   const [featureImportances, setFeatureImportances] = useState<{feature: string, importance: number}[]>([]);
-  const [chartData, setChartData] = useState<{year: string, value: number}[]>([]);
+  const [chartData, setChartData] = useState<{year: string, value: number | null, prediction?: number | null, baseline?: number | null}[]>([]);
+  const [evaluation, setEvaluation] = useState<any>(null);
+  useEffect(() => { fetch('/candidate-evaluation.json').then(r => r.ok ? r.json() : null).then(setEvaluation).catch(() => setEvaluation(null)); }, []);
   const [isPredicting, setIsPredicting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [anomalyChartData, setAnomalyChartData] = useState<AnomalyRow[]>([]);
@@ -276,7 +287,7 @@ export default function Dashboard() {
       if (data.history) {
         return data.history.map((item: {year: string | number, value: number}) => ({
           year: String(item.year),
-          value: Number(Number(item.value || 0).toFixed(3))
+          value: item.value != null && Number.isFinite(Number(item.value)) ? Number(item.value) : null
         }));
       }
       return [];
@@ -465,7 +476,7 @@ export default function Dashboard() {
       const history = await getForecastHistory(partnerCode, commodityCode);
       setChartData([
         ...history,
-        { year: `${parsedYear} (Pred)`, value: formattedBillions }
+        { year: `${parsedYear} (Forecast)`, value: null, prediction: formattedBillions, baseline: history.find((h: {year: string}) => h.year === String(parsedYear - 1))?.value ?? null }
       ]);
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -501,10 +512,10 @@ export default function Dashboard() {
       <div className={styles.mainWrapper}>
         <header className={styles.header}>
             <div className={styles.logoContainer} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <Menu className={styles.hamburger} size={24} color={FADED_INK} onClick={() => setIsSidebarOpen(true)} style={{ cursor: 'pointer', flexShrink: 0 }} />
+              <button className={styles.menuToggle} aria-label="Open navigation" onClick={() => setIsSidebarOpen(true)}><Menu size={24} color={MINTED_BRASS} /></button>
               <div className={styles.logo}>
                 <span className={styles.eyebrow}>INDIA · BILATERAL TRADE INTELLIGENCE · 2015—2025</span>
-                <h1 style={{ margin: 0 }}>Global Trade Intelligence</h1>
+                <h1 style={{ margin: 0 }}>India, in trade.</h1>
               </div>
             </div>
           </header>
@@ -514,17 +525,35 @@ export default function Dashboard() {
           <div className={styles.terminalReveal}>
             
             {activeTab === 'dashboard' && (
+              <>
+              <section className={styles.briefing} aria-label="Data and forecast status">
+                <div><span className={styles.briefEyebrow}>THE TRADE DESK</span><h2>Explore the data. Question the forecast.</h2><p>Start with recorded trade, then compare a model forecast with last year. The candidate is separate from the live model. Forecasts are provisional, not advice.</p></div>
+                <div className={styles.qualityCard} role="status">
+                  <span className={styles.qualityTag}>{quality?.status === "partial" ? "PARTIAL DATASET" : quality?.status === "coverage_checks_passed" ? "COVERAGE CHECKS PASSED" : quality?.status === "repair_required" ? "DATA REPAIR REQUIRED" : quality ? "DATA CHECKS UNAVAILABLE" : "DATA CHECKS LOADING"}</span>
+                  <strong>Forecast accuracy is not validated</strong>
+                  <p>{quality?.status === "repair_required" ? `${quality.mixed_grain_rows?.toLocaleString() || 0} mixed-grain rows and ${quality.missing_slices?.length || 0} missing partner/flow slices need source repair.` : quality?.status === "partial" ? "Available observations only. Missing slices are omitted, never recorded as zero trade. No model promotion." : quality?.status === "coverage_checks_passed" ? "Coverage checks passed. Model and source freshness verification are separate checks." : "The source checks are unavailable or loading. Do not assume the dataset is complete."}</p>
+                  {!!quality?.missing_slices?.length && <details><summary>{quality.missing_slices.length} missing slices</summary><ul>{quality.missing_slices.map(s => <li key={`${s.year}-${s.partner}-${s.flow}`}>{s.year} · {s.partner === "250" ? "France" : s.partner === "756" ? "Switzerland" : partnerList.find(p => p.code === s.partner)?.name || s.partner} · {s.flow === "M" ? "Imports" : "Exports"}</li>)}</ul></details>}
+                  <span className={styles.qualityMeta}>{quality?.rows ? `${quality.rows.toLocaleString()} rows · ${quality.years?.join(" to ")}` : "Coverage: not yet verified"}</span>
+                </div>
+              </section>
+              <section className={styles.evaluationPanel} aria-label="Candidate model comparison">
+                <div className={styles.evaluationHeading}><div><span className={styles.briefEyebrow}>CANDIDATE / NOT LIVE</span><h3>Does the model beat last year?</h3></div><span className={styles.qualityTag}>{evaluation ? 'KAGGLE HOLDOUT RESULTS' : 'EVALUATION PENDING'}</span></div>
+                <p>Train through 2021, test 2022-2025. Rolling one-year predictions use observed prior years. Compare on the same rows with a real previous-year observation.</p>
+                <div className={styles.metricTable}><table><thead><tr><th>Holdout measure</th><th>XGBoost candidate</th><th>Previous-year baseline</th></tr></thead><tbody>{[['Log-scale R²','log_r2'],['MAE (USD)','dollar_mae'],['RMSE (USD)','dollar_rmse']].map(([label,key])=><tr key={key}><th>{label}</th>{['model','baseline'].map(kind=><td key={kind}>{typeof evaluation?.comparison?.[kind]?.[key] === 'number' ? key==='log_r2' ? evaluation.comparison[kind][key].toFixed(3) : evaluation.comparison[kind][key].toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}) : 'Not yet measured'}</td>)}</tr>)}</tbody></table></div>
+                <p className={styles.chartNote}>{evaluation ? `${evaluation.comparison.rows.toLocaleString()} comparable rows; ${evaluation.comparison.omitted_no_previous_year} rows excluded from baseline comparison. Source macro values were retained, not refreshed.` : 'Scores will appear only after the Kaggle outputs are verified. No invented accuracy badge.'} Lower MAE/RMSE is better; higher R² is better. This does not validate the live model.</p>
+              </section>
+              <div className={styles.workspaceHeading}><span>01 / FORECAST WORKSPACE</span><p>Select a partner and commodity. Model outputs are estimates, not observed trade.</p></div>
               <div className={styles.kpiRow}>
                 <div className={styles.kpiCard}>
                   <span className={styles.kpiLabel}>Partner</span>
                   <select value={partnerCode} onChange={handlePartnerChange} className={styles.chatInput}>
-                    {partnerList.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
+                    {!partnerList.length && <option value="">Partner data unavailable</option>}{partnerList.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
                   </select>
                 </div>
                 <div className={styles.kpiCard}>
                   <span className={styles.kpiLabel}>Commodity</span>
                   <select value={commodityCode} onChange={(e) => { setCommodityCode(e.target.value); setForecastError(null); setSuggestedCommodities([]); }} className={styles.chatInput} disabled={!validMap[partnerCode] || validMap[partnerCode].length === 0}>
-                    {validMap[partnerCode]?.length > 0 ? validMap[partnerCode].map(c => <option key={c} value={c}>{c} — {CMD_MAP[c] || c}</option>) : <option value="">No trade data</option>}
+                    {validMap[partnerCode]?.length > 0 ? validMap[partnerCode].map(c => <option key={c} value={c}>{c} — {CMD_MAP[c] || c}</option>) : <option value="">Commodity data unavailable</option>}
                   </select>
                 </div>
                 <div className={styles.kpiCard}>
@@ -544,14 +573,15 @@ export default function Dashboard() {
                 <div className={styles.kpiCard} style={{ justifyContent: 'flex-end', background: 'transparent', border: 'none' }}>
                   <button 
                     onClick={handlePredict} 
-                    disabled={isPredicting} 
+                    disabled={isPredicting || !partnerList.length || !validMap[partnerCode]?.includes(commodityCode)} 
                     className={`${styles.chatButton} ${styles.terminalButton}`}
                     style={{ width: '100%', padding: '0.85rem 1rem', minHeight: '48px', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.05rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', touchAction: 'manipulation' }}
                   >
-                    {isPredicting ? 'Running AI Model...' : 'Generate AI Forecast'}
+                    {isPredicting ? 'Running AI Model...' : 'Generate provisional forecast'}
                   </button>
                 </div>
               </div>
+              </>
             )}
 
             <div className={styles.grid}>
@@ -567,7 +597,7 @@ export default function Dashboard() {
                       const latestChartPoint = chartData.length > 0 ? chartData[chartData.length - 1] : null;
                       return (
                         <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>
-                          Latest: <AnimatedMoney value={latestChartPoint ? latestChartPoint.value : null} />
+                          Latest observation / forecast: <AnimatedMoney value={latestChartPoint ? latestChartPoint.prediction ?? latestChartPoint.value : null} />
                         </div>
                       );
                     })()}
@@ -596,6 +626,8 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+            <div className={styles.chartLegend}><span><i style={{background:MINTED_BRASS}} /> Recorded trade</span><span><i style={{background:'#F0A5A5'}} /> Model forecast</span><span><i style={{background:'#80C6BB'}} /> Previous-year baseline</span></div>
+            <p className={styles.chartNote}>Values in US dollars. Gaps are missing observations, not zero trade. No uncertainty range is shown because none has been calibrated.</p>
             <div className={styles.forecastGrid}>
               <div className={styles.chartContainer} style={{ height: '300px', position: 'relative' }}>
                 {chartData.length === 0 ? (
@@ -609,13 +641,15 @@ export default function Dashboard() {
                       <XAxis dataKey="year" stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke={FADED_INK} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => formatMoney(val)} />
                       <Tooltip contentStyle={{ backgroundColor: CARD_SURFACE, border: `1px solid ${MINTED_BRASS}`, borderRadius: '0px' }} itemStyle={{ color: MINTED_BRASS }} formatter={(v: any, name: any) => [formatMoney(Number(v)), name]} />
-                      <Line type="monotone" dataKey="value" stroke={MINTED_BRASS} strokeWidth={3} dot={(props: any) => {
+                      <Line name="Recorded trade" type="linear" dataKey="value" connectNulls={false} stroke={MINTED_BRASS} strokeWidth={3} dot={(props: any) => {
                         const { cx, cy, payload, key } = props;
                         const isPred = payload?.year?.includes('Pred');
                         return (
                           <circle key={key} cx={cx} cy={cy} r={isPred ? 6 : 4} fill={isPred ? CRIMSON_WAX : NIGHT_SLATE} stroke={MINTED_BRASS} strokeWidth={2} />
                         );
                       }} activeDot={{ r: 6, fill: MINTED_BRASS }} />
+                      {chartData.filter(p => p.prediction != null).map(p => <ReferenceDot key={`model-${p.year}`} x={p.year} y={p.prediction!} r={6} fill="#F0A5A5" stroke="#F0A5A5" ifOverflow="extendDomain" />)}
+                      {chartData.filter(p => p.baseline != null).map(p => <ReferenceDot key={`baseline-${p.year}`} x={p.year} y={p.baseline!} r={5} fill="#80C6BB" stroke="#80C6BB" ifOverflow="extendDomain" />)}
                     </LineChart>
                   </ResponsiveContainer>
                 )}
@@ -904,4 +938,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-}
+                          }
