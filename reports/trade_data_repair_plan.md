@@ -23,3 +23,17 @@ The deployed legacy model is retained and its forecast accuracy remains unvalida
 A responsive trade-desk header, coverage-status card and clear scenario workspace put data limits ahead of model output. A new /forecast/data_quality endpoint reports the current loaded feature dataset's grain checks and 2025 France/Switzerland flow presence. These narrow coverage checks do not establish source freshness, all commodity completeness, or model validation. A missing endpoint remains unknown, not a pass. Missing partner/commodity data disables forecast submission.
 
 Main and the live production site are not changed by these branch edits.
+
+## Partial candidate, October 1, 2026
+
+The user selected a partial dataset. Use `--allow-partial` only for isolated candidates.
+Empty SUCCESS responses require an independent zero source count. Omit these
+slices entirely, including any old mixed-grain rows in them. Record gaps in
+`coverage_manifest.json`; absence is never zero trade or proof of global source
+unavailability. Other errors and unverifiable counts still fail the run.
+
+The manifest records query time, requested/repaired/missing slices, source and
+feature hashes, and coverage scope. Latest-year top-20 M/X slice presence and
+repaired slice counts do not prove all historical HS2 coverage. Annual macro
+values remain from the prior feature file. No training, model promotion,
+release replacement, merge or production deployment is included.
