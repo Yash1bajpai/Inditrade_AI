@@ -33,6 +33,7 @@ def rebuild(raw, prior):
     code=merged.partnerCode.astype(str).str.lstrip('0')
     merged['partnerDesc']=code.map({k.lstrip('0'):v['desc'] for k,v in M49_PARTNER_MAP.items()})
     merged['partnerISO']=code.map({k.lstrip('0'):v['iso'] for k,v in M49_PARTNER_MAP.items()})
+    merged['partnerScopeNote']=code.map({k.lstrip('0'):v.get('scope_note', '') for k,v in M49_PARTNER_MAP.items()})
     merged['flowDesc']=merged.flowCode.map({'M':'Import','X':'Export'})
     X,y,values,features,frame,excluded=prepare_forecast_frame(merged)
     if excluded:raise ValueError('Candidate excluded noncanonical rows')
