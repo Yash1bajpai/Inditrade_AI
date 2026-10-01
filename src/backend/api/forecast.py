@@ -4,9 +4,14 @@ from pydantic import BaseModel
 import logging
 from typing import Optional
 import math
+import os
+import json
+import hashlib
+from pathlib import Path
 import pandas as pd
 
 from src.utils.data_cache import load_parquet
+from src.data_ingestion.un_downloader import TOP_20_PARTNERS
 
 logger = logging.getLogger("api.forecast")
 router = APIRouter()
@@ -42,7 +47,7 @@ def load_model():
             logger.error(f"Failed to load XGBoost model: {e}")
             xgboost_model = "FAILED"
 
-PARTNER_MAP = {'36': 'Australia', '56': 'Belgium', '156': 'China', '276': 'Germany', '344': 'Hong Kong', '360': 'Indonesia', '368': 'Iraq', '392': 'Japan', '410': 'South Korea', '458': 'Malaysia', '528': 'Netherlands', '643': 'Russia', '682': 'Saudi Arabia', '702': 'Singapore', '704': 'Vietnam', '784': 'UAE', '826': 'UK', '842': 'USA'}
+PARTNER_MAP = {'36': 'Australia', '56': 'Belgium', '156': 'China', '276': 'Germany', '344': 'Hong Kong', '360': 'Indonesia', '368': 'Iraq', '392': 'Japan', '410': 'South Korea', '458': 'Malaysia', '528': 'Netherlands', '643': 'Russia', '682': 'Saudi Arabia', '702': 'Singapore', '704': 'Vietnam', '784': 'UAE', '826': 'UK', '842': 'USA', '250': 'France', '756': 'Switzerland'}
 CMD_MAP = {'01': 'Live Animals', '02': 'Meat', '03': 'Fish', '04': 'Dairy', '05': 'Animal Products', '06': 'Trees/Plants', '07': 'Vegetables', '08': 'Fruits/Nuts', '09': 'Coffee/Tea/Spices', '10': 'Cereals', '11': 'Milling Products', '12': 'Oil Seeds', '13': 'Gums/Resins', '14': 'Vegetable Plaiting', '15': 'Fats/Oils', '16': 'Prepared Meat/Fish', '17': 'Sugars', '18': 'Cocoa', '19': 'Cereal Preps', '20': 'Vegetable/Fruit Preps', '21': 'Misc Edibles', '22': 'Beverages', '23': 'Food Waste/Fodder', '24': 'Tobacco', '25': 'Salt/Earths/Stone', '26': 'Ores/Slag/Ash', '27': 'Mineral Fuels', '28': 'Inorganic Chemicals', '29': 'Organic Chemicals', '30': 'Pharmaceuticals', '31': 'Fertilizers', '32': 'Tanning/Dyes', '33': 'Essential Oils/Cosmetics', '34': 'Soap/Waxes', '35': 'Albuminoids', '36': 'Explosives', '37': 'Photographic Goods', '38': 'Misc Chemicals', '39': 'Plastics', '40': 'Rubber', '41': 'Raw Hides/Skins', '42': 'Leather Articles', '43': 'Furskins', '44': 'Wood', '45': 'Cork', '46': 'Straw/Esparto', '47': 'Wood Pulp', '48': 'Paper/Paperboard', '49': 'Printed Books', '50': 'Silk', '51': 'Wool', '52': 'Cotton', '53': 'Vegetable Textile Fibers', '54': 'Man-made Filaments', '55': 'Man-made Staple Fibers', '56': 'Wadding/Felt/Yarn', '57': 'Carpets', '58': 'Special Woven Fabrics', '59': 'Impregnated Fabrics', '60': 'Knitted Fabrics', '61': 'Knitted Apparel', '62': 'Non-knitted Apparel', '63': 'Other Textiles', '64': 'Footwear', '65': 'Headgear', '66': 'Umbrellas', '67': 'Prepared Feathers', '68': 'Stone/Plaster Articles', '69': 'Ceramics', '70': 'Glass', '71': 'Precious Stones/Metals', '72': 'Iron/Steel', '73': 'Articles of Iron/Steel', '74': 'Copper', '75': 'Nickel', '76': 'Aluminum', '78': 'Lead', '79': 'Zinc', '80': 'Tin', '81': 'Other Base Metals', '82': 'Tools/Cutlery', '83': 'Misc Base Metal Articles', '84': 'Nuclear Reactors/Boilers/Machinery', '85': 'Electrical Machinery', '86': 'Railway/Tramway', '87': 'Vehicles', '88': 'Aircraft/Spacecraft', '89': 'Ships/Boats', '90': 'Optical/Medical Instruments', '91': 'Clocks/Watches', '92': 'Musical Instruments', '93': 'Arms/Ammunition', '94': 'Furniture', '95': 'Toys/Sports', '96': 'Misc Manufactured', '97': 'Works of Art', '98': 'Special Classification', '99': 'Special Classification'}
 
 combo_cache = None
@@ -51,7 +56,13 @@ combo_cache = None
 def get_data_quality():
     """Measured dataset coverage; do not infer freshness from a successful job."""
     try:
-        df = load_parquet("data/processed/trade_features.parquet")
+        candidate_path = os.getenv("CANDIDATE_TRADE_FEATURES")
+        df = load_parquet(candidate_path or "data/processed/trade_features.parquet")
+        manifest = None
+        if candidate_path:
+            manifest = json.loads(Path(os.environ["CANDIDATE_COVERAGE_MANIFEST"]).read_text())
+            if manifest['feature_sha256'] != hashlib.sha256(Path(candidate_path).read_bytes()).hexdigest():
+                raise ValueError('Candidate features do not match coverage manifest')
         years = pd.to_numeric(df.period, errors="coerce")
         latest = 2025
         canonical = pd.to_numeric(df.get("partner2Code", pd.Series(index=df.index, dtype=float)), errors="coerce").eq(0)
@@ -59,11 +70,16 @@ def get_data_quality():
         canonical &= pd.to_numeric(df.get("motCode", pd.Series(index=df.index, dtype=float)), errors="coerce").eq(0)
         latest_rows = df.loc[years.eq(latest) & canonical]
         have = {(str(int(r.partnerCode)), str(r.flowCode)) for r in latest_rows.itertuples()}
-        missing = [{"partner": p, "flow": f, "year": latest} for p in ("250", "756") for f in ("M", "X") if (p, f) not in have]
+        missing = [{"partner": str(int(p)), "flow": f, "year": latest} for p in TOP_20_PARTNERS for f in ("M", "X") if (str(int(p)), f) not in have]
+        if manifest:
+            known = {(g['year'], str(int(g['partner'])), g['flow']): g for g in manifest['missing_slices']}
+            known.update({(g['year'], g['partner'], g['flow']): g for g in missing})
+            missing = list(known.values())
         mixed = int((~canonical).sum())
-        return {"status": "repair_required" if mixed or missing else "coverage_checks_passed",
+        return {"status": "repair_required" if mixed else "partial" if missing else "coverage_checks_passed",
                 "rows": len(df), "years": [int(years.min()), int(years.max())],
                 "mixed_grain_rows": mixed, "missing_slices": missing,
+                "coverage_scope": "2025 top-20 partner M/X slice presence and grain only",
                 "forecast_validation": "not_validated",
                 "note": "Coverage checks are not model validation or source freshness verification."}
     except Exception:
