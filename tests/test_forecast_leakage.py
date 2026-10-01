@@ -82,3 +82,14 @@ def test_legacy_forecast_score_is_not_returned_as_accuracy(forecast_module):
     result = forecast_module.get_forecast(ForecastRequest(usd_inr=83.5, crude_price=80, year=2025, partner_code='643', commodity_code='27'))
     assert result['metrics'] == {}
     assert result['validation_status'] == 'legacy_model_leakage_not_validated'
+
+
+def test_precomputed_macro_lags_are_rebuilt_and_preparation_is_idempotent():
+    f = sample()
+    original, *_, prepared, _ = prepare_forecast_frame(f)
+    prepared['usdinr_mean_lag_1y'] = 999999.
+    rebuilt, *_, prepared_again, _ = prepare_forecast_frame(prepared)
+    pd.testing.assert_frame_equal(original, rebuilt)
+    twice, *_ = prepare_forecast_frame(prepared_again)
+    pd.testing.assert_frame_equal(rebuilt, twice)
+    assert not any(c.endswith(('_x', '_y')) for c in prepared_again)
