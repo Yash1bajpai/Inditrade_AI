@@ -403,6 +403,18 @@ def get_forecast(req: ForecastRequest):
         df_filtered = df_hist[(df_hist['pStr'] == p_code) & (df_hist['cStr'] == c_code)]
         if df_filtered.empty:
             raise HTTPException(status_code=400, detail="No historical data for this combination, try another")
+
+        # Fail closed: never let a missing model feature silently become 0.0.
+        # The repaired dataset dropped leaky predictors the legacy model was
+        # trained on, so a forecast from it would be a number nobody validated.
+        absent = [feat for feat in expected_features if feat not in df_hist.columns]
+        if absent:
+            logger.error(f"Forecast refused: loaded data lacks model features {absent}")
+            raise HTTPException(
+                status_code=503,
+                detail="Forecast unavailable: the loaded model has not been validated on the repaired dataset "
+                       f"(missing model inputs: {', '.join(absent)}).",
+            )
             
         latest_row = df_filtered.sort_values(by="period").iloc[-1]
         
