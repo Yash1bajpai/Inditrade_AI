@@ -1,7 +1,7 @@
 """
 IndiTrade AI - UN Comtrade HS 2-Digit Data Ingestion Module
 Fetches bilateral trade flows (Imports 'M' & Exports 'X') between India (699)
-and its top 20 trade partners using exact UN M49 numeric codes for years 2015-2025 (refreshable via --mode refresh).
+and its top 20 trade partners using Comtrade statistical partner-area codes for years 2015-2025 (refreshable via --mode refresh).
 
 Features:
 - Dual API Key Rotation & Quota Management (COMTRADE_API_KEY1, COMTRADE_API_KEY2).
@@ -39,6 +39,13 @@ def get_api_keys():
 
 REPORTER_INDIA = "699"
 
+# These statistical areas are not interchangeable with ISO/M49 country IDs.
+PARTNER_SCOPE_NOTES = {
+    "251": "France includes Monaco",
+    "757": "Switzerland includes Liechtenstein",
+}
+
+
 TOP_20_PARTNERS = {
     "842": "USA",
     "156": "China",
@@ -52,13 +59,13 @@ TOP_20_PARTNERS = {
     "036": "Australia",
     "276": "Germany",
     "392": "Japan",
-    "756": "Switzerland",
+    "757": "Switzerland",
     "458": "Malaysia",
     "826": "United Kingdom",
     "643": "Russian Federation",
     "528": "Netherlands",
     "056": "Belgium",
-    "250": "France",
+    "251": "France",
     "704": "Vietnam"
 }
 

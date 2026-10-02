@@ -14,8 +14,8 @@ def base():
 
 
 def test_plan_finds_mixed_slice_and_missing_latest():
-    df=base();df=df[~((df.partnerCode==250)&(df.flowCode=='X'))]
-    assert plan_repairs(df)==[(2023,842,'M'),(2025,250,'X')]
+    df=base();df=df[~((df.partnerCode==251)&(df.flowCode=='X'))]
+    assert plan_repairs(df)==[(2023,842,'M'),(2025,251,'X')]
 
 
 def test_full_slice_repair_preserves_unaffected_rows():
@@ -85,3 +85,16 @@ def test_partial_never_accepts_error_or_401():
         def fetch_slice(self,*a):return pd.DataFrame(),'ERROR: 401'
     with pytest.raises(RuntimeError):
         repair(base(),Fetcher(),pause=lambda _:None,allow_partial=True)
+
+
+def test_backfill_plan_covers_all_france_swiss_years():
+    raw = base()
+    plan = plan_repairs(raw, backfill_start=2015)
+    assert len(plan) == 41  # 40 missing historical slices and one mixed slice
+    assert (2015, 251, 'M') in plan and (2024, 757, 'X') in plan
+    assert not any(p in (250, 756) for _, p, _ in plan)
+
+def test_partner_scopes_are_explicit():
+    from src.data_ingestion.un_downloader import PARTNER_SCOPE_NOTES
+    assert 'Monaco' in PARTNER_SCOPE_NOTES['251']
+    assert 'Liechtenstein' in PARTNER_SCOPE_NOTES['757']
