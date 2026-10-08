@@ -130,13 +130,28 @@ def test_fallback_uses_supported_model_and_low_reasoning(monkeypatch, query_clie
 
     def create(**kwargs):
         captured.update(kwargs)
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="- DGFT administers foreign trade policy."))])
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="- DGFT administers foreign trade policy."), finish_reason="stop")])
 
     monkeypatch.setattr(groq, "Groq", lambda **kwargs: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
     body = asyncio.run(query_mod.fallback_query("What is DGFT?", "Policy text", grounded=True))
     assert captured["model"] == "openai/gpt-oss-20b"
     assert captured["reasoning_effort"] == "low"
-    assert captured["max_completion_tokens"] == 1024
+    assert captured["max_completion_tokens"] == 4096
     assert body["source"] == "Groq"
     assert body["grounded"] is True
     assert "DGFT" in body["answer"]
+
+
+@pytest.mark.parametrize("content, finish_reason", [("", "stop"), (None, "stop"), ("Partial answer", "length")])
+def test_fallback_rejects_empty_or_truncated_answers(monkeypatch, query_client, content, finish_reason):
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    import groq
+    import asyncio
+    _, query_mod = query_client
+    monkeypatch.setenv("GROQ_API_KEY", "x" * 40)
+    completion = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content), finish_reason=finish_reason)])
+    monkeypatch.setattr(groq, "Groq", lambda **kwargs: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kwargs: completion))))
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(query_mod.fallback_query("What is DGFT?", "Policy text", grounded=True))
+    assert error.value.status_code == 502

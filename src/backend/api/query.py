@@ -303,11 +303,14 @@ async def fallback_query(question, context, citation_str="", client_ip="anonymou
                     {"role": "user", "content": question}
                 ],
                 model="openai/gpt-oss-20b",
-                max_completion_tokens=1024,
+                max_completion_tokens=4096,
                 reasoning_effort="low",
                 timeout=30.0,
             )
-            return chat_completion.choices[0].message.content
+            answer = (chat_completion.choices[0].message.content or "").strip()
+            if not answer or chat_completion.choices[0].finish_reason == "length":
+                raise ValueError("Language model returned an empty or truncated answer.")
+            return answer
             
         answer = await asyncio.to_thread(run_groq)
         if not grounded:
