@@ -302,7 +302,9 @@ async def fallback_query(question, context, citation_str="", client_ip="anonymou
                     {"role": "system", "content": sys_prompt},
                     {"role": "user", "content": question}
                 ],
-                model="llama-3.1-8b-instant",
+                model="openai/gpt-oss-20b",
+                max_completion_tokens=1024,
+                reasoning_effort="low",
                 timeout=30.0,
             )
             return chat_completion.choices[0].message.content

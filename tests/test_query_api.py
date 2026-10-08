@@ -117,3 +117,26 @@ def test_question_length_is_validated(query_client):
     client, _ = query_client
     resp = client.post("/api/query/", json={"question": "x" * 501})
     assert resp.status_code == 422
+
+
+def test_fallback_uses_supported_model_and_low_reasoning(monkeypatch, query_client):
+    """Pin the verified production model and leave budget for a visible answer."""
+    from types import SimpleNamespace
+    import groq
+    import asyncio
+    _, query_mod = query_client
+    monkeypatch.setenv("GROQ_API_KEY", "x" * 40)
+    captured = {}
+
+    def create(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="- DGFT administers foreign trade policy."))])
+
+    monkeypatch.setattr(groq, "Groq", lambda **kwargs: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
+    body = asyncio.run(query_mod.fallback_query("What is DGFT?", "Policy text", grounded=True))
+    assert captured["model"] == "openai/gpt-oss-20b"
+    assert captured["reasoning_effort"] == "low"
+    assert captured["max_completion_tokens"] == 1024
+    assert body["source"] == "Groq"
+    assert body["grounded"] is True
+    assert "DGFT" in body["answer"]
