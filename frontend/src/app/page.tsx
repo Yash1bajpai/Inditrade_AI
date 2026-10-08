@@ -26,6 +26,7 @@ declare global {
   interface Window {
     VanijyaChat?: {
       open: () => void;
+      close: () => void;
       ask: (prompt: string) => void;
       mount: (el: HTMLElement | null, config: Record<string, unknown>) => void;
       destroy: () => void;
@@ -116,21 +117,21 @@ export interface NetworkNode {
 const AnimatedMoney = ({ value }: { value: number | undefined | null }) => {
   if (value === null || value === undefined || isNaN(value)) return <span>N/A</span>;
   if (value === 0) return <span>$0</span>;
-  
+
   const absVal = Math.abs(value);
   const isBillion = absVal >= 1;
   const displayVal = isBillion ? absVal : absVal * 1000;
   const suffix = isBillion ? 'B' : 'M';
   const prefix = value < 0 ? '-$' : '$';
-  
+
   return (
-    <CountUp 
-      start={0} 
-      end={displayVal} 
-      duration={1} 
-      decimals={isBillion ? 2 : 0} 
-      prefix={prefix} 
-      suffix={suffix} 
+    <CountUp
+      start={0}
+      end={displayVal}
+      duration={1}
+      decimals={isBillion ? 2 : 0}
+      prefix={prefix}
+      suffix={suffix}
       useEasing={true}
     />
   );
@@ -156,7 +157,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
     setLoading(true);
     fetch(`${API_BASE}/forecast/country_series?partner_code=${encodeURIComponent(queryCode)}`)
       .then(res => { if (!res.ok) throw new Error("API failed"); return res.json(); })
-      .then(data => { 
+      .then(data => {
         if ((!data.yearly || data.yearly.length === 0) && country && country !== queryCode) {
           return fetch(`${API_BASE}/forecast/country_series?partner_code=${encodeURIComponent(country)}`)
             .then(r => { if (!r.ok) throw new Error("API failed"); return r.json(); })
@@ -166,9 +167,9 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
               setLoading(false);
             });
         }
-        setHistoryData(data.yearly || []); 
+        setHistoryData(data.yearly || []);
         setDomains(data.top_commodities || []);
-        setLoading(false); 
+        setLoading(false);
       })
       .catch(err => { console.error(err); setLoading(false); });
   }, [country, originalCountry]);
@@ -218,7 +219,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
             </ResponsiveContainer>
           )}
         </div>
-        
+
         <div>
            <h4 style={{ color: MINTED_BRASS, marginBottom: '0.5rem', fontFamily: "'Playfair Display', serif", fontSize: '1.1rem' }}>Top Commodities</h4>
            <div style={{ display: 'grid', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', paddingRight: '0.5rem' }}>
@@ -232,6 +233,7 @@ const DrillDownModal = ({ country, originalCountry, onClose }: { country: string
            </div>
         </div>
       </div>
+      <div id="vanijya-chat-root"></div>
     </div>
   );
 };
@@ -239,6 +241,16 @@ export default function Dashboard() {
   const [flowMode, setFlowMode] = useState<'off' | 'exports' | 'imports'>('off');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'anomalies' | 'network'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [needsForecast, setNeedsForecast] = useState(true);
+  const requestVersion = useRef(0);
+  const predictAbortController = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const onChatOpen = () => setIsSidebarOpen(false);
+    window.addEventListener('vanijya:open', onChatOpen);
+    return () => window.removeEventListener('vanijya:open', onChatOpen);
+  }, []);
   const [topExports, setTopExports] = useState<any[]>([]);
   const [topImports, setTopImports] = useState<any[]>([]);
 
@@ -311,24 +323,46 @@ export default function Dashboard() {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();
       })
-      .then(data => { 
-        setNetworkData(data.nodes || []); 
+      .then(data => {
+        setNetworkData(data.nodes || []);
         setTopExports(data.top_exports || []);
         setTopImports(data.top_imports || []);
-        setIsLoadingNetwork(false); 
+        setIsLoadingNetwork(false);
       })
       .catch(err => { if (err.name !== 'AbortError') { console.error(err); setIsLoadingNetwork(false); }});
     return () => abortController.abort();
   }, []);
 
   useEffect(() => {
-    const abortController = new AbortController();
-    getForecastHistory(partnerCode, commodityCode, abortController.signal).then(history => {
-      setChartData(history);
+    const controller = new AbortController();
+    // Clear the old pair before its async history request completes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setChartData([]);
+    setHistoryLoading(true);
+    getForecastHistory(partnerCode, commodityCode, controller.signal).then(history => {
+      if (!controller.signal.aborted) {
+        setChartData(history);
+        setHistoryLoading(false);
+      }
     });
-    return () => abortController.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => controller.abort();
   }, [partnerCode, commodityCode, getForecastHistory]);
+
+  // Any scenario edit invalidates a previous result immediately. An older
+  // response must never appear beneath a new partner or commodity selection.
+  useEffect(() => {
+    requestVersion.current += 1;
+    predictAbortController.current?.abort();
+    // Request invalidation synchronizes UI with an external fetch lifecycle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsPredicting(false);
+    setNeedsForecast(true);
+    setFeatureImportances([]);
+    setR2Metric(null);
+    setForecastError(null);
+    setChartData(previous => previous.filter(point => point.prediction == null));
+  }, [partnerCode, commodityCode, forecastYear, usdInr, crudePrice]);
+
   const handleAnomalyClick = (row: AnomalyRow) => {
     const prompt = `Analyze the trade anomaly for ${row.partner} in ${row.commodity} during ${row.date}. The system flagged: ${row.reason_code === 'no_baseline' ? 'Insufficient baseline data (not a true anomaly)' : row.reason}. Severity score: ${row.anomaly_score}`;
     if (window.VanijyaChat) {
@@ -341,7 +375,7 @@ export default function Dashboard() {
   useEffect(() => {
     const cssId = 'vanijya-chat-css';
     const jsId = 'vanijya-chat-js';
-    
+
     if (!document.getElementById(cssId)) {
       const link = document.createElement('link');
       link.id = cssId;
@@ -363,7 +397,7 @@ export default function Dashboard() {
       };
       document.body.appendChild(script);
     }
-    
+
     return () => {
       if (window.VanijyaChat) {
         window.VanijyaChat.destroy();
@@ -374,10 +408,10 @@ export default function Dashboard() {
       if (existingLink) existingLink.remove();
     };
   }, []);
-  
 
 
-  const predictAbortController = useRef<AbortController | null>(null);
+
+
 
   useEffect(() => {
     fetch(`${API_BASE}/forecast/valid_combinations`)
@@ -390,31 +424,23 @@ export default function Dashboard() {
       }).catch(console.error);
   }, []);
 
-  const partnerFetchRef = useRef<string>('');
-
-  const handlePartnerChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handlePartnerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const p = e.target.value;
     setPartnerCode(p);
     setForecastError(null);
     setSuggestedCommodities([]);
-    partnerFetchRef.current = p;
-    try {
-      const res = await fetch(`${API_BASE}/forecast/partner_signature?partner_code=${p}`);
-      if (p !== partnerFetchRef.current) return; // stale response guard
-      if (!res.ok) throw new Error("Failed to load partner signature");
-      const data = await res.json();
-      if (p !== partnerFetchRef.current) return; // stale response guard
-      if (data && data.length > 0) {
-        setCommodityCode(data[0].code);
-      } else if (validMap[p] && validMap[p].length > 0) {
-        setCommodityCode(validMap[p][0]);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    const available = validMap[p] || [];
+    if (!available.includes(commodityCode)) setCommodityCode(available[0] || '');
   };
 
   const handlePredict = async () => {
+    const version = ++requestVersion.current;
+    predictAbortController.current?.abort();
+    const abortController = new AbortController();
+    predictAbortController.current = abortController;
+    setFeatureImportances([]);
+    setChartData(previous => previous.filter(point => point.prediction == null));
+    setNeedsForecast(true);
     setIsPredicting(true);
     setForecastError(null);
     try {
@@ -424,12 +450,6 @@ export default function Dashboard() {
       if (isNaN(parsedUsdInr) || isNaN(parsedCrude) || isNaN(parsedYear)) {
         throw new Error("Invalid input values");
       }
-      if (predictAbortController.current) {
-        predictAbortController.current.abort();
-      }
-      const abortController = new AbortController();
-      predictAbortController.current = abortController;
-
       const res = await fetch(`${API_BASE}/forecast/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -437,7 +457,8 @@ export default function Dashboard() {
         signal: abortController.signal
       });
       const data = await res.json();
-      
+      if (version !== requestVersion.current || abortController.signal.aborted) return;
+
       if (!res.ok) {
         if (data?.suggested_commodities) {
           setSuggestedCommodities(data.suggested_commodities);
@@ -445,7 +466,7 @@ export default function Dashboard() {
         const errMsg = data?.error || data?.detail?.[0]?.msg || data?.detail || `HTTP error ${res.status}`;
         throw new Error(errMsg);
       }
-      
+
       if (data.error) throw new Error(data.error);
 
       const usdVal = Number(data.forecasted_trade_value_usd);
@@ -463,22 +484,26 @@ export default function Dashboard() {
         formattedBillions = Number(billions.toFixed(3));
       }
 
+      const history = await getForecastHistory(partnerCode, commodityCode, abortController.signal);
+      if (version !== requestVersion.current || abortController.signal.aborted) return;
+      setNeedsForecast(false);
       if (Array.isArray(data.feature_importance)) {
         setFeatureImportances(data.feature_importance);
       }
-      
+
       if (data.validation_status === "validated_past_only_forecast" && data.metrics && typeof data.metrics.test_log_scale_r2 === "number") {
         setR2Metric(data.metrics.test_log_scale_r2);
       } else {
         setR2Metric(null);
       }
-      
-      const history = await getForecastHistory(partnerCode, commodityCode);
+
+
       setChartData([
         ...history,
         { year: `${parsedYear} (Forecast)`, value: null, prediction: formattedBillions, baseline: history.find((h: {year: string}) => h.year === String(parsedYear - 1))?.value ?? null }
       ]);
     } catch (error: unknown) {
+      if (version !== requestVersion.current) return;
       if (error instanceof Error && error.name === 'AbortError') {
         console.log("Forecast request aborted");
         return;
@@ -486,7 +511,7 @@ export default function Dashboard() {
       console.error("Forecast failed:", error);
       setForecastError(error instanceof Error ? error.message : "Forecast failed");
     } finally {
-      setIsPredicting(false);
+      if (version === requestVersion.current) setIsPredicting(false);
     }
   };
 
@@ -507,12 +532,12 @@ export default function Dashboard() {
         </nav>
       </aside>
 
-      {isSidebarOpen && <div className={styles.overlay} onClick={() => setIsSidebarOpen(false)} />}
+
 
       <div className={styles.mainWrapper}>
-        <header className={styles.header}>
+        <header className={`${styles.header} ${isScrolled ? styles.scrolledHeader : ''}`}>
             <div className={styles.logoContainer} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <button className={styles.menuToggle} aria-label="Open navigation" onClick={() => setIsSidebarOpen(true)}><Menu size={24} color={MINTED_BRASS} /></button>
+              <button className={styles.menuToggle} aria-label="Open navigation" onClick={() => { window.VanijyaChat?.close(); setIsSidebarOpen(v => !v); }}><Menu size={24} color={MINTED_BRASS} /></button>
               <div className={styles.logo}>
                 <span className={styles.eyebrow}>INDIA · BILATERAL TRADE INTELLIGENCE · 2015—2025</span>
                 <h1 style={{ margin: 0 }}>India, in trade.</h1>
@@ -520,10 +545,10 @@ export default function Dashboard() {
             </div>
           </header>
 
-        <main className={styles.mainContent}>
+        <main className={styles.mainContent} onScroll={e => setIsScrolled(e.currentTarget.scrollTop > 8)}>
           {selectedCountry && <DrillDownModal key="drilldown" country={selectedCountry.name} originalCountry={selectedCountry.code} onClose={() => setSelectedCountry(null)} />}
           <div className={styles.terminalReveal}>
-            
+
             {activeTab === 'dashboard' && (
               <>
               <section className={styles.briefing} aria-label="Data and forecast status">
@@ -542,7 +567,7 @@ export default function Dashboard() {
                 <div className={styles.metricTable}><table><thead><tr><th>Holdout measure</th><th>XGBoost candidate</th><th>Previous-year baseline</th></tr></thead><tbody>{[['Log-scale R²','log_r2'],['MAE (USD)','dollar_mae'],['RMSE (USD)','dollar_rmse']].map(([label,key])=><tr key={key}><th>{label}</th>{['model','baseline'].map(kind=><td key={kind}>{typeof evaluation?.comparison?.[kind]?.[key] === 'number' ? key==='log_r2' ? evaluation.comparison[kind][key].toFixed(3) : evaluation.comparison[kind][key].toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}) : 'Not yet measured'}</td>)}</tr>)}</tbody></table></div>
                 <p className={styles.chartNote}>{evaluation ? `${evaluation.comparison.rows.toLocaleString()} comparable rows; ${evaluation.comparison.omitted_no_previous_year} rows excluded from baseline comparison. Source macro values were retained, not refreshed.` : 'Scores will appear only after the Kaggle outputs are verified. No invented accuracy badge.'} Lower MAE/RMSE is better; higher R² is better. This does not validate the live model.</p>
               </section>
-              <div className={styles.workspaceHeading}><span>01 / FORECAST WORKSPACE</span><p>Select a partner and commodity. Model outputs are estimates, not observed trade.</p></div>
+              <div className={styles.workspaceHeading}><span>01 / FORECAST WORKSPACE</span><p>History updates with your selection. Generate a new forecast after changing any input.</p></div>
               <div className={styles.kpiRow}>
                 <div className={styles.kpiCard}>
                   <span className={styles.kpiLabel}>Partner</span>
@@ -563,17 +588,17 @@ export default function Dashboard() {
                   </select>
                 </div>
                 <div className={styles.kpiCard}>
-                  <span className={styles.kpiLabel}>USD/INR Rate</span>
+                  <span className={styles.kpiLabel}>USD/INR scenario</span>
                   <input type="number" value={usdInr} onChange={(e) => setUsdInr(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
                 </div>
                 <div className={styles.kpiCard}>
-                  <span className={styles.kpiLabel}>Crude Oil ($/bbl)</span>
+                  <span className={styles.kpiLabel}>Brent scenario ($/bbl)</span>
                   <input type="number" value={crudePrice} onChange={(e) => setCrudePrice(e.target.value)} className={styles.chatInput} step="0.1" min="0" required />
                 </div>
                 <div className={styles.kpiCard} style={{ justifyContent: 'flex-end', background: 'transparent', border: 'none' }}>
-                  <button 
-                    onClick={handlePredict} 
-                    disabled={isPredicting || !partnerList.length || !validMap[partnerCode]?.includes(commodityCode)} 
+                  <button
+                    onClick={handlePredict}
+                    disabled={isPredicting || historyLoading || !partnerList.length || !validMap[partnerCode]?.includes(commodityCode)}
                     className={`${styles.chatButton} ${styles.terminalButton}`}
                     style={{ width: '100%', padding: '0.85rem 1rem', minHeight: '48px', backgroundColor: MINTED_BRASS, color: NIGHT_SLATE, fontFamily: "'Playfair Display', serif", fontSize: '1.05rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 'bold', touchAction: 'manipulation' }}
                   >
@@ -584,6 +609,7 @@ export default function Dashboard() {
               </>
             )}
 
+            {activeTab === 'dashboard' && <p className={styles.chartNote}>Macro inputs are editable assumptions, not live quotes or commodity unit prices. They do not change with the partner. {needsForecast ? 'No forecast for the current inputs. Select Generate provisional forecast.' : 'Forecast below matches the current inputs.'}</p>}
             <div className={styles.grid}>
               {activeTab === 'dashboard' && (
                 <section id="dashboard" className={`glass-panel ${styles.section} ${styles.terminalHover}`}>
@@ -597,7 +623,7 @@ export default function Dashboard() {
                       const latestChartPoint = chartData.length > 0 ? chartData[chartData.length - 1] : null;
                       return (
                         <div className={styles.badge} style={{ color: MINTED_BRASS, border: `1px solid ${MINTED_BRASS}`, padding: '4px 12px', fontSize: '0.8rem', backgroundColor: 'transparent' }}>
-                          Latest observation / forecast: <AnimatedMoney value={latestChartPoint ? latestChartPoint.prediction ?? latestChartPoint.value : null} />
+                          {chartData.some(p => p.prediction != null) ? 'Provisional forecast:' : 'Latest recorded trade:'} <AnimatedMoney value={latestChartPoint ? latestChartPoint.prediction ?? latestChartPoint.value : null} />
                         </div>
                       );
                     })()}
@@ -610,7 +636,7 @@ export default function Dashboard() {
                 {suggestedCommodities && suggestedCommodities.length > 0 && (
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
                     {suggestedCommodities.map(c => (
-                      <button 
+                      <button
                         key={c.code}
                         onClick={() => {
                           setCommodityCode(c.code);
@@ -632,7 +658,7 @@ export default function Dashboard() {
               <div className={styles.chartContainer} style={{ height: '300px', position: 'relative' }}>
                 {chartData.length === 0 ? (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: FADED_INK }}>
-                    No historical data available for this partner/commodity combination.
+                    {historyLoading ? 'Loading history for this selection...' : 'No historical data available for this partner/commodity combination.'}
                   </div>
                 ) : mounted && (
                   <ResponsiveContainer width="100%" height="100%">
@@ -656,6 +682,7 @@ export default function Dashboard() {
               </div>
               <div style={{ padding: '1.5rem', backgroundColor: 'rgba(0,0,0,0.2)', border: `1px solid ${FADED_INK}` }}>
                 <h3 style={{ fontSize: '0.9rem', fontWeight: 500, marginBottom: '1rem', color: '#EFECE6', fontFamily: "'Playfair Display', serif" }}>Global Model Feature Importance</h3>
+                <p className={styles.chartNote}>Model-wide training summary, not an explanation of this forecast. These bars stay the same until the model changes.</p>
                 <div className={styles.featureBarContainer}>
                   {(() => {
                     if (featureImportances.length === 0) {
@@ -694,8 +721,8 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis dataKey="date" stroke={FADED_INK} fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis dataKey="anomaly_score" stroke={FADED_INK} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `${(val * 100).toFixed(0)}%`} />
-                    <Tooltip 
-                      cursor={{ strokeDasharray: '3 3' }} 
+                    <Tooltip
+                      cursor={{ strokeDasharray: '3 3' }}
                       contentStyle={{ backgroundColor: NIGHT_SLATE, border: `1px solid ${MINTED_BRASS}` }}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
@@ -793,7 +820,7 @@ export default function Dashboard() {
                                   const geoCode = parseInt(geo.id).toString();
                                   const targetCode = geoCode === "840" ? "842" : geoCode;
                                   const isTop18 = TOP_18_CODES.has(geoCode) || TOP_18_CODES.has(geo.id) || TOP_18_NAMES.has(geo.properties.name);
-                                  
+
                                   const nodeData = isTop18 ? networkData.find(d => {
                                     const nodeIdCode = d.id ? d.id.replace('P_', '') : '';
                                     return (
@@ -809,7 +836,7 @@ export default function Dashboard() {
 
                                   const actualBillions = nodeData?.trade_volume_billions ?? (nodeData?.trade_volume ? nodeData.trade_volume / 1e9 : null);
                                   const intensity = nodeData?.val ?? (actualBillions ? Math.max(0.25, Math.min(1.0, 0.25 + 0.75 * ((actualBillions - 150) / 1150))) : null);
-                                  
+
                                   let color = '#2C303A';
                                   if (isTop18 && actualBillions && intensity) {
                                     color = `rgba(200, 169, 126, ${intensity.toFixed(2)})`;
@@ -824,7 +851,7 @@ export default function Dashboard() {
                                       fill={isSelected ? MINTED_BRASS : color}
                                       stroke={NIGHT_SLATE}
                                       strokeWidth={0.5}
-                                      onClick={(e) => { 
+                                      onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedCountry({ name: geo.properties.name, code: targetCode });
                                       }}
@@ -889,7 +916,7 @@ export default function Dashboard() {
                   <p className={styles.sourceTag} style={{ fontSize: '0.7rem' }}>TRANSPARENT SOURCING</p>
                   <h2 className={styles.sourceTitle} style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Data Sources</h2>
                   <p className={styles.sourceSubtitle} style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>Every prediction and response is grounded in empirical global trade volumes and official Indian trade policies.</p>
-                  
+
                   <div className={styles.sourceGrid}>
                     <div className={styles.sourceCard} style={{ padding: '1rem' }}>
                       <div className={styles.sourceIcon} style={{ background: '#1e3a8a', width: '30px', height: '30px', fontSize: '0.8rem' }}>UN</div>
@@ -915,7 +942,6 @@ export default function Dashboard() {
         <Sparkles size={20} />
         Ask AI
       </button>
-      <div id="vanijya-chat-root"></div>
         {/* Data Sources & Footer */}
         <div className={styles.footerSection}>
           <div className={styles.footer}>
@@ -936,6 +962,7 @@ export default function Dashboard() {
         </div>
         </main>
       </div>
+      <div id="vanijya-chat-root"></div>
     </div>
   );
 }

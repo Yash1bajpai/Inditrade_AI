@@ -205,3 +205,18 @@
   background-color: var(--chat-border);
 }
 @media (max-width: 768px) { #vanijya-chat-container { width: 100% !important; max-width: 100vw !important; border-left: none; } }
+
+/* Docked split workspace, stacked below the page on narrow screens. */
+#vanijya-chat-root { display: none; min-width: 0; }
+#vanijya-chat-root:has(#vanijya-chat-container.open) { display: block; width: clamp(300px, var(--chat-width), min(40vw, 520px)); flex-shrink: 0; }
+#vanijya-chat-container { position: relative; inset: auto; width: 100%; height: 100%; min-height: 0; transform: none; box-shadow: none; }
+.vanijya-messages { min-height: 0; }
+.vanijya-header { padding: 1rem; }
+.vanijya-close-btn { color: #a7b3c4; min-width: 40px; min-height: 40px; }
+@media (max-width: 768px) {
+  #vanijya-chat-root:has(#vanijya-chat-container.open) { width: 100%; height: 42dvh; flex: 0 0 42dvh; }
+  #vanijya-chat-container { border-left: 0; border-top: 1px solid var(--chat-border); }
+  .vanijya-drag-handle { display: none; }
+  .vanijya-header { padding: .4rem 1rem; }
+  .vanijya-input-area { padding: .6rem; }
+}

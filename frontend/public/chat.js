@@ -14,6 +14,7 @@
   let lastAskPrompt = '';
   let lastAskTime = 0;
   
+  let activeRequest = null;
   let containerEl, messagesEl, inputEl, sendBtnEl, typingEl;
   
   function saveHistory() {
@@ -116,11 +117,15 @@
     renderMessages();
     updateTypingState();
     
+    const controller = new AbortController();
+    activeRequest = controller;
+    const timeout = setTimeout(() => controller.abort(), 60000);
     try {
       const res = await fetch(`${apiBaseUrl}${chatEndpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: text })
+        body: JSON.stringify({ question: text }),
+        signal: controller.signal
       });
       if (!res.ok) {
         // The backend now returns 503 when both the HF and Groq upstreams are
@@ -129,11 +134,14 @@
         let detail = `HTTP error! status: ${res.status}`;
         try {
           const errBody = await res.json();
-          if (errBody && errBody.detail) detail = errBody.detail;
+          if (res.status === 502 || res.status === 503) {
+            detail = 'The AI service is unavailable right now. Your question was not answered. Try again, or check the official DGFT/PIB sources.';
+          } else if (errBody && typeof errBody.detail === 'string') detail = errBody.detail;
         } catch (parseErr) { /* non-JSON error body; keep the status text */ }
         throw new Error(detail);
       }
       const data = await res.json();
+      if (!data || typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('The AI service returned an empty answer. Please try again.');
 
       const aiMsg = {
         role: 'ai',
@@ -152,15 +160,18 @@
     } catch (e) {
       const errorMsg = {
         role: 'ai',
-        content: e && e.message ? e.message : 'Failed to connect to the backend server.',
+        content: e && e.name === 'AbortError' ? 'The AI service took too long to reply. Please try again. The free backend may need time to wake up.' : e && e.message ? e.message : 'Failed to connect to the backend server.',
         source: 'Error',
         sent: true,
         answered: true
       };
       userMsg.answered = true;
       messages.push(errorMsg);
+      inputEl.value = text; // keep the question available for an explicit retry
       // We don't save errors to history typically, but per instruction, if answered=true we can.
     } finally {
+      clearTimeout(timeout);
+      if (activeRequest === controller) activeRequest = null;
       isTyping = false;
       renderMessages();
       updateTypingState();
@@ -195,8 +206,8 @@
             <div class="typing-dot"></div>
           </div>
           <form class="vanijya-input-area" id="vanijya-form">
-            <input type="text" class="vanijya-input" id="vanijya-input" placeholder="Ask about Trade Policy..." autocomplete="off"/>
-            <button type="submit" class="vanijya-send-btn" id="vanijya-send">
+            <input type="text" class="vanijya-input" id="vanijya-input" aria-label="Trade policy question" placeholder="Ask about Trade Policy..." autocomplete="off"/>
+            <button type="submit" class="vanijya-send-btn" id="vanijya-send" aria-label="Send question">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
             </button>
           </form>
@@ -224,7 +235,7 @@
       
       const onMouseMove = (e) => {
         if (!isDragging) return;
-        const newWidth = Math.max(300, Math.min(window.innerWidth - e.clientX, 1000));
+        const newWidth = Math.max(300, Math.min(window.innerWidth - e.clientX, Math.min(520, window.innerWidth * 0.4)));
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
           document.documentElement.style.setProperty('--chat-width', newWidth + 'px');
@@ -255,6 +266,7 @@
     
     open() {
       isOpen = true;
+      window.dispatchEvent(new Event('vanijya:open'));
       if (containerEl) {
         containerEl.classList.add('open');
         setTimeout(() => { if (inputEl) inputEl.focus(); }, 300);
@@ -263,7 +275,7 @@
       if (messages.length === 0) {
         messages.push({ 
           role: 'ai', 
-          content: 'Hi, I am IndiTrade AI. I can help you analyze trade data, interpret anomalies, and forecast trends. Ask me a question!',
+          content: 'I can answer Indian trade-policy questions using available policy sources. The free backend may need time to wake up. I cannot provide live prices or generate forecasts here.',
           typewriter: true 
         });
         renderMessages();
@@ -294,6 +306,7 @@
       if (this._onMouseMove) document.removeEventListener('mousemove', this._onMouseMove);
       if (this._onMouseUp) document.removeEventListener('mouseup', this._onMouseUp);
       
+      if (activeRequest) activeRequest.abort();
       if (rootElement) {
         rootElement.innerHTML = '';
       }
