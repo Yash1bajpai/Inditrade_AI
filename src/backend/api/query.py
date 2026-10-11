@@ -36,6 +36,24 @@ def get_sparse_index():
     return _sparse_index
 
 
+def _validated_query_vector(value):
+    """Accept one BGE sentence vector, never token matrices or zero vectors."""
+    import math
+
+    # Providers can wrap a single sentence vector in singleton batch axes.
+    while isinstance(value, list) and len(value) == 1 and isinstance(value[0], list):
+        value = value[0]
+    if not isinstance(value, list) or len(value) != 384:
+        raise ValueError("Expected one 384-dimensional BGE sentence vector")
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+           for v in value):
+        raise ValueError("Embedding must contain finite numbers")
+    norm = math.sqrt(sum(v * v for v in value))
+    if norm == 0:
+        raise ValueError("Embedding must not be a zero vector")
+    return [v / norm for v in value]
+
+
 def _rrf_fuse(dense_hits, sparse_hits, rrf_k: int = RRF_K):
     """Reciprocal Rank Fusion over dense and sparse hit lists.
 
@@ -136,40 +154,40 @@ async def query_policy(req: QueryRequest, request: Request):
     grounded = False
     try:
         dense_hits = []
-        if qdrant is not None and getattr(qdrant, "supports_vector", True) and hasattr(qdrant, "search"):
-            hf_token = os.getenv("HF_TOKEN")
+        if qdrant is not None and getattr(qdrant, "supports_vector", True) and hasattr(qdrant, "query_points"):
+            # Dense retrieval is optional. Its API/embedding failures must not
+            # prevent the independent local sparse search below from running.
+            try:
+                hf_token = os.getenv("HF_TOKEN")
 
-            def fetch_embeddings():
-                return requests.post(
-                    "https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5/pipeline/feature-extraction",
-                    headers={"Authorization": f"Bearer {hf_token}"},
-                    json={"inputs": req.question},
-                    timeout=5
-                )
-
-            emb_response = await asyncio.to_thread(fetch_embeddings)
-            if emb_response.status_code != 200:
-                # Searching with a fabricated zero vector would silently return
-                # garbage neighbors. Skip dense and let sparse retrieval carry
-                # the request instead.
-                logger.error(
-                    f"HF embedding API returned {emb_response.status_code}; "
-                    "skipping dense retrieval, using sparse only."
-                )
-            else:
-                query_vector = emb_response.json()
-                while isinstance(query_vector, list) and len(query_vector) > 0 and isinstance(query_vector[0], list):
-                    query_vector = query_vector[0]
-
-                def qdrant_search():
-                    return qdrant.search(
-                        collection_name="trade_policy_compliance",
-                        query_vector=query_vector,
-                        limit=DENSE_HITS,
-                        query_text=req.question
+                def fetch_embeddings():
+                    return requests.post(
+                        "https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5/pipeline/feature-extraction",
+                        headers={"Authorization": f"Bearer {hf_token}"},
+                        json={"inputs": req.question},
+                        timeout=5
                     )
 
-                dense_hits = await asyncio.to_thread(qdrant_search)
+                emb_response = await asyncio.to_thread(fetch_embeddings)
+                if emb_response.status_code != 200:
+                    logger.warning(
+                        "HF embedding API returned %s; using sparse only.",
+                        emb_response.status_code,
+                    )
+                else:
+                    query_vector = _validated_query_vector(emb_response.json())
+
+                    def qdrant_search():
+                        return qdrant.query_points(
+                            collection_name="trade_policy_compliance",
+                            query=query_vector,
+                            limit=DENSE_HITS,
+                            with_payload=True,
+                        ).points
+
+                    dense_hits = await asyncio.to_thread(qdrant_search)
+            except Exception as e:
+                logger.warning("Dense retrieval failed (%s); using sparse only.", e)
 
         # Reuse the fallback retriever's in-memory index when present (no
         # second 20MB load on the 512MB Render container); otherwise load the
