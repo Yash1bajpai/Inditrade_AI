@@ -158,3 +158,16 @@ def test_no_fabricated_metrics_when_meta_missing(monkeypatch):
     assert forecast_mod.xgboost_model != "FAILED", "model load unexpectedly failed"
     metrics = forecast_mod.xgboost_model["meta"]["metrics"]
     assert metrics == {}, f"expected no fabricated metrics, got {metrics}"
+
+
+def test_forecast_refuses_when_model_feature_missing_from_data(monkeypatch, client, forecast_module):
+    """A model input absent from the loaded data must not be silently zero-filled."""
+    features = ["usdinr_mean", "brent_crude_mean", "period", "primaryValue_yoy_growth_rate"]
+    monkeypatch.setitem(forecast_module.xgboost_model, "features", features)
+    resp = client.post(
+        "/api/forecast/",
+        json={"usd_inr": 83.0, "crude_price": 85.0, "year": 2025,
+              "partner_code": "643", "commodity_code": "27"},
+    )
+    assert resp.status_code == 503, resp.text
+    assert "primaryValue_yoy_growth_rate" in resp.json()["detail"]
