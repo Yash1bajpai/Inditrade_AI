@@ -76,8 +76,12 @@ def test_feature_build_rejects_mixed_grain_before_aggregation(monkeypatch):
         tf.build_trade_features()
 
 
-def test_legacy_forecast_score_is_not_returned_as_accuracy(forecast_module):
+def test_legacy_forecast_score_is_not_returned_as_accuracy(forecast_module, monkeypatch):
     from src.backend.api.forecast import ForecastRequest
+    # The forecast now fails closed when a model feature is absent from the data,
+    # so give the fixture data the legacy column this test deliberately exercises.
+    base_read = pd.read_parquet
+    monkeypatch.setattr(pd, 'read_parquet', lambda *a, **k: base_read(*a, **k).assign(primaryValue_yoy_growth_rate=0.0))
     forecast_module.xgboost_model['features'].append('primaryValue_yoy_growth_rate')
     result = forecast_module.get_forecast(ForecastRequest(usd_inr=83.5, crude_price=80, year=2025, partner_code='643', commodity_code='27'))
     assert result['metrics'] == {}
