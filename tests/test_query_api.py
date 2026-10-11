@@ -155,3 +155,63 @@ def test_fallback_rejects_empty_or_truncated_answers(monkeypatch, query_client, 
     with pytest.raises(HTTPException) as error:
         asyncio.run(query_mod.fallback_query("What is DGFT?", "Policy text", grounded=True))
     assert error.value.status_code == 502
+
+
+@pytest.mark.parametrize('embedding_failure', ['status', 'timeout', 'malformed', 'qdrant'])
+def test_dense_failure_keeps_sparse_grounding(monkeypatch, query_client, embedding_failure):
+    from types import SimpleNamespace
+    import requests
+    client, mod = query_client
+    sparse_hit = SimpleNamespace(payload={'doc_id': 'sparse', 'title': 'Local policy', 'text': 'Sparse policy text'})
+    monkeypatch.setattr(mod, 'get_sparse_index', lambda: SimpleNamespace(search=lambda *a, **k: [sparse_hit]))
+    def dense(**kwargs):
+        raise RuntimeError('cloud unavailable')
+    monkeypatch.setattr(mod, 'qdrant', SimpleNamespace(query_points=dense))
+    def post(url, **kwargs):
+        if 'feature-extraction' not in url or embedding_failure == 'timeout':
+            raise requests.exceptions.Timeout('offline')
+        return SimpleNamespace(status_code=402 if embedding_failure == 'status' else 200,
+                               json=lambda: [[1, 2]] if embedding_failure == 'malformed' else [1.] * 384)
+    monkeypatch.setattr(mod.requests, 'post', post)
+    async def fallback(question, context, citation_str='', client_ip='anonymous', grounded=False):
+        return {'answer': context, 'grounded': grounded, 'citation': citation_str}
+    monkeypatch.setattr(mod, 'fallback_query', fallback)
+    resp = client.post('/api/query/', json={'question': 'What is DGFT?'})
+    assert resp.status_code == 200
+    assert resp.json()['grounded'] is True
+    assert 'Sparse policy text' in resp.json()['answer']
+
+
+def test_real_current_qdrant_client_dense_query(monkeypatch, query_client):
+    from types import SimpleNamespace
+    from qdrant_client import QdrantClient, models
+    import requests
+    client, mod = query_client
+    dense = QdrantClient(':memory:')
+    dense.create_collection('trade_policy_compliance', vectors_config=models.VectorParams(size=384, distance=models.Distance.COSINE))
+    dense.upsert('trade_policy_compliance', [models.PointStruct(id=1, vector=[1.] * 384,
+        payload={'doc_id': 'dense', 'title': 'Dense policy', 'text': 'Real Qdrant policy text'})])
+    monkeypatch.setattr(mod, 'qdrant', dense)
+    def post(url, **kwargs):
+        if 'feature-extraction' in url:
+            return SimpleNamespace(status_code=200, json=lambda: [[[1.] * 384]])
+        raise requests.exceptions.ConnectionError('offline generation')
+    monkeypatch.setattr(mod.requests, 'post', post)
+    async def fallback(question, context, citation_str='', client_ip='anonymous', grounded=False):
+        return {'answer': context, 'grounded': grounded, 'citation': citation_str}
+    monkeypatch.setattr(mod, 'fallback_query', fallback)
+    try:
+        resp = client.post('/api/query/', json={'question': 'What is DGFT?'})
+        assert resp.status_code == 200
+        assert resp.json()['grounded'] is True
+        assert 'Real Qdrant policy text' in resp.json()['answer']
+    finally:
+        dense.close()
+
+
+@pytest.mark.parametrize('bad_vector', [[0.] * 384, [1.] * 383, [[1.] * 384] * 2,
+                                      [float('nan')] * 384, [True] * 384, ['1'] * 384])
+def test_invalid_embeddings_rejected(bad_vector):
+    from src.backend.api.query import _validated_query_vector
+    with pytest.raises(ValueError):
+        _validated_query_vector(bad_vector)
