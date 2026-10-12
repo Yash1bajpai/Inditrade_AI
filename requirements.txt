@@ -52,7 +52,7 @@ fastapi>=0.141.0
 starlette>=0.46.0,<2.0
 uvicorn>=0.23.0
 supabase>=2.3.0
-qdrant-client>=1.6.0
+qdrant-client>=1.19.1,<2.0
 groq>=0.4.0
 pyarrow>=14.0.0
 
