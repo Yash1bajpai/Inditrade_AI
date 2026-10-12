@@ -51,7 +51,16 @@ def matching_excerpts(question, context):
     if not terms:
         return NO_EVIDENCE, False
     # Preserve sentences/line text exactly, including OCR wording and numbers.
-    spans = re.split(r'\n+', context)
+    # Group short OCR lines into contiguous readable blocks.
+    lines = context.splitlines()
+    spans, block = [], []
+    for line in lines:
+        block.append(line)
+        if len(' '.join(block)) >= 600:
+            spans.append(' '.join(block))
+            block = []
+    if block:
+        spans.append(' '.join(block))
     ranked = []
     for i, span in enumerate(spans):
         span = norm(span)
@@ -84,6 +93,8 @@ def matching_excerpts(question, context):
 
 
 def verified_answer(raw, context, question=""):
+    if re.search(r"\b(current|currently|today|latest|now|invent|ignore|fake|pretend)\b", question, re.I):
+        return NO_EVIDENCE, False
     answer, grounded = _verify_generated(raw, context, question)
     if grounded:
         return answer, True
