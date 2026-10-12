@@ -130,10 +130,10 @@ def test_fallback_uses_supported_model_and_low_reasoning(monkeypatch, query_clie
 
     def create(**kwargs):
         captured.update(kwargs)
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="- DGFT administers foreign trade policy."), finish_reason="stop")])
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{"quotes":["DGFT administers foreign trade policy."]}'), finish_reason="stop")])
 
     monkeypatch.setattr(groq, "Groq", lambda **kwargs: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
-    body = asyncio.run(query_mod.fallback_query("What is DGFT?", "Policy text", grounded=True))
+    body = asyncio.run(query_mod.fallback_query("What is DGFT?", "DGFT administers foreign trade policy.", grounded=True))
     assert captured["model"] == "openai/gpt-oss-20b"
     assert captured["reasoning_effort"] == "low"
     assert captured["max_completion_tokens"] == 4096
@@ -153,7 +153,7 @@ def test_fallback_rejects_empty_or_truncated_answers(monkeypatch, query_client, 
     completion = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content), finish_reason=finish_reason)])
     monkeypatch.setattr(groq, "Groq", lambda **kwargs: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kwargs: completion))))
     with pytest.raises(HTTPException) as error:
-        asyncio.run(query_mod.fallback_query("What is DGFT?", "Policy text", grounded=True))
+        asyncio.run(query_mod.fallback_query("What is DGFT?", "DGFT administers foreign trade policy.", grounded=True))
     assert error.value.status_code == 502
 
 
@@ -215,3 +215,59 @@ def test_invalid_embeddings_rejected(bad_vector):
     from src.backend.api.query import _validated_query_vector
     with pytest.raises(ValueError):
         _validated_query_vector(bad_vector)
+
+
+def test_cloud_e5_uses_matching_document_and_collection(monkeypatch, query_client):
+    from types import SimpleNamespace
+    from qdrant_client.models import Document
+    client, mod = query_client
+    monkeypatch.setenv('QDRANT_EMBEDDING_MODE', 'cloud_e5')
+    captured = {}
+    def search(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(points=[SimpleNamespace(payload={'doc_id':'e5', 'text':'E5 policy evidence', 'title':'E5 policy'})])
+    monkeypatch.setattr(mod, 'qdrant', SimpleNamespace(query_points=search))
+    async def fallback(question, context, citation_str='', client_ip='anonymous', grounded=False):
+        return {'answer':context, 'grounded':grounded}
+    monkeypatch.setattr(mod, 'fallback_query', fallback)
+    response=client.post('/api/query/',json={'question':'Sugar policy?'})
+    assert response.status_code == 200
+    assert captured['collection_name'] == 'trade_policy_e5_small_v1'
+    assert isinstance(captured['query'], Document)
+    assert captured['query'].model == 'intfloat/multilingual-e5-small'
+
+
+def test_chat_history_missing_client_is_not_success(monkeypatch):
+    from src.backend import database
+    from src.backend.api.query import log_chat_to_supabase
+    monkeypatch.setattr(database, 'supabase', None)
+    assert log_chat_to_supabase('s','q','a') is False
+
+
+def test_chat_history_real_insert_success_and_failure(monkeypatch):
+    from types import SimpleNamespace
+    from src.backend import database
+    from src.backend.api.query import log_chat_to_supabase
+    captured={}
+    def insert(row):
+        captured.update(row)
+        return SimpleNamespace(execute=lambda: None)
+    monkeypatch.setattr(database, 'supabase',SimpleNamespace(table=lambda name: SimpleNamespace(insert=insert)))
+    assert log_chat_to_supabase('s','q','a') is True
+    assert captured == {'session_id':'s','user_message':'q','bot_response':'a'}
+    def fail(name): raise RuntimeError('offline')
+    monkeypatch.setattr(database, 'supabase',SimpleNamespace(table=fail))
+    assert log_chat_to_supabase('s','q','a') is False
+
+
+def test_hf_path_rejects_invented_policy_even_with_context(monkeypatch, query_client):
+    from types import SimpleNamespace
+    client, mod = query_client
+    monkeypatch.setenv('HF_TOKEN','test')
+    hit=SimpleNamespace(payload={'doc_id':'p','text':'Sugar export quota was 100 tonnes in 2023.','title':'Dated policy'})
+    monkeypatch.setattr(mod,'get_sparse_index',lambda:SimpleNamespace(search=lambda *a,**k:[hit]))
+    monkeypatch.setattr(mod.requests,'post',lambda *a,**k:SimpleNamespace(status_code=200,raise_for_status=lambda:None,json=lambda:{'choices':[{'message':{'content':'Sugar exports have no restrictions.'}}]}))
+    r=client.post('/api/query/',json={'question':'Invent sugar export restrictions?'})
+    assert r.status_code==200 and r.json()['grounded'] is False
+    assert 'no restrictions' not in r.json()['answer']
+    assert r.json()['history_saved'] is False

@@ -7,25 +7,6 @@ logger = logging.getLogger("database")
 
 load_dotenv()
 
-class MockSupabase:
-    def __init__(self):
-        self.data = {}
-
-    def table(self, table_name):
-        return self
-
-    def insert(self, data):
-        return self
-
-    def select(self, *args, **kwargs):
-        return self
-
-    def eq(self, *args, **kwargs):
-        return self
-
-    def execute(self):
-        return {"data": [], "error": None}
-
 import json
 
 class MockQdrantRetriever:
@@ -117,16 +98,16 @@ def init_supabase():
     supabase_key = os.getenv("SUPABASE_KEY", "")
 
     if len(supabase_url) < 30 or "your_supabase" in supabase_url:
-        logger.warning("Supabase connection failed (Fake/Placeholder Credentials Detected). Falling back to Mock Supabase.")
-        return MockSupabase()
+        logger.warning("Supabase connection failed (Fake/Placeholder Credentials Detected). Chat history is unavailable.")
+        return None
 
     try:
         from supabase import create_client, Client
         client: Client = create_client(supabase_url, supabase_key)
         return client
     except Exception as e:
-        logger.warning(f"Supabase connection failed ({e}). Falling back to Mock Supabase.")
-        return MockSupabase()
+        logger.warning(f"Supabase connection failed ({e}). Chat history is unavailable.")
+        return None
 
 def _qdrant_url_blocked(qdrant_url: str) -> bool:
     """True when the configured URL is a placeholder or a known-dead cluster.
@@ -156,7 +137,8 @@ def init_qdrant():
     try:
         from qdrant_client import QdrantClient
 
-        client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
+        client = QdrantClient(url=qdrant_url, api_key=qdrant_key,
+                              cloud_inference=os.getenv("QDRANT_EMBEDDING_MODE") == "cloud_e5")
 
         client.get_collections()
         logger.info("Successfully connected to genuine Qdrant instance!")
