@@ -1,0 +1,564 @@
+{
+  "new": [
+    {
+      "query": "RoDTEP September December 2026",
+      "expected": "41/2026-27",
+      "top5": [
+        "70/2023",
+        "41/2026-27",
+        "74/2025-26",
+        "66/2025-26",
+        "35 / 2025-26"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Notification 41/2026-27 continuation of RoDTEP",
+      "expected": "41/2026-27",
+      "top5": [
+        "74/2025-26",
+        "41/2026-27",
+        "70/2023",
+        "24/2023",
+        "Corrigendum to Notification No. 60/2025-26 dated 23.02.2026"
+      ],
+      "pass": true
+    },
+    {
+      "query": "RoDTEP existing rates and value caps September 30 2026",
+      "expected": "41/2026-27",
+      "top5": [
+        "32/2024-25",
+        "41/2026-27",
+        "74/2025-26",
+        "66/2025-26",
+        "60/2025-26"
+      ],
+      "pass": true
+    },
+    {
+      "query": "RoDTEP DTA AA SEZ EOU December 2026",
+      "expected": "41/2026-27",
+      "top5": [
+        "70/2023",
+        "32/2024-25",
+        "35 / 2025-26",
+        "41/2026-27",
+        "66/2024-25"
+      ],
+      "pass": true
+    },
+    {
+      "query": "RCMC FOB 3,00,000 exemption",
+      "expected": "36/2026-27",
+      "top5": [
+        "14/2026-27",
+        "60/2023",
+        "19/2024-25",
+        "36/2026-27",
+        "05/2024-25"
+      ],
+      "pass": true
+    },
+    {
+      "query": "De minimis Registration-cum-Membership low value exports",
+      "expected": "36/2026-27",
+      "top5": [
+        "14/2026-27",
+        "36/2026-27",
+        "22/2026-27",
+        "29/2025-26",
+        "38/2025-26"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Notification 36/2026-27 paragraph 2.57",
+      "expected": "36/2026-27",
+      "top5": [
+        "14/2026-27",
+        "13/2024-25",
+        "37/2026-27",
+        "36/2026-27",
+        "49/2025-26"
+      ],
+      "pass": true
+    },
+    {
+      "query": "RCMC consignment value exceeding 3,00,000",
+      "expected": "36/2026-27",
+      "top5": [
+        "14/2026-27",
+        "19/2024-25",
+        "36/2026-27",
+        "38/2025-26",
+        "20/2025-26"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Wheat Flour 1101 0000",
+      "expected": "34/2026-27",
+      "top5": [
+        "61/2025-26",
+        "44/2025-26",
+        "55/2025-26",
+        "34/2026-27",
+        "60/2023"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Notification 34/2026-27 wheat flour",
+      "expected": "34/2026-27",
+      "top5": [
+        "61/2025-26",
+        "25/2023",
+        "47/2024-25",
+        "34/2026-27",
+        "44/2025-26"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Maida Samolina wholemeal atta resultant atta export",
+      "expected": "34/2026-27",
+      "top5": [
+        "17/2023",
+        "61/2025-26",
+        "47/2024-25",
+        "34/2026-27",
+        "25/2023"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Wheat flour HS Code 11010000 free prohibited",
+      "expected": "34/2026-27",
+      "top5": [
+        "61/2025-26",
+        "60/2023",
+        "22/2024-25",
+        "34/2026-27",
+        "55/2025-26"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Durum Wheat 10011900 10019910",
+      "expected": "35/2026-27",
+      "top5": [
+        "22/2024-25",
+        "60/2023",
+        "62/2025-26",
+        "21/2025-26",
+        "35/2026-27"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Notification 35/2026-27 Wheat",
+      "expected": "35/2026-27",
+      "top5": [
+        "62/2025-26",
+        "44/2025-26",
+        "49/2025-26",
+        "61/2025-26",
+        "35/2026-27"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Wheat 10019910 export policy free",
+      "expected": "35/2026-27",
+      "top5": [
+        "60/2023",
+        "35/2026-27",
+        "62/2025-26",
+        "22/2024-25",
+        "34/2026-27"
+      ],
+      "pass": true
+    },
+    {
+      "query": "Durum Wheat Other export policy August 2026",
+      "expected": "35/2026-27",
+      "top5": [
+        "62/2025-26",
+        "22/2024-25",
+        "35/2026-27",
+        "13/2026-27",
+        "49/2025-26"
+      ],
+      "pass": true
+    }
+  ],
+  "regression": [
+    {
+      "query": "sugar export restrictions",
+      "old_top5": [
+        "DGFT_OCR_NOTIFICATION_17_2025-26_43",
+        "DGFT_NOTIFICATION_16",
+        "DGFT_OCR_PUBLIC_NOTICE_12_2026-27_221",
+        "DGFT_OCR_PUBLIC_NOTICE_25_2024-25_253",
+        "DGFT_OCR_NOTIFICATION_36_2023_97"
+      ],
+      "new_top5": [
+        "DGFT_OCR_NOTIFICATION_17_2025-26_43",
+        "DGFT_NOTIFICATION_16",
+        "DGFT_OCR_PUBLIC_NOTICE_12_2026-27_221",
+        "DGFT_OCR_PUBLIC_NOTICE_25_2024-25_253",
+        "DGFT_OCR_NOTIFICATION_36_2023_97"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "rice export policy",
+      "old_top5": [
+        "DGFT_OCR_NOTIFICATION_61_2024-25_160",
+        "DGFT_OCR_NOTIFICATION_47_2023_123",
+        "DGFT_OCR_NOTIFICATION_33_2025-26_91",
+        "DGFT_NOTIFICATION_60_2023",
+        "DGFT_NOTIFICATION_43_2023"
+      ],
+      "new_top5": [
+        "DGFT_OCR_NOTIFICATION_61_2024-25_160",
+        "DGFT_OCR_NOTIFICATION_47_2023_123",
+        "DGFT_OCR_NOTIFICATION_33_2025-26_91",
+        "DGFT_NOTIFICATION_60_2023",
+        "DGFT_NOTIFICATION_43_2023"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "onion minimum export price",
+      "old_top5": [
+        "DGFT_NOTIFICATION_42_2023",
+        "DGFT_OCR_NOTIFICATION_45_2023_118",
+        "DGFT_NOTIFICATION_28_2024_25",
+        "DGFT_OCR_NOTIFICATION_45_2024-25_119",
+        "DGFT_OCR_NOTIFICATION_52_2025-26_5"
+      ],
+      "new_top5": [
+        "DGFT_NOTIFICATION_42_2023",
+        "DGFT_OCR_NOTIFICATION_45_2023_118",
+        "DGFT_NOTIFICATION_28_2024_25",
+        "DGFT_OCR_NOTIFICATION_45_2024-25_119",
+        "DGFT_OCR_NOTIFICATION_52_2025-26_5"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "wheat export quota",
+      "old_top5": [
+        "DGFT_OCR_TRADE_NOTICE_17_2023_355",
+        "DGFT_OCR_TRADE_NOTICE_21_2023_363",
+        "DGFT_OCR_TRADE_NOTICE_10_2026-27_347",
+        "DGFT_OCR_NOTIFICATION_62_2025-26_164",
+        "DGFT_OCR_PUBLIC_NOTICE_44_2025-26_300"
+      ],
+      "new_top5": [
+        "DGFT_OCR_TRADE_NOTICE_17_2023_355",
+        "DGFT_OCR_TRADE_NOTICE_21_2023_363",
+        "DGFT_OCR_TRADE_NOTICE_10_2026-27_347",
+        "DGFT_OCR_NOTIFICATION_62_2025-26_164",
+        "DGFT_OCR_PUBLIC_NOTICE_44_2025-26_300"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "Certificate of Origin preferential electronic",
+      "old_top5": [
+        "DGFT_TRADE_NOTICE_11",
+        "DGFT_OCR_TRADE_NOTICE_06_2026-27_344",
+        "DGFT_OCR_PUBLIC_NOTICE_43_2024-25_297",
+        "DGFT_OCR_PUBLIC_NOTICE_01_2026-27_196",
+        "DGFT_TRADE_NOTICE_23_2024_25"
+      ],
+      "new_top5": [
+        "DGFT_TRADE_NOTICE_11",
+        "DGFT_OCR_TRADE_NOTICE_06_2026-27_344",
+        "DGFT_OCR_PUBLIC_NOTICE_43_2024-25_297",
+        "DGFT_OCR_PUBLIC_NOTICE_01_2026-27_196",
+        "DGFT_TRADE_NOTICE_23_2024_25"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "EPCG export obligation",
+      "old_top5": [
+        "DGFT_OCR_PUBLIC_NOTICE_51_2025-26_320",
+        "DGFT_OCR_PUBLIC_NOTICE_15_2024-25_226",
+        "DGFT_OCR_PUBLIC_NOTICE_24_2024-25_251",
+        "DGFT_TRADE_NOTICE_02_2026_2027",
+        "DGFT_TRADE_NOTICE_15_2026_27"
+      ],
+      "new_top5": [
+        "DGFT_OCR_PUBLIC_NOTICE_51_2025-26_320",
+        "DGFT_OCR_PUBLIC_NOTICE_15_2024-25_226",
+        "DGFT_OCR_PUBLIC_NOTICE_24_2024-25_251",
+        "DGFT_TRADE_NOTICE_02_2026_2027",
+        "DGFT_TRADE_NOTICE_15_2026_27"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "DGFT Notification 40/2026-27",
+      "old_top5": [
+        "DGFT_OCR_TRADE_NOTICE_12_2025-26_349",
+        "DGFT_OCR_NOTIFICATION_31_2025-26_86",
+        "DGFT_TRADE_NOTICE_23_2026_2027",
+        "DGFT_OCR_TRADE_NOTICE_07_2025-26_346",
+        "DGFT_OCR_PUBLIC_NOTICE_02_2026-27_199"
+      ],
+      "new_top5": [
+        "DGFT_OCR_TRADE_NOTICE_12_2025-26_349",
+        "DGFT_OCR_NOTIFICATION_31_2025-26_86",
+        "DGFT_TRADE_NOTICE_23_2026_2027",
+        "DGFT_OCR_TRADE_NOTICE_07_2025-26_346",
+        "DGFT_OCR_PUBLIC_NOTICE_02_2026-27_199"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "DGFT Notification 37/2026-27",
+      "old_top5": [
+        "DGFT_OCR_TRADE_NOTICE_12_2025-26_349",
+        "DGFT_OCR_NOTIFICATION_31_2025-26_86",
+        "DGFT_NOTIFICATION_37_2026_27",
+        "DGFT_OCR_PUBLIC_NOTICE_02_2026-27_199",
+        "DGFT_TRADE_NOTICE_14_2026_27"
+      ],
+      "new_top5": [
+        "DGFT_OCR_TRADE_NOTICE_12_2025-26_349",
+        "DGFT_OCR_NOTIFICATION_31_2025-26_86",
+        "DGFT_NOTIFICATION_37_2026_27",
+        "DGFT_OCR_PUBLIC_NOTICE_02_2026-27_199",
+        "DGFT_TRADE_NOTICE_14_2026_27"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "DGFT Trade Notice 28/2026-27",
+      "old_top5": [
+        "DGFT_TRADE_NOTICE_19_2026_27",
+        "DGFT_OCR_PUBLIC_NOTICE_02_2026-27_199",
+        "DGFT_TRADE_NOTICE_28_2026_27",
+        "DGFT_PUBLIC_NOTICE_29_2026_27",
+        "DGFT_TRADE_NOTICE_02_2025_26"
+      ],
+      "new_top5": [
+        "DGFT_TRADE_NOTICE_19_2026_27",
+        "DGFT_OCR_PUBLIC_NOTICE_02_2026-27_199",
+        "DGFT_TRADE_NOTICE_28_2026_27",
+        "DGFT_PUBLIC_NOTICE_29_2026_27",
+        "DGFT_TRADE_NOTICE_02_2025_26"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "cotton export duty",
+      "old_top5": [
+        "DGFT_TRADE_NOTICE_26_2024_25",
+        "DGFT_OCR_NOTIFICATION_25_2025-26_68",
+        "DGFT_TRADE_NOTICE_22_2024_25",
+        "DGFT_OCR_NOTIFICATION_53_2024-25_140",
+        "DGFT_NOTIFICATION_60_2023"
+      ],
+      "new_top5": [
+        "DGFT_TRADE_NOTICE_26_2024_25",
+        "DGFT_OCR_NOTIFICATION_25_2025-26_68",
+        "DGFT_TRADE_NOTICE_22_2024_25",
+        "DGFT_OCR_NOTIFICATION_53_2024-25_140",
+        "DGFT_NOTIFICATION_60_2023"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "Advance Authorisation export obligation",
+      "old_top5": [
+        "DGFT_OCR_PUBLIC_NOTICE_51_2025-26_320",
+        "DGFT_OCR_NOTIFICATION_28_2025-26_77",
+        "DGFT_OCR_PUBLIC_NOTICE_18_2024_234",
+        "DGFT_TRADE_NOTICE_15_2026_27",
+        "DGFT_PUBLIC_NOTICE_11_2026_27"
+      ],
+      "new_top5": [
+        "DGFT_OCR_PUBLIC_NOTICE_51_2025-26_320",
+        "DGFT_OCR_NOTIFICATION_28_2025-26_77",
+        "DGFT_OCR_PUBLIC_NOTICE_18_2024_234",
+        "DGFT_TRADE_NOTICE_15_2026_27",
+        "DGFT_PUBLIC_NOTICE_11_2026_27"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "SEZ RoDTEP reimbursement",
+      "old_top5": [
+        "DGFT_OCR_NOTIFICATION_70_2023_180",
+        "DGFT_OCR_NOTIFICATION_32_2024-25_88",
+        "DGFT_NOTIFICATION_35___2025_26",
+        "DGFT_OCR_NOTIFICATION_11_2025-26_29",
+        "DGFT_NOTIFICATION_74_2023"
+      ],
+      "new_top5": [
+        "DGFT_OCR_NOTIFICATION_70_2023_180",
+        "DGFT_OCR_NOTIFICATION_32_2024-25_88",
+        "APEDA_NOTIFICATION_41_2026_27",
+        "DGFT_NOTIFICATION_35___2025_26",
+        "DGFT_OCR_NOTIFICATION_11_2025-26_29"
+      ],
+      "retained": 4
+    },
+    {
+      "query": "India GDP growth",
+      "old_top5": [
+        "2281135",
+        "2283719",
+        "DGFT_NOTIFICATION_09_2025_26",
+        "DGFT_TRADE_NOTICE_30_2025_26",
+        "DGFT_TRADE_NOTICE_04_2025_26"
+      ],
+      "new_top5": [
+        "2281135",
+        "2283719",
+        "DGFT_NOTIFICATION_09_2025_26",
+        "DGFT_TRADE_NOTICE_30_2025_26",
+        "DGFT_TRADE_NOTICE_04_2025_26"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "foreign exchange reserves RBI",
+      "old_top5": [
+        "DGFT_OCR_NOTIFICATION_19_2026-27_51",
+        "DGFT_OCR_NOTIFICATION_08_2025-2026_22",
+        "DGFT_OCR_TRADE_NOTICE_16_2024-2025_353",
+        "DGFT_PUBLIC_NOTICE_Corrigendum",
+        "DGFT_PUBLIC_NOTICE_01_2025_26"
+      ],
+      "new_top5": [
+        "DGFT_OCR_NOTIFICATION_19_2026-27_51",
+        "DGFT_OCR_NOTIFICATION_08_2025-2026_22",
+        "DGFT_OCR_TRADE_NOTICE_16_2024-2025_353",
+        "DGFT_PUBLIC_NOTICE_Corrigendum",
+        "DGFT_PUBLIC_NOTICE_01_2025_26"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "PLI manufacturing investment",
+      "old_top5": [
+        "DGFT_TRADE_NOTICE_27_2025_26",
+        "DGFT_TRADE_NOTICE_11",
+        "DGFT_TRADE_NOTICE_20_2025_26",
+        "DGFT_OCR_NOTIFICATION_40_108",
+        "DGFT_TRADE_NOTICE_34_2023_24"
+      ],
+      "new_top5": [
+        "DGFT_TRADE_NOTICE_27_2025_26",
+        "DGFT_TRADE_NOTICE_11",
+        "DGFT_TRADE_NOTICE_20_2025_26",
+        "DGFT_OCR_NOTIFICATION_40_108",
+        "DGFT_TRADE_NOTICE_34_2023_24"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "shipping export logistics",
+      "old_top5": [
+        "DGFT_OCR_NOTIFICATION_65_2025-26_171",
+        "DGFT_TRADE_NOTICE_29_2025_26",
+        "DGFT_TRADE_NOTICE_28_2025_26",
+        "DGFT_TRADE_NOTICE_27_2025_26",
+        "DGFT_OCR_NOTIFICATION_19_2024-25_49"
+      ],
+      "new_top5": [
+        "DGFT_OCR_NOTIFICATION_65_2025-26_171",
+        "DGFT_TRADE_NOTICE_29_2025_26",
+        "DGFT_TRADE_NOTICE_28_2025_26",
+        "DGFT_TRADE_NOTICE_27_2025_26",
+        "DGFT_OCR_NOTIFICATION_19_2024-25_49"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "Halal Certification meat export",
+      "old_top5": [
+        "DGFT_TRADE_NOTICE_22_2024_25",
+        "DGFT_OCR_NOTIFICATION_34_2024-25_93",
+        "DGFT_OCR_NOTIFICATION_08_2023_21",
+        "DGFT_OCR_NOTIFICATION_41_2023_109",
+        "DGFT_OCR_NOTIFICATION_59_2025-26_157"
+      ],
+      "new_top5": [
+        "DGFT_TRADE_NOTICE_22_2024_25",
+        "DGFT_OCR_NOTIFICATION_34_2024-25_93",
+        "DGFT_OCR_NOTIFICATION_08_2023_21",
+        "DGFT_OCR_NOTIFICATION_41_2023_109",
+        "DGFT_OCR_NOTIFICATION_59_2025-26_157"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "HS Code 100630",
+      "old_top5": [
+        "DGFT_TRADE_NOTICE_22_2024_25",
+        "DGFT_TRADE_NOTICE_11",
+        "DGFT_OCR_NOTIFICATION_30_2023_81",
+        "DGFT_OCR_NOTIFICATION_55_2025-26_145",
+        "DGFT_OCR_NOTIFICATION_61_2025-26_161"
+      ],
+      "new_top5": [
+        "DGFT_TRADE_NOTICE_22_2024_25",
+        "DGFT_TRADE_NOTICE_11",
+        "DGFT_OCR_NOTIFICATION_30_2023_81",
+        "DGFT_OCR_NOTIFICATION_55_2025-26_145",
+        "DGFT_OCR_NOTIFICATION_61_2025-26_161"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "Notification 74/2025-26",
+      "old_top5": [
+        "DGFT_OCR_NOTIFICATION_31_2025-26_86",
+        "DGFT_TRADE_NOTICE_22_2024_25",
+        "DGFT_OCR_PUBLIC_NOTICE_49_2025-26_314",
+        "DGFT_OCR_NOTIFICATION_25_69",
+        "DGFT_NOTIFICATION_37_2026_27"
+      ],
+      "new_top5": [
+        "DGFT_OCR_NOTIFICATION_31_2025-26_86",
+        "DGFT_TRADE_NOTICE_22_2024_25",
+        "DGFT_OCR_PUBLIC_NOTICE_49_2025-26_314",
+        "DGFT_OCR_NOTIFICATION_25_69",
+        "DGFT_NOTIFICATION_37_2026_27"
+      ],
+      "retained": 5
+    },
+    {
+      "query": "India EU trade agreement",
+      "old_top5": [
+        "DGFT_OCR_PUBLIC_NOTICE_25_2024-25_253",
+        "DGFT_OCR_PUBLIC_NOTICE_18_2025-26_235",
+        "2283578",
+        "DGFT_OCR_PUBLIC_NOTICE_29_2023_262",
+        "DGFT_TRADE_NOTICE_13_2025_26"
+      ],
+      "new_top5": [
+        "DGFT_OCR_PUBLIC_NOTICE_25_2024-25_253",
+        "DGFT_OCR_PUBLIC_NOTICE_18_2025-26_235",
+        "2283578",
+        "DGFT_OCR_PUBLIC_NOTICE_29_2023_262",
+        "DGFT_TRADE_NOTICE_13_2025_26"
+      ],
+      "retained": 5
+    }
+  ],
+  "summary": {
+    "new_top5_pass": 16,
+    "new_total": 16,
+    "regression_total": 20,
+    "minimum_prior_top5_retained": 4
+  }
+}
