@@ -35,9 +35,16 @@ SOURCES = {
 }
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; IndiTradeBot/1.0)", "Accept": "*/*"}
 # APEDA's emSign root is in the OS trust store but not in certifi's bundle.
-# Verification stays ON; we only point requests at the system bundle.
-SYSTEM_CA = "/etc/ssl/certs/ca-certificates.crt"
-VERIFY = SYSTEM_CA if os.path.exists(SYSTEM_CA) else True
+# Verification stays ON. Preferred: `truststore` (standard, uses the OS store on
+# Windows/macOS/Linux). Fallback: the Debian/Ubuntu system bundle. Last resort:
+# requests' default certifi bundle, which fails closed on this host.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+    VERIFY = True
+except ImportError:
+    SYSTEM_CA = "/etc/ssl/certs/ca-certificates.crt"
+    VERIFY = SYSTEM_CA if os.path.exists(SYSTEM_CA) else True
 OUT_DIR = Path("data/raw/apeda_mirror")
 PDF_DIR = OUT_DIR / "pdfs"
 OUTPUT_JSONL = Path("data/processed/apeda_mirror_chunks.jsonl")

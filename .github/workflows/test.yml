@@ -26,3 +26,18 @@ jobs:
 
       - name: Run test suite
         run: pytest tests/ -v --tb=short
+
+  apeda-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install pytest requests beautifulsoup4 lxml pdfplumber truststore
+      - name: APEDA mirror unit tests
+        run: pytest tests/test_apeda_mirror.py -v --tb=short
+      - name: APEDA TLS check with verification on (read-only listing fetch)
+        run: python -c "import requests; from src.data_ingestion import apeda_mirror as a; r=requests.get(a.SOURCES['Trade_Notice'], headers=a.HEADERS, timeout=60, verify=a.VERIFY); r.raise_for_status(); print(len(a.parse_listing(r.text,'Trade_Notice')),'rows')"
