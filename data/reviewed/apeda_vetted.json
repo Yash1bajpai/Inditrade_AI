@@ -46,7 +46,7 @@
    "transcription_sha256": "b30df4fd81ddc81a946fe9b327d3d57ce41dd2fb9ce1bed98e079a3c51aedc42",
    "first_pass": "2026-10-20 agent: page 1 image compared to extracted text, corrections logged",
    "second_pass": {
-    "by": "agent, independent re-render at 90 dpi, 2026-10-20",
+    "by": "same agent (repeat pass, NOT independent or human review), 2026-10-20",
     "method": "re-rendered page 1 and compared the corrected text line by line against the page image (numbers, dates, HS codes, amounts, file numbers, operative clauses); no differences left except table layout order and blank lines",
     "verified": true
    }
@@ -95,7 +95,7 @@
    "transcription_sha256": "ba4d4c4fefaa68404d9d74725be2beec0b0ff6139ce0b2ce4ff5ad692a07902f",
    "first_pass": "2026-10-20 agent: page 1 image compared to extracted text, corrections logged",
    "second_pass": {
-    "by": "agent, independent re-render at 90 dpi, 2026-10-20",
+    "by": "same agent (repeat pass, NOT independent or human review), 2026-10-20",
     "method": "re-rendered page 1 and compared the corrected text line by line against the page image (numbers, dates, HS codes, amounts, file numbers, operative clauses); no differences left except table layout order and blank lines",
     "verified": true
    }
@@ -150,7 +150,7 @@
    "transcription_sha256": "2ece51e85dc2c1e10c9d03f14c1076cb6fbec4e5478106d5f966c4a20a954c14",
    "first_pass": "2026-10-20 agent: page 1 image compared to extracted text, corrections logged",
    "second_pass": {
-    "by": "agent, independent re-render at 90 dpi, 2026-10-20",
+    "by": "same agent (repeat pass, NOT independent or human review), 2026-10-20",
     "method": "re-rendered page 1 and compared the corrected text line by line against the page image (numbers, dates, HS codes, amounts, file numbers, operative clauses); no differences left except table layout order and blank lines",
     "verified": true
    }
@@ -223,7 +223,7 @@
    "transcription_sha256": "fc3c5fc18cc860651323ae629210cc6bc5b5600aaf75124a58e4a320dce512e8",
    "first_pass": "2026-10-20 agent: page 1 image compared to extracted text, corrections logged",
    "second_pass": {
-    "by": "agent, independent re-render at 90 dpi, 2026-10-20",
+    "by": "same agent (repeat pass, NOT independent or human review), 2026-10-20",
     "method": "re-rendered page 1 and compared the corrected text line by line against the page image (numbers, dates, HS codes, amounts, file numbers, operative clauses); no differences left except table layout order and blank lines",
     "verified": true
    }
