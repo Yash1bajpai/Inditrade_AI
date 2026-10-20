@@ -1,0 +1,16 @@
+{
+  "collection": "trade_policy_e5_small_v1",
+  "cluster_id": "de1cb924-abc1-40ed-a756-a361c40d806c",
+  "prior_count": 5195,
+  "expected_count": 5199,
+  "added_point_ids": [
+    "50295524-756f-5ab2-ba06-ce5b7818f8a7",
+    "3c954ee9-46b8-5c29-a4a6-79303b9e07a3",
+    "c96fb7be-149a-57ed-939f-e96a09fc07db",
+    "dac232d7-7de0-54ee-8a60-8484813f60dc"
+  ],
+  "rollback": "Delete ONLY added_point_ids from this collection; existing 5195 points were not modified. Revert sparse artifact and query changes to aa7c9b2.",
+  "pre_index_git_commit": "aa7c9b2df76c3aae0aa9a143e4c8c7c0f7c0df15",
+  "pre_index_sha256": "696e7391310d19fcd46f666579c77384b5dab25c155c07d9ff7b4fa1929f9f16",
+  "local_full_vector_backup_sha256": "a25e31c9c5f3f479c7d88ce957391c624420b3b5bd1cda3a92e4580907ba8469"
+}

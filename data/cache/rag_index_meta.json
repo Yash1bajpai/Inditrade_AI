@@ -24,11 +24,29 @@
   "sparse_index": {
     "engine": "BM25Okapi",
     "path": "data/cache/bm25_index.pkl",
-    "documents": 5195,
+    "documents": 5199,
     "source_latest_dates": {
       "DGFT_Policy": "2026-09-30",
       "PIB_Press_Release": "2026-09-28"
     }
   },
-  "sparse_index_timestamp": "2026-09-30T12:31:22.450825+00:00"
+  "sparse_index_timestamp": "2026-09-30T12:31:22.450825+00:00",
+  "apeda_verified4": {
+    "updated_at": "2026-10-20T16:05:46.640707+00:00",
+    "approved_documents": [
+      "41/2026-27",
+      "36/2026-27",
+      "34/2026-27",
+      "35/2026-27"
+    ],
+    "source": "APEDA delayed partial mirror of DGFT; page-checked twice by same agent, not independent legal review",
+    "added_complete_document_payloads": 4,
+    "prior_chunks_preserved": 5195,
+    "remaining_quarantined_candidate_gaps": 20,
+    "public_notices_coverage": "not supplied by mirror",
+    "full_refresh": false,
+    "pre_sparse_sha256": "696e7391310d19fcd46f666579c77384b5dab25c155c07d9ff7b4fa1929f9f16",
+    "new_sparse_sha256": "44bab88d0b85281ad82cf387b0600edac56b36e93ffd9f4d5eaf8aab9656cbe5",
+    "rollback_commit": "aa7c9b2df76c3aae0aa9a143e4c8c7c0f7c0df15"
+  }
 }
