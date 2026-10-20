@@ -88,8 +88,12 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
+          # actions/checkout leaves a detached HEAD; recreate local main at the
+          # fetched tip so pull --rebase and push have a real branch to work on.
+          git fetch origin main
+          git switch -C main FETCH_HEAD
           git add data/cache/bm25_index.pkl.lzma data/cache/rag_index_meta.json
-          git diff --cached --quiet || { git commit -m 'Refresh verified policy RAG indexes'; git pull --rebase origin main; git push; }
+          git diff --cached --quiet || { git commit -m 'Refresh verified policy RAG indexes'; git pull --rebase origin main; git push origin main; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
