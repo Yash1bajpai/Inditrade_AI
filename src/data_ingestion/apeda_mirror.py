@@ -97,6 +97,7 @@ def norm_no(value):
 
 
 def existing_keys(path=EXISTING_JSONL):
+    """Return (number, date) keys of documents already in the corpus."""
     keys = set()
     if Path(path).exists():
         for line in open(path, encoding="utf-8"):
@@ -114,11 +115,32 @@ def existing_keys(path=EXISTING_JSONL):
     return keys
 
 
-def missing_rows(rows, have):
-    return [r for r in rows if (norm_no(r["notification_no"]), r["date"]) not in have]
+def existing_titles():
+    """Lower-cased titles in the committed index; used to catch same document, different number."""
+    index = Path("data/cache/bm25_index.pkl.lzma")
+    if not index.exists():
+        return []
+    import lzma
+    import pickle
+    with lzma.open(index, "rb") as f:
+        return [(d.get("title") or "").lower().strip() for d in pickle.load(f)["docs"]]
 
 
-def pdf_text(path):
+def same_title(subject, titles, threshold=0.95):
+    import difflib
+    s = subject.lower().strip()[:80]
+    return any(t and difflib.SequenceMatcher(None, s, t[:80]).ratio() >= threshold for t in titles)
+
+
+def missing_rows(rows, have, titles=()):
+    """Rows not in the corpus by number+date AND without a near-identical title.
+    Still a heuristic: a row kept here is a candidate gap, not proof of absence."""
+    return [r for r in rows
+            if (norm_no(r["notification_no"]), r["date"]) not in have
+            and not same_title(r["subject"], titles)]
+
+
+def pdf_text(path, with_flag=False):
     import pdfplumber
     out = []
     with pdfplumber.open(path) as pdf:
@@ -127,9 +149,10 @@ def pdf_text(path):
             if t:
                 out.append(t)
     text = "\n".join(out).strip()
+    ocr = False
     if len(text) < 100:  # scanned PDF: same OCR route the DGFT pipeline uses
-        text = ocr_pdf(path)
-    return text
+        text, ocr = ocr_pdf(path), True
+    return (text, ocr) if with_flag else text
 
 
 def ocr_pdf(path):
@@ -149,7 +172,7 @@ def ocr_pdf(path):
     return "\n".join(parts).strip()
 
 
-def build_record(row, text):
+def build_record(row, text, ocr=False):
     slug = re.sub(r"[^a-zA-Z0-9]", "_", row["notification_no"])
     return {
         "chunk_id": f"APEDA_{row['type'].upper()}_{slug}",
@@ -164,17 +187,21 @@ def build_record(row, text):
         "source": "APEDA_MIRROR_OF_DGFT",
         "mirror_uploaded_date": row["uploaded_date"],
         "source_note": DISCLAIMER,
+        "ocr_used": ocr,
+        "ocr_warning": ("OCR text: numbers, dates and clause wording can be wrong (seen: notification "
+                        "number and date garbled). Use the mirror-table fields and the PDF as truth.") if ocr else "",
     }
 
 
 def run(fy_filter="2026-27", limit=None):
     have = existing_keys()
+    titles = existing_titles()
     todo = []
     for doc_type, url in SOURCES.items():
         resp = requests.get(url, headers=HEADERS, timeout=60, verify=VERIFY)
         resp.raise_for_status()
         rows = [r for r in parse_listing(resp.text, doc_type) if fy_filter in r["notification_no"]]
-        gap = missing_rows(rows, have)
+        gap = missing_rows(rows, have, titles)
         print(f"{doc_type}: {len(rows)} mirror rows for {fy_filter}, {len(gap)} not in corpus")
         todo += gap
     if limit:
@@ -190,10 +217,10 @@ def run(fy_filter="2026-27", limit=None):
             if not r.content.startswith(b"%PDF"):
                 raise RuntimeError("not a PDF")
             path.write_bytes(r.content)
-            text = pdf_text(path)
+            text, ocr = pdf_text(path, with_flag=True)
             if len(text) < 100:
                 raise RuntimeError("no extractable text even after OCR; left out")
-            records.append(build_record(row, text))
+            records.append(build_record(row, text, ocr))
         except Exception as e:
             failed.append((row["notification_no"], row["type"], str(e)[:80]))
         time.sleep(0.5)

@@ -31,3 +31,9 @@ def test_record_carries_provenance():
     rec = a.build_record(row, "text")
     assert rec["source"] == "APEDA_MIRROR_OF_DGFT" and rec["mirror_uploaded_date"] == "13/10/2026"
     assert "lag" in rec["source_note"] and rec["chunk_id"].startswith("APEDA_")
+
+
+def test_same_title_under_different_number_is_not_a_gap():
+    rows = a.parse_listing(HTML, "Notification")
+    gap = a.missing_rows(rows, set(), ["continuation of rodtep"])
+    assert [r["notification_no"] for r in gap] == ["36/2026-27"]
