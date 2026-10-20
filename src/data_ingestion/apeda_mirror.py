@@ -47,7 +47,8 @@ except ImportError:
     VERIFY = SYSTEM_CA if os.path.exists(SYSTEM_CA) else True
 OUT_DIR = Path("data/raw/apeda_mirror")
 PDF_DIR = OUT_DIR / "pdfs"
-OUTPUT_JSONL = Path("data/processed/apeda_mirror_chunks.jsonl")
+OUTPUT_JSONL = Path("data/processed/apeda_mirror_chunks.jsonl")  # text-layer PDFs only
+QUARANTINE_JSONL = Path("data/processed/apeda_mirror_quarantine_ocr.jsonl")  # scans: NOT for answers
 EXISTING_JSONL = Path("data/processed/dgft_policy_chunks.jsonl")
 DISCLAIMER = ("Copied from the APEDA mirror of DGFT documents, which can lag DGFT by weeks "
               "and has no Public Notices. Check dgft.gov.in for the latest.")
@@ -234,13 +235,22 @@ def run(fy_filter="2026-27", limit=None):
     if not records:
         raise RuntimeError("No APEDA mirror documents extracted; nothing written")
     OUTPUT_JSONL.parent.mkdir(parents=True, exist_ok=True)
-    tmp = str(OUTPUT_JSONL) + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        for rec in records:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-    os.replace(tmp, OUTPUT_JSONL)
-    print(f"Wrote {len(records)} records to {OUTPUT_JSONL}; skipped {len(failed)}: {failed}")
-    return records, failed
+    eligible, quarantined = split_by_ocr(records)
+    for path, recs in ((OUTPUT_JSONL, eligible), (QUARANTINE_JSONL, quarantined)):
+        tmp = str(path) + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            for rec in recs:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)
+    print(f"{len(eligible)} text-layer records -> {OUTPUT_JSONL}; {len(quarantined)} OCR scans quarantined "
+          f"-> {QUARANTINE_JSONL}; skipped {len(failed)}: {failed}")
+    return eligible, failed
+
+
+def split_by_ocr(records):
+    """OCR text garbles numbers and dates (seen on Notification 41/2026-27), so scans are
+    quarantined until a person checks them against the page image."""
+    return [r for r in records if not r["ocr_used"]], [r for r in records if r["ocr_used"]]
 
 
 if __name__ == "__main__":

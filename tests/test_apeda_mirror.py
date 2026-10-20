@@ -37,3 +37,9 @@ def test_same_title_under_different_number_is_not_a_gap():
     rows = a.parse_listing(HTML, "Notification")
     gap = a.missing_rows(rows, set(), ["continuation of rodtep"])
     assert [r["notification_no"] for r in gap] == ["36/2026-27"]
+
+
+def test_ocr_scans_are_quarantined():
+    row = a.parse_listing(HTML, "Notification")[0]
+    good, bad = a.split_by_ocr([a.build_record(row, "t", ocr=False), a.build_record(row, "t", ocr=True)])
+    assert len(good) == 1 and not good[0]["ocr_used"] and len(bad) == 1 and bad[0]["ocr_warning"]
