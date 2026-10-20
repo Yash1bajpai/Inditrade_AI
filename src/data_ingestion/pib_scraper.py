@@ -76,12 +76,16 @@ def collect_candidate_prids():
     """
     print("=== [STEP 1] COLLECTING REAL PRESS RELEASE CANDIDATES FROM PIB.GOV.IN ===")
 
+    # pib.gov.in now 301s to www.pib.gov.in and force-redirects lang=1 to
+    # lang=2 (Hindi) based on geo detection, silently dropping the requested
+    # language. Pinning reg=3 on the www host keeps each listing in the
+    # language the URL actually asks for, so English releases stay English.
     listing_urls = [
-        "https://pib.gov.in/AllRelease.aspx?MenuId=3&Lang=1",
-        "https://pib.gov.in/AllRelease.aspx?MenuId=3&Lang=2",
-        "https://pib.gov.in/AllRelease.aspx?MinId=15",
-        "https://pib.gov.in/AllRelease.aspx?MinId=4",
-        "https://pib.gov.in/indexd.aspx"
+        "https://www.pib.gov.in/AllRelease.aspx?MenuId=3&reg=3&lang=1",
+        "https://www.pib.gov.in/AllRelease.aspx?MenuId=3&reg=3&lang=2",
+        "https://www.pib.gov.in/AllRelease.aspx?MinId=15&reg=3&lang=1",
+        "https://www.pib.gov.in/AllRelease.aspx?MinId=4&reg=3&lang=1",
+        "https://www.pib.gov.in/indexd.aspx?reg=3&lang=1"
     ]
 
     candidates = {}
@@ -147,9 +151,9 @@ def scrape_full_articles(candidates, max_articles=70):
         prid = cand["prid"]
 
         iframe_urls = [
-            f"https://pib.gov.in/PressReleaseIframePage.aspx?PRID={prid}&RegId=3&Lang=1",
-            f"https://pib.gov.in/PressReleaseIframePage.aspx?PRID={prid}&RegId=3&Lang=2",
-            f"https://pib.gov.in/PressReleaseIframePage.aspx?PRID={prid}"
+            f"https://www.pib.gov.in/PressReleaseIframePage.aspx?PRID={prid}&reg=3&lang=1",
+            f"https://www.pib.gov.in/PressReleaseIframePage.aspx?PRID={prid}&reg=3&lang=2",
+            f"https://www.pib.gov.in/PressReleaseIframePage.aspx?PRID={prid}"
         ]
 
         full_text = ""
