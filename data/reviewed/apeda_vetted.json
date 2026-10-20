@@ -1,0 +1,232 @@
+{
+ "version": 1,
+ "note": "Corrections are applied to the extracted text; any drift in the PDF bytes or extraction makes the document fall back to quarantine. Not legal advice; text only.",
+ "entries": [
+  {
+   "chunk_id": "APEDA_NOTIFICATION_36_2026_27",
+   "notification_no": "36/2026-27",
+   "pdf_url": "https://apeda.gov.in/sites/default/files/dgft_notifications/Notification_36.pdf",
+   "pdf_sha256": "6cdea290b5b58add28b700db3165a7fdfd89812d5d9cbda6d747fc996f506215",
+   "pages": [
+    1
+   ],
+   "page_count": 1,
+   "corrections": [
+    {
+     "find": "15'\" September 2026 >",
+     "replace": "15th September 2026",
+     "count": 1,
+     "reason": "date superscript garbled"
+    },
+    {
+     "find": "exceed % 3,00,000",
+     "replace": "exceed ₹ 3,00,000",
+     "count": 1,
+     "reason": "rupee sign read as %"
+    },
+    {
+     "find": "not exceeding & 3,00,000",
+     "replace": "not exceeding ₹ 3,00,000",
+     "count": 1,
+     "reason": "rupee sign read as &"
+    },
+    {
+     "find": "exceeding =\n3,00,000",
+     "replace": "exceeding ₹\n3,00,000",
+     "count": 1,
+     "reason": "rupee sign read as ="
+    },
+    {
+     "find": "\n\nay *\n\n(Lav",
+     "replace": "\n\n(Lav",
+     "count": 1,
+     "reason": "signature scribble read as text"
+    }
+   ],
+   "transcription_sha256": "b30df4fd81ddc81a946fe9b327d3d57ce41dd2fb9ce1bed98e079a3c51aedc42",
+   "first_pass": "2026-10-20 agent: page 1 image compared to extracted text, corrections logged",
+   "second_pass": {
+    "by": "same agent (repeat pass, NOT independent or human review), 2026-10-20",
+    "method": "re-rendered page 1 and compared the corrected text line by line against the page image (numbers, dates, HS codes, amounts, file numbers, operative clauses); no differences left except table layout order and blank lines",
+    "verified": true
+   }
+  },
+  {
+   "chunk_id": "APEDA_NOTIFICATION_34_2026_27",
+   "notification_no": "34/2026-27",
+   "pdf_url": "https://apeda.gov.in/sites/default/files/dgft_notifications/34_2026_27_Notification.pdf",
+   "pdf_sha256": "24cf56213740227b1cb06ea1aa1d7e00dad04a57d5ddafed691125aebb77d594",
+   "pages": [
+    1
+   ],
+   "page_count": 1,
+   "corrections": [
+    {
+     "find": "24‘ August, 2026",
+     "replace": "24th August, 2026",
+     "count": 1,
+     "reason": "date superscript garbled"
+    },
+    {
+     "find": "4101 0000",
+     "replace": "1101 0000",
+     "count": 1,
+     "reason": "HS code first digit misread (page shows 1101 0000)"
+    },
+    {
+     "find": "Mestlin",
+     "replace": "Meslin",
+     "count": 1,
+     "reason": "word misread"
+    },
+    {
+     "find": "ISamolina",
+     "replace": "Samolina",
+     "count": 1,
+     "reason": "stray character"
+    },
+    {
+     "find": "\n2: The export",
+     "replace": "\n2. The export",
+     "count": 1,
+     "reason": "punctuation"
+    }
+   ],
+   "transcription_sha256": "ba4d4c4fefaa68404d9d74725be2beec0b0ff6139ce0b2ce4ff5ad692a07902f",
+   "first_pass": "2026-10-20 agent: page 1 image compared to extracted text, corrections logged",
+   "second_pass": {
+    "by": "same agent (repeat pass, NOT independent or human review), 2026-10-20",
+    "method": "re-rendered page 1 and compared the corrected text line by line against the page image (numbers, dates, HS codes, amounts, file numbers, operative clauses); no differences left except table layout order and blank lines",
+    "verified": true
+   }
+  },
+  {
+   "chunk_id": "APEDA_NOTIFICATION_35_2026_27",
+   "notification_no": "35/2026-27",
+   "pdf_url": "https://apeda.gov.in/sites/default/files/dgft_notifications/35_2026_27_Notification.pdf",
+   "pdf_sha256": "42c4f143377d46a92152dbaa7f6e308940ac572856813b3f8cc354f6d3eac94b",
+   "pages": [
+    1
+   ],
+   "page_count": 1,
+   "corrections": [
+    {
+     "find": "24'\" August, 2026",
+     "replace": "24th August, 2026",
+     "count": 1,
+     "reason": "date superscript garbled"
+    },
+    {
+     "find": "S.0. (E)",
+     "replace": "S.O. (E)",
+     "count": 1,
+     "reason": "letter O read as zero"
+    },
+    {
+     "find": "fre (HS) Codes",
+     "replace": "ITC (HS) Codes",
+     "count": 1,
+     "reason": "table header misread"
+    },
+    {
+     "find": "40019910",
+     "replace": "10019910",
+     "count": 1,
+     "reason": "HS code first digit misread (page shows 10019910)"
+    },
+    {
+     "find": "01/91/41 80/032",
+     "replace": "01/91/180/032",
+     "count": 1,
+     "reason": "file number misread"
+    },
+    {
+     "find": "\n\na. ~\n\n(Lav",
+     "replace": "\n\n(Lav",
+     "count": 1,
+     "reason": "signature scribble read as text"
+    }
+   ],
+   "transcription_sha256": "2ece51e85dc2c1e10c9d03f14c1076cb6fbec4e5478106d5f966c4a20a954c14",
+   "first_pass": "2026-10-20 agent: page 1 image compared to extracted text, corrections logged",
+   "second_pass": {
+    "by": "same agent (repeat pass, NOT independent or human review), 2026-10-20",
+    "method": "re-rendered page 1 and compared the corrected text line by line against the page image (numbers, dates, HS codes, amounts, file numbers, operative clauses); no differences left except table layout order and blank lines",
+    "verified": true
+   }
+  },
+  {
+   "chunk_id": "APEDA_NOTIFICATION_41_2026_27",
+   "notification_no": "41/2026-27",
+   "pdf_url": "https://apeda.gov.in/sites/default/files/dgft_notifications/41_Notification_2026_27.pdf",
+   "pdf_sha256": "55a55cdf2f29e8aae7bbd09571aede5b23e626aa6298491fbe60e4376194065f",
+   "pages": [
+    1
+   ],
+   "page_count": 1,
+   "corrections": [
+    {
+     "find": "\\\nNotification No: I tZOZe-Zl\nDated: 3oSSeptem ber 2026",
+     "replace": "Notification No: 41/2026-27\nDated: 30th September 2026",
+     "count": 1,
+     "reason": "handwritten number and date garbled"
+    },
+    {
+     "find": "December 3l't, 2026",
+     "replace": "December 31st, 2026",
+     "count": 1,
+     "reason": "date garbled"
+    },
+    {
+     "find": "up to 3l't December 2026",
+     "replace": "up to 31st December 2026",
+     "count": 1,
+     "reason": "date garbled"
+    },
+    {
+     "find": "up to 31't December m26",
+     "replace": "up to 31st December 2026",
+     "count": 1,
+     "reason": "year garbled"
+    },
+    {
+     "find": "Government of lndia",
+     "replace": "Government of India",
+     "count": 1,
+     "reason": "letter I read as l"
+    },
+    {
+     "find": "dglt@.nic.in",
+     "replace": "dgft@nic.in",
+     "count": 1,
+     "reason": "email misread"
+    },
+    {
+     "find": "(lssued from File No. 0 l/94ll 80/090/4M26lPC-4)",
+     "replace": "(Issued from File No. 01/94/180/090/AM26/PC-4)",
+     "count": 1,
+     "reason": "file number garbled"
+    },
+    {
+     "find": "\nv\n(Lav",
+     "replace": "\n(Lav",
+     "count": 1,
+     "reason": "signature scribble read as text"
+    },
+    {
+     "find": "shall remain unchanged\nEffect",
+     "replace": "shall remain unchanged.\nEffect",
+     "count": 1,
+     "reason": "final full stop missed"
+    }
+   ],
+   "transcription_sha256": "fc3c5fc18cc860651323ae629210cc6bc5b5600aaf75124a58e4a320dce512e8",
+   "first_pass": "2026-10-20 agent: page 1 image compared to extracted text, corrections logged",
+   "second_pass": {
+    "by": "same agent (repeat pass, NOT independent or human review), 2026-10-20",
+    "method": "re-rendered page 1 and compared the corrected text line by line against the page image (numbers, dates, HS codes, amounts, file numbers, operative clauses); no differences left except table layout order and blank lines",
+    "verified": true
+   }
+  }
+ ]
+}
