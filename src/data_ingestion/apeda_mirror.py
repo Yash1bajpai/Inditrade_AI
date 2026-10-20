@@ -228,6 +228,8 @@ def run(fy_filter="2026-27", limit=None):
             text, ocr = pdf_text(path, with_flag=True)
             if len(text) < 100:
                 raise RuntimeError("no extractable text even after OCR; left out")
+            if not header_matches_listing(row, text):
+                ocr = True  # embedded/garbled text layer: quarantine like a scan
             records.append(build_record(row, text, ocr))
         except Exception as e:
             failed.append((row["notification_no"], row["type"], str(e)[:80]))
@@ -245,6 +247,12 @@ def run(fy_filter="2026-27", limit=None):
     print(f"{len(eligible)} text-layer records -> {OUTPUT_JSONL}; {len(quarantined)} OCR scans quarantined "
           f"-> {QUARANTINE_JSONL}; skipped {len(failed)}: {failed}")
     return eligible, failed
+
+
+def header_matches_listing(row, text):
+    """A PDF can carry an embedded (bad) OCR text layer, so "has text" is not "is clean".
+    Trust text only if it repeats the listing's own notification number verbatim."""
+    return norm_no(row["notification_no"]) in norm_no(text[:1500])
 
 
 def split_by_ocr(records):

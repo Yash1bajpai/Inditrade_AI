@@ -43,3 +43,9 @@ def test_ocr_scans_are_quarantined():
     row = a.parse_listing(HTML, "Notification")[0]
     good, bad = a.split_by_ocr([a.build_record(row, "t", ocr=False), a.build_record(row, "t", ocr=True)])
     assert len(good) == 1 and not good[0]["ocr_used"] and len(bad) == 1 and bad[0]["ocr_warning"]
+
+
+def test_garbled_text_layer_fails_header_check():
+    row = a.parse_listing(HTML, "Notification")[0]
+    assert a.header_matches_listing(row, "Notification No: 41/2026-27 Dated 30th")
+    assert not a.header_matches_listing(row, "Notification No: \\ I tZOZe-Zl")
