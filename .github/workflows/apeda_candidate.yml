@@ -1,0 +1,29 @@
+name: APEDA mirror candidate (read-only, manual)
+# Builds a CANDIDATE file only. No commit, no release upload, no index rebuild,
+# no deploy, no schedule. Output is an artifact for a person to review.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y tesseract-ocr poppler-utils
+          pip install requests beautifulsoup4 lxml pdfplumber truststore rank_bm25 numpy
+      - name: Build candidate (only audited documents are eligible; the rest are quarantined)
+        run: python src/data_ingestion/apeda_mirror.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apeda-candidate
+          path: |
+            data/processed/apeda_mirror_chunks.jsonl
+            data/processed/apeda_mirror_quarantine_ocr.jsonl
+            data/raw/apeda_mirror/pdf_sha256.json

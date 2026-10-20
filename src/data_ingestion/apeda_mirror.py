@@ -201,21 +201,78 @@ def build_record(row, text, ocr=False):
     }
 
 
+VETTED_JSON = Path("data/reviewed/apeda_vetted.json")
+SECOND_PASS_KEYS = ("by", "method", "verified")
+
+
+def sha256_bytes(data):
+    import hashlib
+    return hashlib.sha256(data).hexdigest()
+
+
+def load_vetted(path=VETTED_JSON):
+    """Audited transcriptions. Missing file means nothing is vetted (everything quarantined)."""
+    path = Path(path)
+    if not path.exists():
+        return {}
+    return {e["chunk_id"]: e for e in json.loads(path.read_text(encoding="utf-8"))["entries"]}
+
+
+def apply_corrections(text, corrections):
+    """Apply logged find/replace corrections; every one must hit exactly its stated count."""
+    for c in corrections:
+        if text.count(c["find"]) != c["count"]:
+            raise ValueError(f"correction {c['find']!r} expected {c['count']} hits, found {text.count(c['find'])}")
+        text = text.replace(c["find"], c["replace"])
+    return text
+
+
+def vetted_text(record, pdf_sha, vetted):
+    """Return the audited text if, and only if, this exact PDF and extraction were vetted.
+    Default is None (quarantined). Header match, text layer or OCR flags never grant eligibility."""
+    e = vetted.get(record["chunk_id"])
+    if not e or e.get("pdf_sha256") != pdf_sha:
+        return None
+    sp = e.get("second_pass") or {}
+    if not (all(sp.get(k) for k in SECOND_PASS_KEYS) and sp["verified"] is True and e.get("pages") and e.get("first_pass")):
+        return None
+    try:
+        text = apply_corrections(record["clean_text"], e["corrections"])
+    except ValueError:
+        return None  # extraction drifted from what was audited
+    return text if sha256_bytes(text.encode("utf-8")) == e.get("transcription_sha256") else None
+
+
+def split_by_vetting(records, hashes, vetted):
+    eligible, quarantined = [], []
+    for r in records:
+        text = vetted_text(r, hashes.get(r["chunk_id"]), vetted)
+        if text is None:
+            quarantined.append({**r, "verification": "quarantined"})
+        else:
+            e = vetted[r["chunk_id"]]
+            eligible.append({**r, "clean_text": text, "verification": "visually_verified_with_logged_corrections",
+                             "pdf_sha256": e["pdf_sha256"], "audit_pages": e["pages"],
+                             "ocr_warning": ""})
+    return eligible, quarantined
+
+
 def run(fy_filter="2026-27", limit=None):
     have = existing_keys()
     titles = existing_titles()
+    vetted = load_vetted()
     todo = []
     for doc_type, url in SOURCES.items():
         resp = requests.get(url, headers=HEADERS, timeout=60, verify=VERIFY)
         resp.raise_for_status()
         rows = [r for r in parse_listing(resp.text, doc_type) if fy_filter in r["notification_no"]]
         gap = missing_rows(rows, have, titles)
-        print(f"{doc_type}: {len(rows)} mirror rows for {fy_filter}, {len(gap)} not in corpus")
+        print(f"{doc_type}: {len(rows)} mirror rows for {fy_filter}, {len(gap)} candidate gaps")
         todo += gap
     if limit:
         todo = todo[:limit]
     PDF_DIR.mkdir(parents=True, exist_ok=True)
-    records, failed = [], []
+    records, hashes, failed = [], {}, []
     for row in todo:
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", f"{row['type']}_{row['notification_no']}") + ".pdf"
         path = PDF_DIR / name
@@ -228,37 +285,26 @@ def run(fy_filter="2026-27", limit=None):
             text, ocr = pdf_text(path, with_flag=True)
             if len(text) < 100:
                 raise RuntimeError("no extractable text even after OCR; left out")
-            if not header_matches_listing(row, text):
-                ocr = True  # embedded/garbled text layer: quarantine like a scan
-            records.append(build_record(row, text, ocr))
+            rec = build_record(row, text, ocr)
+            hashes[rec["chunk_id"]] = sha256_bytes(r.content)
+            records.append(rec)
         except Exception as e:
             failed.append((row["notification_no"], row["type"], str(e)[:80]))
         time.sleep(0.5)
     if not records:
         raise RuntimeError("No APEDA mirror documents extracted; nothing written")
     OUTPUT_JSONL.parent.mkdir(parents=True, exist_ok=True)
-    eligible, quarantined = split_by_ocr(records)
+    eligible, quarantined = split_by_vetting(records, hashes, vetted)
     for path, recs in ((OUTPUT_JSONL, eligible), (QUARANTINE_JSONL, quarantined)):
         tmp = str(path) + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             for rec in recs:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
         os.replace(tmp, path)
-    print(f"{len(eligible)} text-layer records -> {OUTPUT_JSONL}; {len(quarantined)} OCR scans quarantined "
-          f"-> {QUARANTINE_JSONL}; skipped {len(failed)}: {failed}")
+    print(f"{len(eligible)} vetted -> {OUTPUT_JSONL}; {len(quarantined)} quarantined -> {QUARANTINE_JSONL}; "
+          f"skipped {len(failed)}: {failed}")
+    json.dump(hashes, open(OUT_DIR / "pdf_sha256.json", "w"), indent=1)
     return eligible, failed
-
-
-def header_matches_listing(row, text):
-    """A PDF can carry an embedded (bad) OCR text layer, so "has text" is not "is clean".
-    Trust text only if it repeats the listing's own notification number verbatim."""
-    return norm_no(row["notification_no"]) in norm_no(text[:1500])
-
-
-def split_by_ocr(records):
-    """OCR text garbles numbers and dates (seen on Notification 41/2026-27), so scans are
-    quarantined until a person checks them against the page image."""
-    return [r for r in records if not r["ocr_used"]], [r for r in records if r["ocr_used"]]
 
 
 if __name__ == "__main__":
