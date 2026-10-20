@@ -222,6 +222,11 @@ async def query_policy(req: QueryRequest, request: Request):
             text = payload.get("text", "")
             if not text:
                 continue
+            if payload.get("source") == "APEDA_MIRROR_OF_DGFT":
+                text = ("[APEDA mirror, agent-checked against PDF pages. Document date: "
+                        + payload.get("date", "unknown") + "; mirror uploaded: "
+                        + payload.get("mirror_uploaded_date", "unknown")
+                        + ". Delayed partial coverage; not current policy confirmation.]\n" + text)
             contexts.append(text)
             parent = payload.get("parent_doc_id") or payload.get("doc_id")
             title = payload.get("title", "")
@@ -230,6 +235,10 @@ async def query_policy(req: QueryRequest, request: Request):
                 cite = f"{payload.get('doc_type', 'Policy')}: {title}"
                 if payload.get("notification_no"):
                     cite += f" (No. {payload['notification_no']})"
+                if payload.get("source") == "APEDA_MIRROR_OF_DGFT":
+                    cite += (" [APEDA mirror, agent-checked; document " + payload.get("date", "unknown")
+                             + "; mirror uploaded " + payload.get("mirror_uploaded_date", "unknown")
+                             + "; delayed partial coverage] " + payload.get("url", ""))
                 citations.append(cite)
 
         context = "\n".join(contexts)
