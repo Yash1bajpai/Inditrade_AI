@@ -394,9 +394,16 @@ def get_forecast(req: ForecastRequest):
         import numpy as np
 
         expected_features = xgboost_model['features']
-        input_data = {feat: 0.0 for feat in expected_features}
+        # Contract detection must come from the model's own training metadata:
+        # the legacy leaky model ALSO lists primaryValue_lag_1y, so a feature
+        # name check misclassifies it. Anything without the declared contract
+        # takes the legacy template path (and its fail-closed feature check).
+        past_only = (xgboost_model.get('meta') or {}).get('feature_contract') == 'past_only_calendar_lags_v1'
+        # Past-only models are trained with NaN for missing history; feeding 0.0
+        # would be a fabricated value outside the validated contract.
+        input_data = {feat: (float('nan') if past_only else 0.0) for feat in expected_features}
 
-        df_hist = load_parquet("data/processed/trade_features.parquet")
+        df_hist = load_parquet(os.getenv("CANDIDATE_TRADE_FEATURES") or "data/processed/trade_features.parquet")
         df_hist['pStr'] = df_hist['partnerCode'].apply(lambda x: str(x).split('.')[0])
         df_hist['cStr'] = df_hist['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
         
@@ -404,31 +411,86 @@ def get_forecast(req: ForecastRequest):
         if df_filtered.empty:
             raise HTTPException(status_code=400, detail="No historical data for this combination, try another")
 
-        # Fail closed: never let a missing model feature silently become 0.0.
-        # The repaired dataset dropped leaky predictors the legacy model was
-        # trained on, so a forecast from it would be a number nobody validated.
-        absent = [feat for feat in expected_features if feat not in df_hist.columns]
-        if absent:
-            logger.error(f"Forecast refused: loaded data lacks model features {absent}")
-            raise HTTPException(
-                status_code=503,
-                detail="Forecast unavailable: the loaded model has not been validated on the repaired dataset "
-                       f"(missing model inputs: {', '.join(absent)}).",
-            )
-            
-        latest_row = df_filtered.sort_values(by="period").iloc[-1]
-        
-        for feat in expected_features:
-            if feat in latest_row:
-                val = latest_row[feat]
-                if pd.notna(val):
+        if past_only:
+            # Serving must follow the training contract: a forecast for year Y
+            # is built from values of years < Y. Copying the latest stored row
+            # feeds lags stale by (req.year - latest_year), so construct the
+            # target-year inputs from history instead.
+            from src.feature_engineering.forecast_features import HorizonError, build_inference_frame
+            try:
+                inf = build_inference_frame(df_hist, req.year)
+            except HorizonError as e:
+                # Out-of-range year is a client input problem, consistent with
+                # the 422 the year_breakdown endpoint returns for bad years.
+                raise HTTPException(status_code=422, detail=str(e))
+            except ValueError as e:
+                # Ambiguous grain or missing raw columns is a server-side data
+                # fault, not a bad request.
+                logger.error(f"Forecast refused: cannot build serving features: {e}")
+                raise HTTPException(status_code=503, detail="Forecast unavailable: the loaded dataset failed serving validation.")
+            absent = [feat for feat in expected_features if feat not in inf.columns]
+            if absent:
+                logger.error(f"Forecast refused: could not build model features {absent}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Forecast unavailable: the loaded model has not been validated on the repaired dataset "
+                           f"(missing model inputs: {', '.join(absent)}).",
+                )
+            pair = inf[(inf.partnerCode == int(p_code)) & (inf.cmdCode == int(c_code))]
+            if pair.empty:
+                raise HTTPException(status_code=400, detail="No historical data for this combination, try another")
+            # The request carries no flow direction and a pair can trade both
+            # ways. The forecast chart plots the prediction against this
+            # endpoint's history, which is export-only (get_forecast_history
+            # filters flowCode == 'X'), so serve the export series to keep the
+            # number consistent with what is displayed. REVIEW: the product
+            # never defines which flow a forecast represents; this choice is
+            # grounded in the chart's data source, not in an owner decision.
+            rows = pair[pair.flowCode == 'X']
+            if rows.empty:
+                raise HTTPException(status_code=400, detail="No export history for this combination; forecast unavailable.")
+            row = rows.iloc[0]
+            for feat in expected_features:
+                val = row.get(feat)
+                if val is not None and pd.notna(val):
                     try:
                         input_data[feat] = float(val)
                     except (TypeError, ValueError):
                         logger.warning(
-                            f"Feature '{feat}' has non-numeric value {val!r}; defaulting to 0.0"
+                            f"Feature '{feat}' has non-numeric value {val!r}; leaving as NaN"
                         )
+        else:
+            # Fail closed: never let a missing model feature silently become 0.0.
+            # The repaired dataset dropped leaky predictors the legacy model was
+            # trained on, so a forecast from it would be a number nobody validated.
+            absent = [feat for feat in expected_features if feat not in df_hist.columns]
+            if absent:
+                logger.error(f"Forecast refused: loaded data lacks model features {absent}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Forecast unavailable: the loaded model has not been validated on the repaired dataset "
+                           f"(missing model inputs: {', '.join(absent)}).",
+                )
+                
+            latest_row = df_filtered.sort_values(by="period").iloc[-1]
+            
+            for feat in expected_features:
+                if feat in latest_row:
+                    val = latest_row[feat]
+                    if pd.notna(val):
+                        try:
+                            input_data[feat] = float(val)
+                        except (TypeError, ValueError):
+                            logger.warning(
+                                f"Feature '{feat}' has non-numeric value {val!r}; defaulting to 0.0"
+                            )
 
+        # The request's usd_inr/crude_price are user-typed SCENARIO assumptions
+        # (frontend: "Macro inputs are editable assumptions"). The legacy model
+        # has same-year slots for them. The past-only contract has only lag_1y
+        # macro slots, and mapping a forecast-year assumption onto a
+        # previous-year observation changes the input semantics - UNRESOLVED,
+        # held for review, so scenario values are NOT fed to past-only models.
         if "usdinr_mean" in input_data: input_data["usdinr_mean"] = float(req.usd_inr)
         if "brent_crude_mean" in input_data: input_data["brent_crude_mean"] = float(req.crude_price)
         if "period" in input_data: input_data["period"] = float(req.year)

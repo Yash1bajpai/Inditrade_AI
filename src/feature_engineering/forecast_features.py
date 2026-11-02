@@ -57,3 +57,70 @@ def prepare_forecast_frame(frame):
         features.append(name)
     X = df[features].apply(pd.to_numeric, errors='coerce').replace([np.inf, -np.inf], np.nan).astype(np.float32)
     return X, np.log1p(df.primaryValue), df.primaryValue, features, df, excluded
+
+
+class HorizonError(ValueError):
+    """Requested forecast year has no anchoring history (client input problem)."""
+
+
+def build_inference_frame(frame, target_year):
+    """Construct past-only feature rows for `target_year` from raw history.
+
+    A training row for year Y carries values from years < Y only. Serving must
+    follow the same contract: copying the latest stored row as a template feeds
+    lags that are stale by (target_year - latest_year), so a 2026 request would
+    score 2024 values against a model validated on calendar-exact lags.
+
+    Returns one row per (partnerCode, cmdCode, flowCode) series with the same
+    predictor columns prepare_forecast_frame emits. Macro statistics follow the
+    training rule: the model's *_lag_1y inputs come from year target_year - 1.
+
+    Fails closed: raises ValueError on ambiguous grain (duplicate series/year
+    totals) or a horizon more than one year past the latest observation, where
+    no lag_1y actual exists to anchor the forecast.
+    """
+    if 'primaryValue' not in frame or 'period' not in frame:
+        raise ValueError('History lacks the raw trade columns needed to build forecast inputs')
+    df = frame.copy()
+    if 'partner2Code' in df:
+        totals = pd.to_numeric(df.partner2Code, errors='coerce').eq(0)
+        df = df.loc[totals].copy()
+    df['period'] = pd.to_numeric(df.period, errors='raise').astype(int)
+    for c in ['partnerCode', 'cmdCode']:
+        df[c] = pd.to_numeric(df[c], errors='raise').astype(int)
+    if not df.flowCode.isin(['M', 'X']).all():
+        raise ValueError('Forecast data must contain only import/export flows')
+    if df.duplicated(KEYS + ['period']).any():
+        raise ValueError('Ambiguous trade grain: duplicate series/year totals')
+    target_year = int(target_year)
+    latest = int(df.period.max())
+    if target_year > latest + 1:
+        raise HorizonError(
+            f'Cannot forecast {target_year}: history ends {latest}; only one year ahead is supported'
+        )
+    df['primaryValue'] = pd.to_numeric(df.primaryValue, errors='coerce')
+
+    out = df[KEYS].drop_duplicates().copy()
+    out['period'] = target_year
+    base = df[KEYS + ['period', 'primaryValue']]
+    for lag in range(1, 6):
+        past = base.copy()
+        past['period'] += lag
+        past.rename(columns={'primaryValue': f'primaryValue_lag_{lag}y'}, inplace=True)
+        out = out.merge(past, on=KEYS + ['period'], how='left', validate='one_to_one')
+    for window in [3, 5]:
+        cols = [f'primaryValue_lag_{k}y' for k in range(1, window + 1)]
+        out[f'primaryValue_rolling_{window}y_mean'] = out[cols].mean(axis=1)
+    out['flow_is_export'] = out.flowCode.eq('X').astype(float)
+
+    macro_cols = [c for c in frame if c.endswith(('_mean', '_vol_std', '_year_end', '_yoy_pct')) and not c.startswith(('primaryValue', 'netWgt'))]
+    for c in macro_cols:
+        by_year = frame.groupby('period')[c].nunique(dropna=True)
+        if (by_year > 1).any():
+            raise ValueError(f'Macro column {c} has conflicting annual values')
+        macro = frame[['period', c]].copy()
+        macro['period'] = pd.to_numeric(macro.period).astype(int) + 1
+        macro = macro.groupby('period', as_index=False)[c].first()
+        macro.rename(columns={c: c + '_lag_1y'}, inplace=True)
+        out = out.merge(macro, on='period', how='left', validate='many_to_one')
+    return out
