@@ -96,7 +96,10 @@ jobs:
         run: python scripts/model_promotion_gate.py --meta models/xgboost_trade_forecast_meta.json
 
       - name: Stage Artifacts for Publish Job
-        if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.promote == 'true'
+        # Stage on ANY winning gate (cron included) so the owner can review a
+        # scheduled win; publishing still requires manual dispatch + the
+        # protected environment. 7-day retention outlives the review window.
+        if: steps.gate.outputs.promote == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: retrained-artifacts
@@ -112,7 +115,7 @@ jobs:
             data/cache/data_freshness_meta.json
             models/
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
   publish:
     needs: retrain
