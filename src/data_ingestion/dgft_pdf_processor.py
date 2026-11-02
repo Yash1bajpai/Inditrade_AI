@@ -10,18 +10,25 @@ import os
 import re
 import requests
 from urllib.parse import urljoin
-from datetime import datetime
+from datetime import datetime, timezone
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.utils.scraping_utils import fetch_table_rows
+from src.utils.freshness_utils import (
+    DEFAULT_MARKER_PATH,
+    record_source_freshness,
+    is_usable_corpus,
+)
 import json
 import time
 import subprocess
 import tempfile
 import shutil
 import pandas as pd
-import pdfplumber
-
+try:
+    import pdfplumber
+except ImportError:
+    pdfplumber = None
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
@@ -29,6 +36,13 @@ RAW_DIR = os.path.join("data", "raw", "dgft_notifications")
 PDF_DIR = os.path.join(RAW_DIR, "pdfs")
 PROCESSED_DIR = os.path.join("data", "processed")
 OUTPUT_JSONL = os.path.join(PROCESSED_DIR, "dgft_policy_chunks.jsonl")
+CACHE_DIR = os.path.join("data", "cache")
+FRESHNESS_MARKER_PATH = DEFAULT_MARKER_PATH
+
+
+class SourceBlockedError(RuntimeError):
+    """Raised when an upstream data source is blocked or returning empty listings."""
+    pass
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -110,7 +124,7 @@ def scrape_full_dgft_master_list():
 
     df_master = pd.DataFrame(all_records)
     if df_master.empty:
-        raise RuntimeError("DGFT listing empty or blocked; refresh failed")
+        raise SourceBlockedError("DGFT listing empty or blocked; refresh failed")
     if not df_master.empty:
         df_master = df_master.drop_duplicates(subset=["Type", "Notification_No", "Subject"]).reset_index(drop=True)
         master_csv = os.path.join(RAW_DIR, "dgft_master_list.csv")
@@ -166,7 +180,7 @@ def download_pdfs(df_master, limit=None):
         time.sleep(0.25)
 
     print(f"\n[PDF DOWNLOAD SUMMARY] Newly Downloaded: {downloaded_count} | Already Existing: {existing_count} | Failed/Broken Link: {failed_count}")
-    return downloaded_count + existing_count
+    return downloaded_count
 
 def clean_pdf_text(raw_text):
     """
@@ -212,11 +226,12 @@ def clean_pdf_text(raw_text):
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 
-def process_pdfs_to_chunks(df_master):
+def process_pdfs_to_chunks(df_master, downloaded_count=None, output_jsonl=None):
     """
     Extracts text from all downloaded PDFs using pdfplumber, cleans text, and saves JSONL.
     Output: data/processed/dgft_policy_chunks.jsonl
     """
+    output_path = output_jsonl or OUTPUT_JSONL
     print(f"\n=== [STEP 3] EXTRACTING & CLEANING TEXT USING PDFPLUMBER ===")
 
     chunks = []
@@ -230,12 +245,14 @@ def process_pdfs_to_chunks(df_master):
 
         try:
             full_raw_text = ""
-            with pdfplumber.open(path) as pdf:
-                for page in pdf.pages:
-                    txt = page.extract_text()
-                    if txt:
-                        full_raw_text += txt + "\n"
-
+            if pdfplumber is not None:
+                with pdfplumber.open(path) as pdf:
+                    for page in pdf.pages:
+                        txt = page.extract_text()
+                        if txt:
+                            full_raw_text += txt + "\n"
+            else:
+                print(f"[WARNING] pdfplumber not installed; cannot read {path}")
             if len(full_raw_text.strip()) < 100 and shutil.which("tesseract") and shutil.which("pdftoppm"):
                 with tempfile.TemporaryDirectory() as tmp:
                     subprocess.run(["pdftoppm", "-r", "150", "-png", path, os.path.join(tmp, "page")], check=True, timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -265,32 +282,104 @@ def process_pdfs_to_chunks(df_master):
             print(f"[ERROR] Failed to process PDF {path}: {e}")
 
     if not chunks:
-        raise RuntimeError("No valid DGFT PDF text extracted; preserving historical corpus")
+        if downloaded_count is not None and downloaded_count > 0:
+            raise RuntimeError("No valid DGFT PDF text extracted after successful downloads (possible data corruption)")
+        raise SourceBlockedError("No valid DGFT PDF text extracted; zero successful downloads")
     existing = {}
-    if os.path.exists(OUTPUT_JSONL):
-        with open(OUTPUT_JSONL, encoding="utf-8") as f:
+    if os.path.exists(output_path):
+        with open(output_path, encoding="utf-8") as f:
             for line in f:
                 if line.strip():
                     row = json.loads(line)
                     existing[(row["chunk_id"], row.get("financial_year", ""))] = row
     existing.update({(row["chunk_id"], row.get("financial_year", "")): row for row in chunks})
     chunks = list(existing.values())
-    tmp_path = OUTPUT_JSONL + ".tmp"
+    tmp_path = output_path + ".tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
         for chunk in chunks:
             f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
         f.flush()
         os.fsync(f.fileno())
-    os.replace(tmp_path, OUTPUT_JSONL)
+    os.replace(tmp_path, output_path)
 
     print(f"\n[PROCESSING COMPLETE] Total Clean Policy Chunks Created: {len(chunks)}")
-    print(f"Saved Output JSONL: {OUTPUT_JSONL}")
+    print(f"Saved Output JSONL: {output_path}")
     return chunks
 
+def main(
+    scrape_fn=None,
+    download_fn=None,
+    process_fn=None,
+    marker_path=None,
+    output_jsonl=None,
+) -> int:
+    """
+    Main entrypoint for DGFT refresh pipeline.
+    Returns 0 on success or resilient blocked-source handling when existing corpus is intact.
+    Fails closed (raises) on data corruption or when source is blocked and no existing corpus exists.
+    """
+    out_jsonl = output_jsonl or OUTPUT_JSONL
+    m_path = marker_path or FRESHNESS_MARKER_PATH
+    s_fn = scrape_fn or scrape_full_dgft_master_list
+    d_fn = download_fn or download_pdfs
+    p_fn = process_fn or process_pdfs_to_chunks
+
+    try:
+        df_master = s_fn()
+        if df_master is None or df_master.empty:
+            raise SourceBlockedError("DGFT listing empty or blocked; refresh failed")
+
+        downloaded_count = d_fn(df_master)
+        if downloaded_count is None:
+            downloaded_count = 0
+
+        try:
+            chunks = p_fn(df_master, downloaded_count=downloaded_count, output_jsonl=out_jsonl)
+        except TypeError:
+            try:
+                chunks = p_fn(df_master, downloaded_count=downloaded_count)
+            except TypeError:
+                chunks = p_fn(df_master)
+
+        if not chunks:
+            if downloaded_count > 0:
+                raise RuntimeError("No valid DGFT PDF text extracted after successful downloads (possible data corruption)")
+            raise SourceBlockedError("No valid DGFT PDF text extracted; zero successful downloads")
+
+        record_source_freshness(
+            "dgft",
+            {
+                "status": "ok",
+                "chunk_count": len(chunks),
+                "last_refreshed_at": datetime.now(timezone.utc).isoformat(),
+            },
+            marker_path=m_path,
+        )
+        return 0
+
+    except SourceBlockedError as err:
+        if is_usable_corpus(out_jsonl):
+            record_source_freshness(
+                "dgft",
+                {
+                    "status": "blocked",
+                    "reason": str(err),
+                    "blocked_at": datetime.now(timezone.utc).isoformat(),
+                },
+                marker_path=m_path,
+            )
+            print("\n" + "=" * 80)
+            print(f"[WARNING] DGFT source is blocked: {err}")
+            print(f"[WARNING] Preserving previously reviewed corpus at {out_jsonl}")
+            print("=" * 80 + "\n")
+            return 0
+        else:
+            print("\n" + "=" * 80)
+            print(f"[ERROR] DGFT source is blocked: {err}")
+            print(f"[ERROR] No existing corpus found at {out_jsonl}; failing closed.")
+            print("=" * 80 + "\n")
+            raise
+
+
 if __name__ == "__main__":
-    df_master = scrape_full_dgft_master_list()
-    if df_master.empty:
-        raise RuntimeError("DGFT listing empty or blocked; refresh failed")
-    if not df_master.empty:
-        download_pdfs(df_master)
-        chunks = process_pdfs_to_chunks(df_master)
+    sys.exit(main())

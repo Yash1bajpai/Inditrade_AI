@@ -12,14 +12,16 @@ import json
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
-
+from datetime import datetime, timezone
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from src.utils.freshness_utils import record_source_freshness, DEFAULT_MARKER_PATH
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 PROCESSED_DIR = os.path.join("data", "processed")
 OUTPUT_JSONL = os.path.join(PROCESSED_DIR, "pib_press_releases.jsonl")
-
+CACHE_DIR = os.path.join("data", "cache")
+FRESHNESS_MARKER_PATH = DEFAULT_MARKER_PATH
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -216,37 +218,61 @@ def scrape_full_articles(candidates, max_articles=70):
 
     return articles
 
-def main():
+def main(marker_path=None, output_jsonl=None):
+    out_path = output_jsonl or OUTPUT_JSONL
+    m_path = marker_path or FRESHNESS_MARKER_PATH
     os.makedirs(PROCESSED_DIR, exist_ok=True)
 
-    candidates = collect_candidate_prids()
-    articles = scrape_full_articles(candidates, max_articles=65)
+    try:
+        candidates = collect_candidate_prids()
+        articles = scrape_full_articles(candidates, max_articles=65)
 
-    if not articles or len(articles) == 0:
-        raise RuntimeError("Live PIB scraping returned no valid articles; preserving previous corpus")
+        if not articles or len(articles) == 0:
+            raise RuntimeError("Live PIB scraping returned no valid articles; preserving previous corpus")
 
-    # Merge into historical corpus rather than silently dropping older policies.
-    existing = {}
-    if os.path.exists(OUTPUT_JSONL):
-        with open(OUTPUT_JSONL, encoding="utf-8") as f:
-            for line in f:
-                if line.strip():
-                    row = json.loads(line)
-                    if not row.get("is_fallback"):
-                        existing[row["prid"]] = row
-    existing.update({row["prid"]: row for row in articles})
-    articles = list(existing.values())
-    tmp_path = OUTPUT_JSONL + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        for item in articles:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp_path, OUTPUT_JSONL)
+        # Merge into historical corpus rather than silently dropping older policies.
+        existing = {}
+        if os.path.exists(out_path):
+            with open(out_path, encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        row = json.loads(line)
+                        if not row.get("is_fallback"):
+                            existing[row["prid"]] = row
+        existing.update({row["prid"]: row for row in articles})
+        articles = list(existing.values())
+        tmp_path = out_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            for item in articles:
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, out_path)
 
-    print(f"\n[SCRAPING & PROCESSING COMPLETE] Total Articles Saved: {len(articles)}")
-    print(f"Saved Output JSONL: {OUTPUT_JSONL}")
-    return articles
+        print(f"\n[SCRAPING & PROCESSING COMPLETE] Total Articles Saved: {len(articles)}")
+        print(f"Saved Output JSONL: {out_path}")
 
+        record_source_freshness(
+            "pib",
+            {
+                "status": "ok",
+                "article_count": len(articles),
+                "last_refreshed_at": datetime.now(timezone.utc).isoformat(),
+            },
+            marker_path=m_path,
+        )
+        return articles
+
+    except Exception as err:
+        record_source_freshness(
+            "pib",
+            {
+                "status": "stale",
+                "reason": str(err),
+                "failed_at": datetime.now(timezone.utc).isoformat(),
+            },
+            marker_path=m_path,
+        )
+        raise
 if __name__ == "__main__":
     main()

@@ -67,6 +67,15 @@ jobs:
         run: python src/rag/indexer.py
       - name: Evaluate retrieval
         run: python -m src.rag.evaluate_retrieval --mode hybrid --max-questions 100 --output reports/rag_eval_refresh.json
+      - name: Verify policy corpus usability gate
+        run: |
+          for f in data/processed/dgft_policy_chunks.jsonl data/processed/pib_press_releases.jsonl; do
+            if [ ! -s "$f" ]; then
+              echo "FATAL: Required policy corpus $f is missing or empty" >&2
+              exit 1
+            fi
+          done
+          echo "Corpus usability gate passed: DGFT and PIB policy corpora are non-empty."
       - name: Archive dense index and publish corpus
         run: |
           tar -czf /tmp/rag-dense-index.tar.gz -C data/cache qdrant_index
@@ -94,6 +103,18 @@ jobs:
           git switch -C main FETCH_HEAD
           git add data/cache/bm25_index.pkl.lzma data/cache/rag_index_meta.json
           git diff --cached --quiet || { git commit -m 'Refresh verified policy RAG indexes'; git pull --rebase origin main; git push origin main; }
+      - name: Append source freshness to step summary
+        if: always()
+        run: |
+          if [ -f data/cache/source_freshness.json ]; then
+            echo "### Policy Source Freshness" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat data/cache/source_freshness.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Policy Source Freshness" >> "$GITHUB_STEP_SUMMARY"
+            echo "No source freshness marker found (run may have aborted before marker generation)." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -101,3 +122,4 @@ jobs:
           path: |
             data/cache/rag_index_meta.json
             reports/rag_eval_refresh.json
+            data/cache/source_freshness.json
