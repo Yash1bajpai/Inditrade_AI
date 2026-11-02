@@ -28,6 +28,10 @@ jobs:
           unzip -p /tmp/repair-source/inditrade-data.zip trade_features.parquet > /tmp/repair-source/prior_features.parquet
       - name: Canonical source refetch and completeness check
         env:
+          # Rotation order is KEY1, KEY2, then single: put the Oct-1 key last as
+          # the known-good fallback; fetch_slice rotates on 401/403/429.
+          COMTRADE_API_KEY1: ${{ secrets.COMTRADE_API_KEY1 }}
+          COMTRADE_API_KEY2: ${{ secrets.COMTRADE_API_KEY2 }}
           COMTRADE_API_KEY: ${{ secrets.COMTRADE_KEY_OCT1 }}
         run: |
           python scripts/repair_trade_data.py --source /tmp/repair-source/india_trade_hs2_2015_2024.parquet --output /tmp/repair-candidate/candidate_raw.parquet --allow-partial

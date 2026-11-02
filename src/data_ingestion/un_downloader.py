@@ -5,7 +5,7 @@ and its top 20 trade partners using Comtrade statistical partner-area codes for 
 
 Features:
 - Dual API Key Rotation & Quota Management (COMTRADE_API_KEY1, COMTRADE_API_KEY2).
-- Strict 403 / 429 error handling: Logs exact error and STOPS immediately without synthetic substitution.
+- Strict 401 / 403 / 429 error handling: rotates to the next key, and STOPS when every key fails without synthetic substitution.
 - 1.5s sleep interval between requests to honor API rate limits.
 - Test mode: Fetches strictly 1 partner and 1 year first for user approval before full 400-iteration loop.
 - Refresh mode: --mode refresh --year YYYY fetches one extra year and appends to the parquet (idempotent, safe to re-run).
@@ -17,6 +17,7 @@ import time
 import pandas as pd
 from dotenv import load_dotenv
 import comtradeapicall
+import urllib3
 
 load_dotenv()
 
@@ -94,18 +95,49 @@ class ComtradeFetcher:
                 print(f"[KEY ROTATION] Switched to Key #{self.current_key_idx+1}.")
                 return self.keys[self.current_key_idx]
 
-        print("\n[CRITICAL ERROR / STOPPING] All available UN Comtrade API keys are exhausted or rate limited (403/429)!")
+        print("\n[CRITICAL ERROR / STOPPING] All available UN Comtrade API keys are exhausted, invalid, or rate limited (401/403/429)!")
         return None
+
+    def _probe_status(self):
+        """
+        Direct HTTP status probe for the canonical get endpoint with the ACTIVE key.
+        comtradeapicall prints non-200 bodies and returns None instead of raising,
+        so a swallowed 401/403/429 is indistinguishable from real empty data without this.
+        """
+        http = urllib3.PoolManager()
+        resp = http.request(
+            "GET",
+            "https://comtradeapi.un.org/data/v1/get/C/A/HS",
+            fields={
+                "reportercode": REPORTER_INDIA, "flowCode": "M", "period": "2024",
+                "cmdCode": "AG2", "partnerCode": "842", "partner2Code": "0",
+                "motCode": "0", "customsCode": "C00", "countOnly": "true",
+                "subscription-key": self.get_active_key(),
+            },
+            timeout=30,
+        )
+        return int(resp.status)
+
+    def _rotate_on_auth_or_limit(self, detail):
+        """Rotate on 401/403/429. Returns the next key, or None when every key is exhausted."""
+        print(f"\n[API AUTH/LIMIT DETECTED] {detail}")
+        return self.rotate_key(reason=detail)
 
     def count_slice(self, partner_code, year, flow_code):
         """Independent count for detecting truncated canonical refetches."""
-        result = comtradeapicall.getFinalData(
-            subscription_key=self.get_active_key(), typeCode="C", freqCode="A", clCode="HS",
-            period=str(year), reporterCode=REPORTER_INDIA, cmdCode="AG2", flowCode=flow_code,
-            partnerCode=str(partner_code), partner2Code="0", customsCode="C00", motCode="0", countOnly=True)
-        if not isinstance(result, pd.DataFrame) or len(result) != 1 or "count" not in result:
-            raise ValueError("Source count unavailable; completeness cannot be verified")
-        return int(result["count"].iloc[0])
+        while True:
+            result = comtradeapicall.getFinalData(
+                subscription_key=self.get_active_key(), typeCode="C", freqCode="A", clCode="HS",
+                period=str(year), reporterCode=REPORTER_INDIA, cmdCode="AG2", flowCode=flow_code,
+                partnerCode=str(partner_code), partner2Code="0", customsCode="C00", motCode="0", countOnly=True)
+            if isinstance(result, pd.DataFrame) and len(result) == 1 and "count" in result:
+                return int(result["count"].iloc[0])
+            status = self._probe_status()
+            if status in (401, 403, 429):
+                if self._rotate_on_auth_or_limit(f"HTTP {status} on count probe"):
+                    continue
+                raise ValueError(f"Source count unavailable; all API keys failed (HTTP {status})")
+            raise ValueError(f"Source count unavailable (probe HTTP {status}); completeness cannot be verified")
 
     def fetch_slice(self, partner_code, year, flow_code):
         """
@@ -146,7 +178,15 @@ class ComtradeFetcher:
                         raise ValueError("Duplicate canonical commodity totals in response")
                 return df, "SUCCESS"
             else:
-                return pd.DataFrame(), "EMPTY_OR_UNFORMATTED"
+                # comtradeapicall swallows non-200 responses (prints body, returns None).
+                # Probe the real status so an invalid key rotates instead of looking like empty data.
+                status = self._probe_status()
+                if status in (401, 403, 429):
+                    new_key = self._rotate_on_auth_or_limit(f"HTTP {status} (swallowed by comtradeapicall)")
+                    if new_key:
+                        return self.fetch_slice(partner_code, year, flow_code)
+                    return None, f"AUTH/RATE_EXHAUSTED: HTTP {status} on every key"
+                return pd.DataFrame(), f"ERROR: Comtrade get failed with HTTP {status}"
 
         except Exception as e:
             err_str = str(e)
