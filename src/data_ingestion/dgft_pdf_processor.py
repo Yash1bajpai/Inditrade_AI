@@ -18,6 +18,7 @@ from src.utils.freshness_utils import (
     DEFAULT_MARKER_PATH,
     record_source_freshness,
     is_usable_corpus,
+    validate_corpus_file,
 )
 import json
 import time
@@ -358,13 +359,15 @@ def main(
         return 0
 
     except SourceBlockedError as err:
-        if is_usable_corpus(out_jsonl, source="dgft"):
+        validation_res = validate_corpus_file(out_jsonl, source="dgft")
+        if validation_res["valid"]:
             record_source_freshness(
                 "dgft",
                 {
                     "status": "blocked",
                     "reason": str(err),
                     "blocked_at": datetime.now(timezone.utc).isoformat(),
+                    "corpus_usable": True,
                 },
                 marker_path=m_path,
             )
@@ -374,9 +377,21 @@ def main(
             print("=" * 80 + "\n")
             return 0
         else:
+            corpus_err = validation_res.get("error") or "Corpus file is missing or empty"
+            record_source_freshness(
+                "dgft",
+                {
+                    "status": "blocked",
+                    "reason": str(err),
+                    "blocked_at": datetime.now(timezone.utc).isoformat(),
+                    "corpus_usable": False,
+                    "corpus_error": corpus_err,
+                },
+                marker_path=m_path,
+            )
             print("\n" + "=" * 80)
             print(f"[ERROR] DGFT source is blocked: {err}")
-            print(f"[ERROR] No existing corpus found at {out_jsonl}; failing closed.")
+            print(f"[ERROR] Existing corpus at {out_jsonl} is not usable: {corpus_err}. Failing closed.")
             print("=" * 80 + "\n")
             raise
     except Exception as err:

@@ -23,7 +23,6 @@ DGFT_REQUIRED_KEYS = [
     "notification_no",
     "subject",
     "type",
-    "url",
 ]
 
 PIB_REQUIRED_KEYS = [
@@ -33,7 +32,6 @@ PIB_REQUIRED_KEYS = [
     "clean_text",
     "category",
     "ministry",
-    "url",
 ]
 
 _HTML_SIGNATURES = [
@@ -252,6 +250,15 @@ def validate_corpus_file(
                 if empty_fields:
                     errors.append(f"Line {line_no}: Empty required field(s) {empty_fields}.")
                     break
+                # Validate optional url when present
+                if "url" in obj and obj.get("url") is not None:
+                    raw_url = str(obj.get("url")).strip()
+                    if raw_url == "":
+                        errors.append(f"Line {line_no}: Field 'url' is present but empty.")
+                        break
+                    elif not (raw_url.startswith(("http://", "https://", "/")) or "." in raw_url):
+                        errors.append(f"Line {line_no}: Field 'url' is malformed: {raw_url!r}.")
+                        break
 
                 # Validate non-trivial clean text
                 clean_text = str(obj.get("clean_text", ""))

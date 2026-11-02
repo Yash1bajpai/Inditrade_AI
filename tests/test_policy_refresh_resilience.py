@@ -104,6 +104,7 @@ def test_blocked_listing_with_existing_corpus_preserves_corpus_and_records_marke
     marker = json.loads(marker_file.read_text(encoding="utf-8"))
     assert "dgft" in marker, "Marker must contain 'dgft' entry"
     assert marker["dgft"]["status"] == "blocked"
+    assert marker["dgft"]["corpus_usable"] is True
     assert "HTTP 403 Forbidden" in marker["dgft"]["reason"]
     assert "blocked_at" in marker["dgft"]
     datetime.fromisoformat(marker["dgft"]["blocked_at"])
@@ -128,7 +129,11 @@ def test_blocked_listing_without_existing_corpus_fails_closed(tmp_path):
 
     assert "DGFT listing empty or blocked" in str(exc_info.value)
     assert not corpus_file.exists(), "Never invent an empty or fabricated corpus on failure"
-
+    assert marker_file.exists(), "Failure must record marker with corpus_usable=false"
+    marker = json.loads(marker_file.read_text(encoding="utf-8"))
+    assert marker["dgft"]["status"] == "blocked"
+    assert marker["dgft"]["corpus_usable"] is False
+    assert "corpus_error" in marker["dgft"]
 
 def test_blocked_listing_with_empty_corpus_file_fails_closed(tmp_path):
     """2b. Blocked listing + 0-byte existing corpus -> fails closed."""
@@ -146,7 +151,10 @@ def test_blocked_listing_with_empty_corpus_file_fails_closed(tmp_path):
             marker_path=str(marker_file),
             output_jsonl=str(corpus_file),
         )
-
+    assert marker_file.exists()
+    marker = json.loads(marker_file.read_text(encoding="utf-8"))
+    assert marker["dgft"]["status"] == "blocked"
+    assert marker["dgft"]["corpus_usable"] is False
 
 def test_successful_listing_downloads_processes_and_records_ok_marker(tmp_path):
     """3. Successful listing -> download/process called, marker has dgft=ok, no stale carry-over."""
@@ -646,3 +654,138 @@ def test_workflow_file_usability_gate_and_auto_push_integrity():
     assert current_auto_push == head_auto_push, (
         f"Auto-push step must be byte-identical to original HEAD!\nExpected:\n{head_auto_push}\n\nGot:\n{current_auto_push}"
     )
+
+
+def test_legacy_dgft_rows_without_url_pass_validation_and_preserve_path(tmp_path):
+    """Finding 1 & 4: 104 of 135 legacy DGFT rows lack url.
+    Validator must accept them, and blocked preserve path must exit 0 with corpus_usable=true.
+    """
+    corpus_file = tmp_path / "dgft_policy_chunks.jsonl"
+    legacy_records = [
+        {
+            "chunk_id": f"DGFT_NOTIF_LEGACY_{i}",
+            "notification_no": f"{i}/2023",
+            "type": "Notification",
+            "date": "2023-04-15",
+            "financial_year": "2023-2024",
+            "subject": f"Legacy foreign trade notification number {i}",
+            "clean_text": "Directorate General of Foreign Trade official policy notification text without URL field.",
+        }
+        for i in range(1, 10)
+    ]
+    # None of these have 'url'
+    for r in legacy_records:
+        assert "url" not in r
+
+    corpus_content = "\n".join(json.dumps(r) for r in legacy_records) + "\n"
+    corpus_file.write_text(corpus_content, encoding="utf-8")
+    hash_before = _hash_file(str(corpus_file))
+
+    # Validate standalone
+    res = validate_corpus_file(str(corpus_file), source="dgft")
+    assert res["valid"], f"Legacy DGFT rows without url must pass validation: {res.get('error')}"
+    assert is_usable_corpus(str(corpus_file), source="dgft")
+
+    # Validate preserve path when blocked
+    marker_file = tmp_path / "source_freshness.json"
+
+    def mock_scrape_blocked():
+        raise SourceBlockedError("DGFT listing blocked by remote host")
+
+    exit_code = dgft_main(
+        scrape_fn=mock_scrape_blocked,
+        marker_path=str(marker_file),
+        output_jsonl=str(corpus_file),
+    )
+
+    assert exit_code == 0, "Blocked preserve path must succeed for valid legacy corpus"
+    assert _hash_file(str(corpus_file)) == hash_before, "Corpus bytes must remain untouched"
+    marker = json.loads(marker_file.read_text(encoding="utf-8"))
+    assert marker["dgft"]["status"] == "blocked"
+    assert marker["dgft"]["corpus_usable"] is True
+    assert "reason" in marker["dgft"]
+    assert "blocked_at" in marker["dgft"]
+
+
+def test_legacy_pib_rows_without_url_pass_validation(tmp_path):
+    """Finding 2: Legacy PIB rows without url must pass validation."""
+    corpus_file = tmp_path / "pib_press_releases.jsonl"
+    legacy_records = [
+        {
+            "prid": f"{3000 + i}",
+            "title": f"Ministry Press Release {i}",
+            "date": "2023-08-20",
+            "clean_text": "Press Information Bureau official release text for commerce policy without URL field.",
+            "category": "Trade & Tariff Policy",
+            "ministry": "Ministry of Commerce & Industry",
+        }
+        for i in range(1, 8)
+    ]
+    for r in legacy_records:
+        assert "url" not in r
+
+    corpus_file.write_text("\n".join(json.dumps(r) for r in legacy_records) + "\n", encoding="utf-8")
+
+    res = validate_corpus_file(str(corpus_file), source="pib")
+    assert res["valid"], f"Legacy PIB rows without url must pass validation: {res.get('error')}"
+    assert is_usable_corpus(str(corpus_file), source="pib")
+
+
+def test_url_field_validation_when_present(tmp_path):
+    """When url is present, it must be validated (non-empty string, looks like a URL)."""
+    # Valid URLs
+    f_valid = tmp_path / "valid_url.jsonl"
+    rec_valid = make_valid_dgft_record()
+    rec_valid["url"] = "https://www.dgft.gov.in/CP/notif.pdf"
+    f_valid.write_text(json.dumps(rec_valid) + "\n", encoding="utf-8")
+    assert validate_corpus_file(str(f_valid), source="dgft")["valid"]
+
+    # Empty URL string fails
+    f_empty = tmp_path / "empty_url.jsonl"
+    rec_empty = make_valid_dgft_record()
+    rec_empty["url"] = "   "
+    f_empty.write_text(json.dumps(rec_empty) + "\n", encoding="utf-8")
+    res_empty = validate_corpus_file(str(f_empty), source="dgft")
+    assert not res_empty["valid"]
+    assert "url" in res_empty["error"]
+
+    # Malformed URL fails
+    f_bad = tmp_path / "bad_url.jsonl"
+    rec_bad = make_valid_dgft_record()
+    rec_bad["url"] = "not_a_valid_url"
+    f_bad.write_text(json.dumps(rec_bad) + "\n", encoding="utf-8")
+    res_bad = validate_corpus_file(str(f_bad), source="dgft")
+    assert not res_bad["valid"]
+    assert "url" in res_bad["error"]
+
+
+def test_blocked_source_with_invalid_corpus_records_marker_and_raises(tmp_path):
+    """Finding 5 (Observability bug): Blocked source + invalid existing corpus
+    must write marker with status=blocked, corpus_usable=false, corpus_error,
+    AND raise (fail closed).
+    """
+    corpus_file = tmp_path / "dgft_policy_chunks.jsonl"
+    corpus_file.write_text("<!DOCTYPE html><html>403 Forbidden</html>", encoding="utf-8")
+    marker_file = tmp_path / "source_freshness.json"
+
+    def mock_scrape_blocked():
+        raise SourceBlockedError("DGFT upstream returned 403 Forbidden to runner egress")
+
+    with pytest.raises(SourceBlockedError) as exc_info:
+        dgft_main(
+            scrape_fn=mock_scrape_blocked,
+            marker_path=str(marker_file),
+            output_jsonl=str(corpus_file),
+        )
+
+    assert "403 Forbidden" in str(exc_info.value)
+    assert marker_file.exists(), "Marker must be written before re-raising on invalid existing corpus"
+
+    marker = json.loads(marker_file.read_text(encoding="utf-8"))
+    assert "dgft" in marker
+    assert marker["dgft"]["status"] == "blocked"
+    assert marker["dgft"]["corpus_usable"] is False, "corpus_usable must be False for invalid corpus"
+    assert "corpus_error" in marker["dgft"], "corpus_error diagnostic must be present"
+    assert "starts with HTML markup" in marker["dgft"]["corpus_error"]
+    assert "blocked_at" in marker["dgft"]
+    assert "reason" in marker["dgft"]
