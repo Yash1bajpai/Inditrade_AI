@@ -88,7 +88,16 @@ jobs:
           # goes to models/. (--output-dir is the parquet directory.)
           python src/models/network_embed.py --output-dir data/processed --model-dir models
 
+
+      - name: Baseline gate for model promotion
+        id: gate
+        run: python scripts/model_promotion_gate.py --meta models/xgboost_trade_forecast_meta.json
+
       - name: Publish Retrained Artifacts to Data Release
+        # Hold decision: nothing publishes until a retrained model beats the
+        # naive previous-year baseline on dollar MAE. When the gate withholds,
+        # NO artifacts are uploaded, so no model file can slip through a glob.
+        if: steps.gate.outputs.promote == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -127,6 +136,9 @@ jobs:
           gh release upload data-v1 data/raw/forex_macro/*.csv data/raw/un_comtrade/*.parquet data/cache/data_freshness_meta.json --clobber
 
       - name: Commit Updated Tracked Metadata
+        # Same gate: an unpromoted model's metrics are not committed to main
+        # (a main push also redeploys the Render backend).
+        if: steps.gate.outputs.promote == 'true'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
