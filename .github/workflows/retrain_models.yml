@@ -19,6 +19,8 @@ jobs:
   retrain:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      promote: ${{ steps.gate.outputs.promote }}
 
     steps:
       - name: Checkout Repository
@@ -93,36 +95,57 @@ jobs:
         id: gate
         run: python scripts/model_promotion_gate.py --meta models/xgboost_trade_forecast_meta.json
 
+      - name: Stage Artifacts for Publish Job
+        if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.promote == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrained-artifacts
+          path: |
+            data/processed/trade_features.parquet
+            data/processed/dgft_policy_chunks.jsonl
+            data/processed/pib_press_releases.jsonl
+            data/processed/dgft_ocr_chunks.jsonl
+            data/processed/policy_qa_dataset.jsonl
+            data/processed/node2vec_trade_embeddings.parquet
+            data/raw/forex_macro/*.csv
+            data/raw/un_comtrade/*.parquet
+            data/cache/data_freshness_meta.json
+            models/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: retrain
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    if: github.event_name == 'workflow_dispatch' && needs.retrain.outputs.promote == 'true'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Retrained Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: retrained-artifacts
+
       - name: Publish Retrained Artifacts to Data Release
         # Hold decision: nothing publishes until a retrained model beats the
-        # naive previous-year baseline on dollar MAE. When the gate withholds,
-        # NO artifacts are uploaded, so no model file can slip through a glob.
-        # Never auto-deploy: a winning gate on the monthly cron must NOT publish
-        # by itself. Publishing (which the next Render deploy bakes in) only
-        # happens on a manual workflow_dispatch after the owner reviews the run.
-        if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.promote == 'true'
+        # naive previous-year baseline on dollar MAE. This job requires the
+        # protected 'production' environment: the owner must personally
+        # approve the deployment in the GitHub UI before any release upload
+        # runs. A bare workflow_dispatch is NOT approval.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # .pkl/.parquet artifacts are gitignored by design (repo stays lean);
           # the Dockerfile pulls inditrade-data.zip from the data-v1 release,
-          # so retraining must rebuild and republish that zip — a plain
+          # so retraining must rebuild and republish that zip - a plain
           # `git add models/` would be a no-op.
           set -eu
           STAGE=/tmp/release-stage
           mkdir -p "$STAGE"
-          for f in \
-            data/processed/trade_features.parquet \
-            data/processed/dgft_policy_chunks.jsonl \
-            data/processed/pib_press_releases.jsonl \
-            data/processed/dgft_ocr_chunks.jsonl \
-            data/processed/policy_qa_dataset.jsonl \
-            models/xgboost_trade_forecast.pkl \
-            models/xgboost_trade_forecast.onnx \
-            models/xgboost_trade_forecast_meta.json \
-            models/isolation_forest_anomalies.pkl \
-            models/node2vec_trade_graph.pkl \
-            data/processed/node2vec_trade_embeddings.parquet; do
+          for f in             data/processed/trade_features.parquet             data/processed/dgft_policy_chunks.jsonl             data/processed/pib_press_releases.jsonl             data/processed/dgft_ocr_chunks.jsonl             data/processed/policy_qa_dataset.jsonl             models/xgboost_trade_forecast.pkl             models/xgboost_trade_forecast.onnx             models/xgboost_trade_forecast_meta.json             models/isolation_forest_anomalies.pkl             models/node2vec_trade_graph.pkl             data/processed/node2vec_trade_embeddings.parquet; do
             if [[ -f "$f" ]]; then
               cp "$f" "$STAGE/"
             else
@@ -139,14 +162,14 @@ jobs:
           gh release upload data-v1 data/raw/forex_macro/*.csv data/raw/un_comtrade/*.parquet data/cache/data_freshness_meta.json --clobber
 
       - name: Commit Updated Tracked Metadata
-        # Same gate: an unpromoted model's metrics are not committed to main
-        # (a main push also redeploys the Render backend).
-        if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.promote == 'true'
+        # Same gate, plus the environment approval above: an unpromoted or
+        # unapproved model's metrics are not committed to main (a main push
+        # also redeploys the Render backend).
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Only tracked metadata (meta json / flagged csv) — weights live in
+          # Only tracked metadata (meta json / flagged csv) - weights live in
           # the release, not git.
           if [[ -n $(git status -s models/ data/) ]]; then
             echo "Tracked metadata changed. Committing..."
