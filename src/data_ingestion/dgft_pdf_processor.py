@@ -358,7 +358,7 @@ def main(
         return 0
 
     except SourceBlockedError as err:
-        if is_usable_corpus(out_jsonl):
+        if is_usable_corpus(out_jsonl, source="dgft"):
             record_source_freshness(
                 "dgft",
                 {
@@ -379,7 +379,20 @@ def main(
             print(f"[ERROR] No existing corpus found at {out_jsonl}; failing closed.")
             print("=" * 80 + "\n")
             raise
-
+    except Exception as err:
+        record_source_freshness(
+            "dgft",
+            {
+                "status": "failed",
+                "reason": str(err),
+                "failed_at": datetime.now(timezone.utc).isoformat(),
+            },
+            marker_path=m_path,
+        )
+        print("\n" + "=" * 80)
+        print(f"[ERROR] DGFT pipeline failed with unexpected error: {err}")
+        print("=" * 80 + "\n")
+        raise
 
 if __name__ == "__main__":
     sys.exit(main())
