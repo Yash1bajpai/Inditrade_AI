@@ -97,7 +97,10 @@ jobs:
         # Hold decision: nothing publishes until a retrained model beats the
         # naive previous-year baseline on dollar MAE. When the gate withholds,
         # NO artifacts are uploaded, so no model file can slip through a glob.
-        if: steps.gate.outputs.promote == 'true'
+        # Never auto-deploy: a winning gate on the monthly cron must NOT publish
+        # by itself. Publishing (which the next Render deploy bakes in) only
+        # happens on a manual workflow_dispatch after the owner reviews the run.
+        if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.promote == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -138,7 +141,7 @@ jobs:
       - name: Commit Updated Tracked Metadata
         # Same gate: an unpromoted model's metrics are not committed to main
         # (a main push also redeploys the Render backend).
-        if: steps.gate.outputs.promote == 'true'
+        if: github.event_name == 'workflow_dispatch' && steps.gate.outputs.promote == 'true'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"

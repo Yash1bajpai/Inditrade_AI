@@ -230,3 +230,75 @@ def test_legacy_model_with_lag_columns_stays_on_template_path(forecast_module, c
     assert resp.status_code == 503, resp.text
     assert 'not been validated' in resp.json()['detail']
     assert model.seen is None
+
+
+def test_year_at_or_before_first_observation_refused():
+    """Regression: the horizon check was one-sided. A request for the first
+    observed year (or earlier) has no lag_1y anchor at all and previously
+    served an all-NaN prediction with HTTP 200."""
+    from src.feature_engineering.forecast_features import HorizonError
+    with pytest.raises(HorizonError, match='history starts 2019'):
+        build_inference_frame(history(), 2019)
+    with pytest.raises(HorizonError):
+        build_inference_frame(history(), 2018)
+
+
+def test_negative_trade_values_fail_closed_like_training():
+    """Training raises on missing/negative targets; serving must mirror that
+    instead of letting negatives flow into lag features."""
+    f = history()
+    f.loc[1, 'primaryValue'] = -50.0
+    with pytest.raises(ValueError, match='not zero trade'):
+        build_inference_frame(f, 2024)
+
+
+def test_series_scope_matches_unscoped_result():
+    """Perf fix contract: scoping to one (partner, commodity) pair must yield
+    the identical feature row, with grain/macro validation still global."""
+    f = history()
+    full = build_inference_frame(f, 2024)
+    scoped = build_inference_frame(f, 2024, series=(842, 27))
+    fr = full[(full.partnerCode == 842) & (full.cmdCode == 27)].iloc[0]
+    sr = scoped.iloc[0]
+    for col in ['primaryValue_lag_1y', 'primaryValue_lag_3y', 'primaryValue_lag_5y',
+                'primaryValue_rolling_3y_mean', 'usdinr_mean_lag_1y']:
+        a, b = fr[col], sr[col]
+        assert (pd.isna(a) and pd.isna(b)) or a == pytest.approx(b), col
+
+
+def test_series_scope_keeps_global_grain_and_macro_checks():
+    """A duplicate or macro conflict in ANOTHER series must still fail closed
+    even when the build is scoped to a different pair."""
+    other = history()
+    other['cmdCode'] = 85  # a second, distinct series
+    dup = pd.concat([history(), other, other.iloc[[-1]]], ignore_index=True)
+    with pytest.raises(ValueError, match='[Dd]uplicate'):
+        build_inference_frame(dup, 2024, series=(842, 27))
+    other = history()
+    other['cmdCode'] = 85
+    conflict = pd.concat([history(), other], ignore_index=True)
+    conflict.loc[conflict.index[1], 'usdinr_mean'] = 999.0  # two 2020 rows now disagree
+    with pytest.raises(ValueError, match='conflicting annual values'):
+        build_inference_frame(conflict, 2024, series=(842, 27))
+
+
+def test_preflight_readers_honor_candidate_features_env(monkeypatch):
+    """Regression: get_valid_combinations / get_latest_trade_value hardcoded the
+    legacy parquet while the endpoint body honored CANDIDATE_TRADE_FEATURES, so
+    candidate-only pairs (France/Switzerland) died at preflight with a 400."""
+    from src.backend.api import forecast as forecast_mod
+
+    seen = []
+
+    def recording_load(path, *a, **kw):
+        seen.append(path)
+        raise FileNotFoundError(path)  # stop after recording; functions degrade gracefully
+
+    monkeypatch.setattr(forecast_mod, 'load_parquet', recording_load)
+    monkeypatch.setattr(forecast_mod, 'combo_cache', None, raising=False)
+    monkeypatch.setenv('CANDIDATE_TRADE_FEATURES', 'data/candidate/trade_features.parquet')
+
+    forecast_mod.get_valid_combinations()
+    forecast_mod.get_latest_trade_value('251', '27')
+    assert seen, "preflight never loaded parquet"
+    assert all(p == 'data/candidate/trade_features.parquet' for p in seen), seen

@@ -63,7 +63,7 @@ class HorizonError(ValueError):
     """Requested forecast year has no anchoring history (client input problem)."""
 
 
-def build_inference_frame(frame, target_year):
+def build_inference_frame(frame, target_year, series=None):
     """Construct past-only feature rows for `target_year` from raw history.
 
     A training row for year Y carries values from years < Y only. Serving must
@@ -75,9 +75,14 @@ def build_inference_frame(frame, target_year):
     predictor columns prepare_forecast_frame emits. Macro statistics follow the
     training rule: the model's *_lag_1y inputs come from year target_year - 1.
 
+    `series` may restrict the expensive lag/rolling construction to one
+    (partnerCode, cmdCode) pair; horizon, grain, value and macro checks still
+    run on the full frame so a scoped call cannot weaken validation.
+
     Fails closed: raises ValueError on ambiguous grain (duplicate series/year
-    totals) or a horizon more than one year past the latest observation, where
-    no lag_1y actual exists to anchor the forecast.
+    totals) or non-positive/missing trade values; raises HorizonError for a
+    horizon more than one year past the latest observation or at/before the
+    first observed year, where no lag_1y actual exists to anchor the forecast.
     """
     if 'primaryValue' not in frame or 'period' not in frame:
         raise ValueError('History lacks the raw trade columns needed to build forecast inputs')
@@ -98,7 +103,20 @@ def build_inference_frame(frame, target_year):
         raise HorizonError(
             f'Cannot forecast {target_year}: history ends {latest}; only one year ahead is supported'
         )
+    earliest = int(df.period.min())
+    if target_year <= earliest:
+        raise HorizonError(
+            f'Cannot forecast {target_year}: history starts {earliest}; '
+            'no prior-year observation anchors that year'
+        )
     df['primaryValue'] = pd.to_numeric(df.primaryValue, errors='coerce')
+    if df['primaryValue'].isna().any() or (df['primaryValue'] < 0).any():
+        raise ValueError('Missing/negative trade values are not zero trade')
+    if series is not None:
+        partner, commodity = (int(series[0]), int(series[1]))
+        df = df[(df.partnerCode == partner) & (df.cmdCode == commodity)]
+        if df.empty:
+            raise ValueError(f'No history for series partner={partner} commodity={commodity}')
 
     out = df[KEYS].drop_duplicates().copy()
     out['period'] = target_year

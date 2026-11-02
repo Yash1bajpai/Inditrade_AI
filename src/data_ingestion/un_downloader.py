@@ -132,7 +132,10 @@ class ComtradeFetcher:
                 partnerCode=str(partner_code), partner2Code="0", customsCode="C00", motCode="0", countOnly=True)
             if isinstance(result, pd.DataFrame) and len(result) == 1 and "count" in result:
                 return int(result["count"].iloc[0])
-            status = self._probe_status()
+            try:
+                status = self._probe_status()
+            except Exception as e:
+                raise ValueError(f"Source count unavailable; status probe failed ({e}); completeness cannot be verified")
             if status in (401, 403, 429):
                 if self._rotate_on_auth_or_limit(f"HTTP {status} on count probe"):
                     continue
@@ -180,7 +183,10 @@ class ComtradeFetcher:
             else:
                 # comtradeapicall swallows non-200 responses (prints body, returns None).
                 # Probe the real status so an invalid key rotates instead of looking like empty data.
-                status = self._probe_status()
+                try:
+                    status = self._probe_status()
+                except Exception as e:
+                    return None, f"ERROR: Comtrade status probe failed ({e})"
                 if status in (401, 403, 429):
                     new_key = self._rotate_on_auth_or_limit(f"HTTP {status} (swallowed by comtradeapicall)")
                     if new_key:
@@ -190,7 +196,8 @@ class ComtradeFetcher:
 
         except Exception as e:
             err_str = str(e)
-            if "403" in err_str or "429" in err_str or "Quota" in err_str or "Rate limit" in err_str:
+            if ("401" in err_str or "403" in err_str or "429" in err_str
+                or "Unauthorized" in err_str or "Quota" in err_str or "Rate limit" in err_str):
                 print(f"\n[API LIMIT DETECTED] Error: {err_str}")
                 new_key = self.rotate_key(reason=err_str)
                 if new_key:

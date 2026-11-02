@@ -93,7 +93,7 @@ def get_valid_combinations():
         return combo_cache
         
     try:
-        df = load_parquet("data/processed/trade_features.parquet")
+        df = load_parquet(os.getenv("CANDIDATE_TRADE_FEATURES") or "data/processed/trade_features.parquet")
         MIN_COMBO_TOTAL_USD = 50_000_000
         MIN_COMBO_YEARS = 3
         
@@ -139,7 +139,7 @@ def get_latest_trade_value(partner_code: str, commodity_code: str) -> float:
     both route into the HTTP 400 explanation path, never a 500.
     """
     try:
-        df = load_parquet("data/processed/trade_features.parquet")
+        df = load_parquet(os.getenv("CANDIDATE_TRADE_FEATURES") or "data/processed/trade_features.parquet")
     except Exception as e:
         logger.warning(f"get_latest_trade_value: could not read trade features: {e}")
         return 0.0
@@ -217,7 +217,7 @@ def resolve_partner_code(code: str) -> str:
 def get_partner_signature(partner_code: str):
     try:
         p_code_str = resolve_partner_code(partner_code)
-        df = load_parquet("data/processed/trade_features.parquet")
+        df = load_parquet(os.getenv("CANDIDATE_TRADE_FEATURES") or "data/processed/trade_features.parquet")
         df['pStr'] = df['partnerCode'].apply(lambda x: str(x).split('.')[0])
         df['cStr'] = df['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
         
@@ -240,7 +240,7 @@ def get_partner_signature(partner_code: str):
 @router.get("/history")
 def get_global_history(partner_code: Optional[str] = None, commodity_code: Optional[str] = None):
     try:
-        df = load_parquet("data/processed/trade_features.parquet")
+        df = load_parquet(os.getenv("CANDIDATE_TRADE_FEATURES") or "data/processed/trade_features.parquet")
     except Exception as e:
         # Distinguish "the dataset is missing/unreadable" (a server fault) from
         # "the query matched no rows" (a valid empty result).
@@ -285,7 +285,7 @@ def get_year_breakdown(year: int, group_by: str, partner_code: Optional[str] = N
         )
 
     try:
-        df = load_parquet("data/processed/trade_features.parquet")
+        df = load_parquet(os.getenv("CANDIDATE_TRADE_FEATURES") or "data/processed/trade_features.parquet")
         df = df[df['period'] == year]
         if partner_code:
             p_code_str = resolve_partner_code(partner_code)
@@ -319,7 +319,7 @@ def get_year_breakdown(year: int, group_by: str, partner_code: Optional[str] = N
 def get_country_series(partner_code: str):
     try:
         p_code_str = resolve_partner_code(partner_code)
-        df = load_parquet("data/processed/trade_features.parquet")
+        df = load_parquet(os.getenv("CANDIDATE_TRADE_FEATURES") or "data/processed/trade_features.parquet")
         df['pStr'] = df['partnerCode'].apply(lambda x: str(x).split('.')[0])
         df['cStr'] = df['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
         
@@ -369,7 +369,7 @@ def get_forecast(req: ForecastRequest):
         if p_code in combo_cache.get("map", {}):
             valid_cmds = combo_cache["map"][p_code]
             try:
-                df = load_parquet("data/processed/trade_features.parquet")
+                df = load_parquet(os.getenv("CANDIDATE_TRADE_FEATURES") or "data/processed/trade_features.parquet")
                 df['pStr'] = df['partnerCode'].apply(lambda x: str(x).split('.')[0])
                 df['cStr'] = df['cmdCode'].apply(lambda x: str(x).split('.')[0].zfill(2))
                 df_filt = df[(df['pStr'] == p_code) & (df['cStr'].isin(valid_cmds))]
@@ -418,7 +418,7 @@ def get_forecast(req: ForecastRequest):
             # target-year inputs from history instead.
             from src.feature_engineering.forecast_features import HorizonError, build_inference_frame
             try:
-                inf = build_inference_frame(df_hist, req.year)
+                inf = build_inference_frame(df_hist, req.year, series=(int(p_code), int(c_code)))
             except HorizonError as e:
                 # Out-of-range year is a client input problem, consistent with
                 # the 422 the year_breakdown endpoint returns for bad years.
