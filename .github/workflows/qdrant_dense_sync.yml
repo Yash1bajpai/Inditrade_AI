@@ -25,7 +25,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release download data-v1 --pattern rag-dense-index.tar.gz --dir /tmp --clobber
+          gh release download data-v1 --repo Yash1bajpai/Inditrade_AI --pattern rag-dense-index.tar.gz --dir /tmp --clobber
           sha256sum /tmp/rag-dense-index.tar.gz
       - name: Sync live dense collection from reviewed artifact
         env:
