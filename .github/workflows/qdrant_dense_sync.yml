@@ -1,0 +1,34 @@
+name: One-off sync of live Qdrant dense index to refreshed corpus
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'qdrant-client==1.18.0' requests
+      - name: Preflight runner-to-cluster reachability (unproven until this passes)
+        env:
+          QDRANT_URL: ${{ vars.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+        run: |
+          code=$(curl -s -o /tmp/preflight.json -w '%{http_code}' -m 20 -H "api-key: $QDRANT_API_KEY" "$QDRANT_URL/collections")
+          echo "preflight HTTP: $code"
+          cat /tmp/preflight.json
+          [ "$code" = "200" ] || { echo "Runner cannot reach the Qdrant cluster - aborting before any mutation"; exit 1; }
+      - name: Download reviewed dense-index artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download data-v1 --pattern rag-dense-index.tar.gz --dir /tmp --clobber
+          sha256sum /tmp/rag-dense-index.tar.gz
+      - name: Sync live dense collection from reviewed artifact
+        env:
+          QDRANT_URL: ${{ vars.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+        run: python .github/scripts/sync_dense.py
