@@ -1,16 +1,16 @@
 {
-  "index_timestamp": "2026-09-05T18:59:23.463423",
-  "total_documents": 5062,
+  "index_timestamp": "2026-11-07T03:35:46.333108",
+  "total_documents": 5439,
   "chunking": {
     "strategy": "paragraph-aware, overlapping",
     "max_chunk_chars": 1600,
     "overlap_chars": 200,
-    "parents_split_into_chunks": 336
+    "parents_split_into_chunks": 416
   },
   "doc_types_breakdown": {
-    "DGFT_Policy": 3766,
+    "DGFT_Policy": 3843,
     "DGFT_OCR": 891,
-    "PIB_Press_Release": 405
+    "PIB_Press_Release": 705
   },
   "dense_index": {
     "engine": "Qdrant Persistent Disk Storage",
@@ -18,35 +18,10 @@
     "collection_name": "trade_policy_compliance",
     "embedding_model": "BAAI/bge-small-en-v1.5",
     "vector_dimension": 384,
-    "points_count": 5062,
-    "refresh_status": "rebuilt and released by Actions 36715996899; cloud synchronization unverified"
+    "points_count": 5439
   },
   "sparse_index": {
     "engine": "BM25Okapi",
-    "path": "data/cache/bm25_index.pkl",
-    "documents": 5199,
-    "source_latest_dates": {
-      "DGFT_Policy": "2026-09-30",
-      "PIB_Press_Release": "2026-09-28"
-    }
-  },
-  "sparse_index_timestamp": "2026-09-30T12:31:22.450825+00:00",
-  "apeda_verified4": {
-    "updated_at": "2026-10-20T16:05:46.640707+00:00",
-    "approved_documents": [
-      "41/2026-27",
-      "36/2026-27",
-      "34/2026-27",
-      "35/2026-27"
-    ],
-    "source": "APEDA delayed partial mirror of DGFT; page-checked twice by same agent, not independent legal review",
-    "added_complete_document_payloads": 4,
-    "prior_chunks_preserved": 5195,
-    "remaining_quarantined_candidate_gaps": 20,
-    "public_notices_coverage": "not supplied by mirror",
-    "full_refresh": false,
-    "pre_sparse_sha256": "696e7391310d19fcd46f666579c77384b5dab25c155c07d9ff7b4fa1929f9f16",
-    "new_sparse_sha256": "44bab88d0b85281ad82cf387b0600edac56b36e93ffd9f4d5eaf8aab9656cbe5",
-    "rollback_commit": "aa7c9b2df76c3aae0aa9a143e4c8c7c0f7c0df15"
+    "path": "data/cache/bm25_index.pkl"
   }
 }
