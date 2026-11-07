@@ -1,6 +1,8 @@
 import os, time, tarfile, tempfile, hashlib, json, requests
 from qdrant_client import QdrantClient
 from qdrant_client.models import Document, VectorParams, Distance, PointStruct
+from qdrant_client.http.models import (CreateAliasOperation, CreateAlias,
+                                       DeleteAliasOperation, DeleteAlias)
 
 URL = os.environ["QDRANT_URL"].rstrip("/")
 KEY = os.environ["QDRANT_API_KEY"]
@@ -12,6 +14,16 @@ BACKUP  = "trade_policy_e5_small_v1_bak"  # exact vector copy of serving; surviv
 SCRATCH = "restore_path_probe_tmp"
 MODEL = "intfloat/multilingual-e5-small"  # Qdrant-hosted FREE model (docs: cost Free, no token charges)
 HDR = {"api-key": KEY}
+
+def set_alias(cloud, alias, target):
+    """qdrant-client 1.18: aliases via update_collection_aliases (create_alias/delete_alias removed)."""
+    try:
+        cloud.update_collection_aliases(change_aliases_operations=[
+            DeleteAliasOperation(delete_alias=DeleteAlias(alias_name=alias))])
+    except Exception:
+        pass  # alias did not exist
+    cloud.update_collection_aliases(change_aliases_operations=[
+        CreateAliasOperation(create_alias=CreateAlias(collection_name=target, alias_name=alias))])
 
 sha = hashlib.sha256(open(TAR, "rb").read()).hexdigest()
 print("tarball sha256:", sha)
@@ -87,26 +99,36 @@ print("rollback route PROVEN (exact vector copy into independent collection)")
 # 2) BACKUP serving into an independent collection (survives serving deletion; nothing leaves the cluster).
 serving_pre = cloud.get_collection(SERVING).points_count if SERVING in cols else 0
 print("serving pre-state points:", serving_pre)
-copied = copy_collection(SERVING, BACKUP)
-assert copied == serving_pre and cloud.get_collection(BACKUP).points_count == serving_pre, "backup copy incomplete - abort"
-# spot-check vector equality on one point
-a = cloud.scroll(SERVING, limit=1, with_vectors=True)[0][0]
-b = cloud.retrieve(BACKUP, [a.id], with_vectors=True)[0]
-assert a.vector == b.vector and a.payload == b.payload, "backup fidelity check failed - abort"
-print("backup collection verified:", copied, "points, vector+payload identical")
+if SERVING in cols:
+    copied = copy_collection(SERVING, BACKUP)
+    assert copied == serving_pre and cloud.get_collection(BACKUP).points_count == serving_pre, "backup copy incomplete - abort"
+    # spot-check vector equality on one point
+    a = cloud.scroll(SERVING, limit=1, with_vectors=True)[0][0]
+    b = cloud.retrieve(BACKUP, [a.id], with_vectors=True)[0]
+    assert a.vector == b.vector and a.payload == b.payload, "backup fidelity check failed - abort"
+    print("backup collection verified:", copied, "points, vector+payload identical")
+else:
+    # A previous run already verified the backup and then deleted serving (switch step failed).
+    n_bak = cloud.get_collection(BACKUP).points_count if BACKUP in cols else 0
+    assert n_bak == 5199, f"serving already gone and backup has unexpected {n_bak} points - abort"
+    print("serving already deleted by prior run; verified backup retained:", n_bak, "points")
 
-# 3) Build STAGING fully; serving keeps answering throughout.
-if STAGING in cols:
-    cloud.delete_collection(STAGING)
-cloud.create_collection(STAGING, vectors_config=VectorParams(size=384, distance=Distance.COSINE))
-B, t0 = 32, time.time()
-for i in range(0, len(payloads), B):
-    batch = payloads[i:i+B]
-    cloud.upsert(STAGING, points=[{"id": i+j, "vector": Document(text=p["text"], model=MODEL),
-                                   "payload": p} for j, p in enumerate(batch)], wait=True)
-    if (i//B) % 25 == 0:
-        print(f"staged {i+len(batch)}/{len(payloads)} ({time.time()-t0:.0f}s)")
-assert cloud.get_collection(STAGING).points_count == 6353, "staging count mismatch"
+# 3) Build STAGING fully; reuse a complete staging from a prior run (validation below re-proves content).
+stg_pre = cloud.get_collection(STAGING).points_count if STAGING in cols else 0
+if stg_pre == 6353:
+    print("staging already built:", stg_pre, "points - reusing, validation probes follow")
+else:
+    if STAGING in cols:
+        cloud.delete_collection(STAGING)
+    cloud.create_collection(STAGING, vectors_config=VectorParams(size=384, distance=Distance.COSINE))
+    B, t0 = 32, time.time()
+    for i in range(0, len(payloads), B):
+        batch = payloads[i:i+B]
+        cloud.upsert(STAGING, points=[{"id": i+j, "vector": Document(text=p["text"], model=MODEL),
+                                       "payload": p} for j, p in enumerate(batch)], wait=True)
+        if (i//B) % 25 == 0:
+            print(f"staged {i+len(batch)}/{len(payloads)} ({time.time()-t0:.0f}s)")
+    assert cloud.get_collection(STAGING).points_count == 6353, "staging count mismatch"
 
 # 4) Validate STAGING before any switch.
 for q in ("agarwood", "What is the latest export policy for Agarwood?"):
@@ -121,23 +143,16 @@ print("staging VALIDATED")
 
 # 5) Switch with instant rollback: alias serving NAME to staging; rollback = alias to BACKUP.
 try:
-    cloud.delete_collection(SERVING)
-    try:
-        cloud.delete_alias(SERVING)
-    except Exception:
-        pass
-    cloud.create_alias(SERVING, STAGING)
+    if SERVING in [c.name for c in cloud.get_collections().collections]:
+        cloud.delete_collection(SERVING)
+    set_alias(cloud, SERVING, STAGING)
     chk = cloud.query_points(SERVING, query=Document(text="agarwood", model=MODEL), limit=3, with_payload=True).points
     assert chk, "serving-name query empty after switch"
     print("alias", SERVING, "->", STAGING, "| serving-name probe:",
           [(h.payload.get("parent_doc_id"), h.payload.get("date")) for h in chk])
 except Exception as e:
     print("SWITCH FAILED:", str(e)[:200])
-    try:
-        cloud.delete_alias(SERVING)
-    except Exception:
-        pass
-    cloud.create_alias(SERVING, BACKUP)
+    set_alias(cloud, SERVING, BACKUP)
     chk = cloud.query_points(SERVING, query=Document(text="agarwood", model=MODEL), limit=1, with_payload=True).points
     print("ROLLED BACK:", SERVING, "->", BACKUP, "| probe points:", len(chk))
     raise
