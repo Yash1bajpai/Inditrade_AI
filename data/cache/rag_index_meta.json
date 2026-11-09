@@ -1,16 +1,16 @@
 {
-  "index_timestamp": "2026-11-07T05:28:34.597835",
-  "total_documents": 6353,
+  "index_timestamp": "2026-11-09T12:04:04.897453",
+  "total_documents": 6376,
   "chunking": {
     "strategy": "paragraph-aware, overlapping",
     "max_chunk_chars": 1600,
     "overlap_chars": 200,
-    "parents_split_into_chunks": 604
+    "parents_split_into_chunks": 607
   },
   "doc_types_breakdown": {
     "DGFT_Policy": 4757,
     "DGFT_OCR": 891,
-    "PIB_Press_Release": 705
+    "PIB_Press_Release": 728
   },
   "dense_index": {
     "engine": "Qdrant Persistent Disk Storage",
@@ -18,7 +18,7 @@
     "collection_name": "trade_policy_compliance",
     "embedding_model": "BAAI/bge-small-en-v1.5",
     "vector_dimension": 384,
-    "points_count": 6353
+    "points_count": 6376
   },
   "sparse_index": {
     "engine": "BM25Okapi",
