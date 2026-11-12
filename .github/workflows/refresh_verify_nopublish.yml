@@ -1,0 +1,91 @@
+name: Refresh and retrain verification (no publish, throwaway branch)
+
+on:
+  push:
+    branches: [exp/refresh-verify-20261112]
+    paths: [.github/workflows/refresh_verify_nopublish.yml]
+
+# Read-only: no release upload, no commit, no push, no environment, no artifacts.
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-verify-nopublish
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          # requirements-backend.txt carries the model stack:
+          # pandas, numpy, scikit-learn, xgboost, joblib, pyarrow.
+          pip install -r requirements-backend.txt
+          # Training-only deps (kept out of the API image):
+          # xgboost_train.py needs optuna + onnxmltools/onnxconverter-common;
+          # network_embed.py needs networkx/node2vec.
+          pip install "optuna>=3.0" "onnxmltools>=1.12" "onnxconverter-common>=1.14" \
+            "networkx>=3.1" "node2vec>=0.4.6" \
+            "yfinance>=0.2.54,<1" "comtradeapicall>=1.2,<2"
+
+      - name: Fetch Training Data
+        run: |
+          set -eu
+          # trade_features.parquet is gitignored, so fetch the canonical
+          # data release produced by the ingestion pipeline. Without this
+          # step every training script dies with FileNotFoundError.
+          curl -fL --retry 3 \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/inditrade-data.zip" \
+            -o /tmp/inditrade-data.zip
+          unzip -oq /tmp/inditrade-data.zip -d /tmp/inditrade-data
+          mkdir -p data/processed models
+          find /tmp/inditrade-data -name '*.parquet' -exec mv {} data/processed/ \;
+          find /tmp/inditrade-data -name '*.jsonl' -exec mv {} data/processed/ \;
+          for filename in dgft_ocr_chunks.jsonl policy_qa_dataset.jsonl; do
+            curl -fL --retry 3 "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/$filename" -o "data/processed/$filename"
+          done
+          test -f data/processed/trade_features.parquet
+          mkdir -p data/raw/un_comtrade
+          curl -fL --retry 3 "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/india_trade_hs2_2015_2024.parquet" -o data/raw/un_comtrade/india_trade_hs2_2015_2024.parquet
+
+      - name: Refresh Real Training Inputs (fail closed)
+        env:
+          COMTRADE_API_KEY: ${{ secrets.COMTRADE_API_KEY }}
+          COMTRADE_API_KEY1: ${{ secrets.COMTRADE_API_KEY1 }}
+          COMTRADE_API_KEY2: ${{ secrets.COMTRADE_API_KEY2 }}
+        run: python scripts/refresh_data.py
+
+      - name: Retrain XGBoost Forecast Model
+        run: |
+          echo "Retraining XGBoost model..."
+          # argparse expects kebab-case: --output-dir (not --output_dir)
+          python src/models/xgboost_train.py --output-dir models
+
+      - name: Retrain Anomaly Detection Model
+        run: |
+          echo "Retraining Isolation Forest model..."
+          python src/models/anomaly_train.py --output-dir models
+
+      - name: Retrain Network Embedding Model
+        run: |
+          echo "Retraining Node2Vec embeddings..."
+          # Parquet artifacts belong in data/processed; only the .pkl model
+          # goes to models/. (--output-dir is the parquet directory.)
+          python src/models/network_embed.py --output-dir data/processed --model-dir models
+
+
+      - name: Baseline gate for model promotion
+        id: gate
+        run: python scripts/model_promotion_gate.py --meta models/xgboost_trade_forecast_meta.json
