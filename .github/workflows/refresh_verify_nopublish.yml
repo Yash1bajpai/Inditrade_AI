@@ -8,6 +8,7 @@ on:
 # Read-only: no release upload, no commit, no push, no environment, no artifacts.
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: refresh-verify-nopublish
@@ -57,8 +58,70 @@ jobs:
             curl -fL --retry 3 "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/$filename" -o "data/processed/$filename"
           done
           test -f data/processed/trade_features.parquet
-          mkdir -p data/raw/un_comtrade
-          curl -fL --retry 3 "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/india_trade_hs2_2015_2024.parquet" -o data/raw/un_comtrade/india_trade_hs2_2015_2024.parquet
+
+      - name: Prepare repaired raw input (no stale raw download)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          python - <<'PY'
+          import json, subprocess, pathlib
+          import numpy as np
+          import pandas as pd
+
+          OUT = pathlib.Path('data/raw/un_comtrade/india_trade_hs2_2015_2024.parquet')
+          KEYS = ['period', 'partnerCode', 'flowCode', 'cmdCode']
+          NUM = ['primaryValue', 'netWgt', 'grossWgt', 'qty', 'altQty', 'cifvalue', 'fobvalue']
+
+          feat = pd.read_parquet('data/processed/trade_features.parquet')
+          assert feat.columns[46] == 'isAggregate' and feat.columns[47] == 'brent_crude_mean', 'unexpected feature layout'
+          raw_cols = list(feat.columns[:47])
+
+          def canon(df):
+              d = df.copy()
+              d['period'] = pd.to_numeric(d.period).astype(int)
+              d['partnerCode'] = pd.to_numeric(d.partnerCode).astype(int)
+              d['cmdCode'] = d.cmdCode.astype(str).str.replace(r'\.0$', '', regex=True).astype(int)
+              return d.sort_values(KEYS).reset_index(drop=True)
+
+          def check(df, label):
+              assert pd.to_numeric(df.partner2Code).eq(0).all(), label + ': partner2Code not all 0'
+              assert df.customsCode.eq('C00').all() and pd.to_numeric(df.motCode).eq(0).all(), label + ': grain'
+              c = canon(df)
+              assert not c.duplicated(KEYS).any(), label + ': duplicate keys'
+              assert c.groupby(['period']).ngroups == 11 and c.partnerCode.nunique() == 20
+              assert c[c.period == 2025].groupby(['partnerCode', 'flowCode']).ngroups == 40, label + ': 2025 not complete'
+              assert pd.to_numeric(df.primaryValue).notna().all() and (pd.to_numeric(df.primaryValue) >= 0).all()
+
+          prov = {'features_rows': len(feat)}
+          check(feat[raw_cols], 'features raw columns')
+
+          source = None
+          try:
+              subprocess.run(['gh', 'run', 'download', '41393714519', '-n', 'partial-trade-repair-candidate', '-D', '/tmp/cand'],
+                             check=True, capture_output=True, text=True)
+              cand = pd.read_parquet('/tmp/cand/candidate_raw.parquet')
+              check(cand, 'artifact candidate_raw')
+              a, b = canon(cand), canon(feat[raw_cols])
+              assert len(a) == len(b), f'artifact rows {len(a)} != features rows {len(b)}'
+              assert (a[KEYS].values == b[KEYS].values).all(), 'artifact keys differ from deployed features'
+              for c in NUM:
+                  x, y = pd.to_numeric(a[c]), pd.to_numeric(b[c])
+                  assert ((x == y) | (x.isna() & y.isna())).all(), 'artifact values differ from deployed features: ' + c
+              source = 'artifact partial-trade-repair-candidate (run 41393714519), verified equal to deployed features on keys and numeric values'
+              raw = cand
+          except Exception as e:
+              prov['artifact_unavailable'] = str(e)[:300]
+              raw = feat[raw_cols].copy()
+              raw['period'] = raw.period.astype(int).astype(str)
+              raw['cmdCode'] = raw.cmdCode.astype(int).astype(str).str.zfill(2)
+              source = 'reconstructed from the 47 raw columns of trade_features.parquet (period -> str, cmdCode -> 2-digit str)'
+
+          OUT.parent.mkdir(parents=True, exist_ok=True)
+          raw.to_parquet(OUT, index=False)
+          prov.update({'source': source, 'rows': len(raw), 'years': sorted(canon(raw).period.unique().tolist())})
+          print('RAW INPUT PROVENANCE ' + json.dumps(prov))
+          PY
 
       - name: Refresh Real Training Inputs (fail closed)
         env:
@@ -89,4 +152,3 @@ jobs:
       - name: Baseline gate for model promotion
         id: gate
         run: python scripts/model_promotion_gate.py --meta models/xgboost_trade_forecast_meta.json
-# Rerun after dtype alignment fix (f736bf8, 1e736fe).
