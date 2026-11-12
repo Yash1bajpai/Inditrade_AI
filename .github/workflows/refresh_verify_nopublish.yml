@@ -89,3 +89,4 @@ jobs:
       - name: Baseline gate for model promotion
         id: gate
         run: python scripts/model_promotion_gate.py --meta models/xgboost_trade_forecast_meta.json
+# Rerun after dtype alignment fix (f736bf8, 1e736fe).
