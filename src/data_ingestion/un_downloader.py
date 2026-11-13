@@ -293,6 +293,37 @@ def run_full_loop():
     else:
         print("\n[WARNING] No data was fetched across the iterations.")
 
+def align_new_rows_to_existing(existing, new_df):
+    """
+    Give freshly fetched rows the dtypes of the stored raw parquet, deliberately.
+
+    A slice can arrive with an all-null or mixed-type column (for example cifvalue as
+    object). Concatenating that would silently change the dtype of the stored column.
+    Numeric columns are converted only when every non-null value is numeric; any
+    non-numeric value raises instead of being coerced away. Existing rows are never
+    modified, and the integrity assertion in run_refresh_loop stays in place.
+    """
+    new_df = new_df.copy()
+    for col in existing.columns:
+        if col not in new_df.columns:
+            continue
+        target = existing[col].dtype
+        if new_df[col].dtype == target or not pd.api.types.is_numeric_dtype(target):
+            continue
+        if pd.api.types.is_bool_dtype(target):
+            continue
+        raw = new_df[col]
+        converted = pd.to_numeric(raw, errors="coerce")
+        bad = raw.notna() & converted.isna()
+        if bad.any():
+            sample = raw[bad].astype(str).head(3).tolist()
+            raise ValueError(f"Non-numeric values in fetched column {col!r} (stored dtype {target}): {sample}")
+        if pd.api.types.is_integer_dtype(target):
+            if converted.isna().any() or (converted % 1 != 0).any():
+                raise ValueError(f"Fetched column {col!r} cannot be stored as {target} without changing values")
+        new_df[col] = converted.astype(target)
+    return new_df
+
 def run_refresh_loop(year, append=True):
     """
     Fetches one additional year for all 20 partners x 2 flows (40 calls),
@@ -347,7 +378,7 @@ def run_refresh_loop(year, append=True):
     if append and not new_df.empty:
         # Only missing slices were fetched. Preserve every existing raw row,
         # including legitimate customs/mode splits; aggregate in feature engineering.
-        new_df = new_df.drop_duplicates()
+        new_df = align_new_rows_to_existing(existing, new_df.drop_duplicates())
         deduped = pd.concat([existing, new_df], ignore_index=True)
         pd.testing.assert_frame_equal(existing.reset_index(drop=True), deduped.iloc[:len(existing)].reset_index(drop=True))
         actual_pre = int((existing["period"].astype(int) != int(year)).sum())

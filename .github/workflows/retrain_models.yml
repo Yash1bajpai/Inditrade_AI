@@ -19,6 +19,10 @@ jobs:
   retrain:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # The retrain job only reads. Publishing stays in the gated publish job.
+    permissions:
+      contents: read
+      actions: read
     outputs:
       promote: ${{ steps.gate.outputs.promote }}
 
@@ -62,8 +66,14 @@ jobs:
             curl -fL --retry 3 "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/$filename" -o "data/processed/$filename"
           done
           test -f data/processed/trade_features.parquet
-          mkdir -p data/raw/un_comtrade
-          curl -fL --retry 3 "https://github.com/${GITHUB_REPOSITORY}/releases/download/data-v1/india_trade_hs2_2015_2024.parquet" -o data/raw/un_comtrade/india_trade_hs2_2015_2024.parquet
+
+      - name: Prepare repaired raw input
+        # The data-v1 raw asset india_trade_hs2_2015_2024.parquet is the old
+        # file with mixed-grain rows and is no longer used. Read-only: nothing
+        # is fetched from Comtrade or written to any release.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/prepare_repaired_raw.py
 
       - name: Refresh Real Training Inputs (fail closed)
         env:
